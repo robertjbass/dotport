@@ -89,22 +89,36 @@ const BACK_OPTION = Symbol('back')
  */
 function displayWelcome() {
   console.clear()
-  console.log(chalk.cyan.bold('\n' + '='.repeat(20)))
+  console.log(chalk.cyan.bold('\n' + '='.repeat(60)))
   console.log(chalk.cyan.bold('  Dev Machine Backup & Restore - Interactive Setup'))
-  console.log(chalk.cyan.bold('='.repeat(20)))
+  console.log(chalk.cyan.bold('='.repeat(60)))
   console.log(chalk.gray('\nThis wizard will help you configure your backup preferences.'))
   console.log(chalk.gray('Your responses will determine how your dotfiles and secrets are managed.\n'))
 }
 
 /**
+ * Display step progress indicator
+ */
+function displayStepProgress(currentStep: number, totalSteps: number, stepName: string) {
+  const percentage = Math.round((currentStep / totalSteps) * 100)
+  const progressBarLength = 40
+  const filledLength = Math.round((progressBarLength * currentStep) / totalSteps)
+  const emptyLength = progressBarLength - filledLength
+  const progressBar = '█'.repeat(filledLength) + '░'.repeat(emptyLength)
+
+  console.log(chalk.cyan(`\n┌${'─'.repeat(58)}┐`))
+  console.log(chalk.cyan(`│ Step ${currentStep} of ${totalSteps}: ${stepName}${' '.repeat(58 - 12 - stepName.length - String(currentStep).length - String(totalSteps).length)}│`))
+  console.log(chalk.cyan(`│ Progress: ${progressBar} ${percentage}%${' '.repeat(58 - 12 - progressBarLength - String(percentage).length - 1)}│`))
+  console.log(chalk.cyan(`└${'─'.repeat(58)}┘`))
+}
+
+/**
  * Prompt for operating system confirmation
  */
-async function promptOperatingSystem(showBack = false): Promise<OperatingSystem | typeof BACK_OPTION> {
+async function promptOperatingSystem(showBack = false, stepNumber = 1): Promise<OperatingSystem | typeof BACK_OPTION> {
   const detectedOS = detectOS()
 
-  console.log(chalk.yellow('\n' + '='.repeat(20)))
-  console.log(chalk.yellow.bold('  OPERATING SYSTEM'))
-  console.log(chalk.yellow('='.repeat(20)))
+  displayStepProgress(stepNumber, 8, 'Operating System Detection')
 
   // First, confirm the detected OS
   const choices: any[] = [
@@ -173,11 +187,9 @@ async function promptOperatingSystem(showBack = false): Promise<OperatingSystem 
 /**
  * Prompt for config file storage preferences
  */
-async function promptConfigFileStorage(currentOS: OperatingSystem, showBack = false): Promise<SetupConfig['configFiles'] | typeof BACK_OPTION> {
-  console.log(chalk.yellow('\n' + '='.repeat(20)))
-  console.log(chalk.yellow.bold('  CONFIG FILE STORAGE'))
-  console.log(chalk.yellow('='.repeat(20)))
-  console.log(chalk.gray('  Config files: dotfiles like .bashrc, .zshrc, editor settings, etc.'))
+async function promptConfigFileStorage(currentOS: OperatingSystem, showBack = false, stepNumber = 2): Promise<SetupConfig['configFiles'] | typeof BACK_OPTION> {
+  displayStepProgress(stepNumber, 8, 'Config File Storage')
+  console.log(chalk.gray('\n  Config files: dotfiles like .bashrc, .zshrc, editor settings, etc.'))
   console.log(chalk.gray('  (This does NOT include secrets like SSH keys or API tokens)\n'))
 
   const vcChoices: any[] = [
@@ -250,23 +262,51 @@ async function promptConfigFileStorage(currentOS: OperatingSystem, showBack = fa
         octokit = await authenticateWithGitHub()
       } catch (error) {
         console.log(chalk.yellow('\n⚠️  GitHub authentication failed. You can set this up later.\n'))
-        // Fall back to manual URL entry
-        const { repoUrl } = await inquirer.prompt<{ repoUrl: string }>([
+        // Fall back to manual URL entry with back option
+        const { action } = await inquirer.prompt<{ action: string }>([
           {
-            type: 'input',
-            name: 'repoUrl',
-            message: 'Enter your Git repository URL:',
-            validate: (input) => {
-              if (!input.trim()) return 'Repository URL is required'
-              return true
-            },
+            type: 'list',
+            name: 'action',
+            message: 'What would you like to do?',
+            choices: [
+              { name: 'Enter repository URL manually', value: 'manual' },
+              { name: 'Retry GitHub authentication', value: 'retry' },
+              new inquirer.Separator(),
+              { name: '← Go back', value: 'back' },
+            ],
           },
         ])
-        gitRepoUrl = repoUrl
-        return {
-          versionControl: true,
-          service: service as ConfigStorage,
-          gitRepoUrl,
+
+        if (action === 'back') {
+          return BACK_OPTION
+        }
+
+        if (action === 'retry') {
+          try {
+            octokit = await authenticateWithGitHub()
+          } catch (retryError) {
+            console.log(chalk.red('\n❌ GitHub authentication failed again.\n'))
+            return BACK_OPTION
+          }
+        } else {
+          // Manual URL entry
+          const { repoUrl } = await inquirer.prompt<{ repoUrl: string }>([
+            {
+              type: 'input',
+              name: 'repoUrl',
+              message: 'Enter your Git repository URL:',
+              validate: (input) => {
+                if (!input.trim()) return 'Repository URL is required'
+                return true
+              },
+            },
+          ])
+          gitRepoUrl = repoUrl
+          return {
+            versionControl: true,
+            service: service as ConfigStorage,
+            gitRepoUrl,
+          }
         }
       }
 
@@ -496,7 +536,7 @@ async function promptMultiOSSupport(currentOS: OperatingSystem): Promise<{
   }
 
   // Only ask about Linux distributions if currently on Linux
-  if (currentOS !== 'Linux') {
+  if (currentOS !== 'linux') {
     return { multiOS: true }
   }
 
@@ -567,7 +607,7 @@ async function promptMultiOSSupport(currentOS: OperatingSystem): Promise<{
 /**
  * Prompt for clone/repo location
  */
-async function promptCloneLocation(repoExists: boolean, repoName: string): Promise<string | typeof BACK_OPTION> {
+async function promptCloneLocation(repoExists: boolean, repoName: string, showBack = true): Promise<string | typeof BACK_OPTION> {
   const message = repoExists
     ? `Where is your ${repoName} repository located?`
     : `Where should we create the ${repoName} repository?`
@@ -578,62 +618,82 @@ async function promptCloneLocation(repoExists: boolean, repoName: string): Promi
 
   console.log(helpText)
 
-  const { location } = await inquirer.prompt<{ location: string }>([
-    {
-      type: 'input',
-      name: 'location',
-      message,
-      default: repoExists ? `~/dev/${repoName}` : DEFAULT_CLONE_LOCATION,
-      validate: (input) => {
-        if (!input.trim()) return 'Location is required'
+  while (true) {
+    const { location } = await inquirer.prompt<{ location: string }>([
+      {
+        type: 'input',
+        name: 'location',
+        message,
+        default: repoExists ? `~/dev/${repoName}` : DEFAULT_CLONE_LOCATION,
+        validate: (input) => {
+          if (!input.trim()) return 'Location is required'
 
-        // For existing repos, check if it exists
-        if (repoExists) {
-          let expandedPath = input.trim()
-          if (expandedPath.startsWith('~/')) {
-            expandedPath = path.join(os.homedir(), expandedPath.slice(2))
+          // For existing repos, check if it exists
+          if (repoExists) {
+            let expandedPath = input.trim()
+            if (expandedPath.startsWith('~/')) {
+              expandedPath = path.join(os.homedir(), expandedPath.slice(2))
+            }
+
+            if (!fs.existsSync(expandedPath)) {
+              return `Directory does not exist: ${expandedPath}\nPlease provide the correct path to your existing repository`
+            }
+
+            // Check if it's a git repository
+            const gitDir = path.join(expandedPath, '.git')
+            if (!fs.existsSync(gitDir)) {
+              return `Not a git repository: ${expandedPath}\nPlease provide a path to a valid git repository`
+            }
           }
 
-          if (!fs.existsSync(expandedPath)) {
-            return `Directory does not exist: ${expandedPath}\nPlease provide the correct path to your existing repository`
+          return true
+        },
+        transformer: (input) => {
+          // Show the expanded path
+          if (input.startsWith('~')) {
+            return input.replace('~', os.homedir())
           }
-
-          // Check if it's a git repository
-          const gitDir = path.join(expandedPath, '.git')
-          if (!fs.existsSync(gitDir)) {
-            return `Not a git repository: ${expandedPath}\nPlease provide a path to a valid git repository`
-          }
-        }
-
-        return true
+          return input
+        },
       },
-      transformer: (input) => {
-        // Show the expanded path
-        if (input.startsWith('~')) {
-          return input.replace('~', os.homedir())
-        }
-        return input
-      },
-    },
-  ])
+    ])
 
-  // Expand ~ to home directory
-  let expandedLocation = location.trim()
-  if (expandedLocation.startsWith('~')) {
-    expandedLocation = expandedLocation.replace('~', os.homedir())
+    // Expand ~ to home directory
+    let expandedLocation = location.trim()
+    if (expandedLocation.startsWith('~')) {
+      expandedLocation = expandedLocation.replace('~', os.homedir())
+    }
+
+    // Offer confirmation with back option
+    if (showBack) {
+      const { confirm } = await inquirer.prompt<{ confirm: string }>([
+        {
+          type: 'list',
+          name: 'confirm',
+          message: `Use this location: ${expandedLocation}?`,
+          choices: [
+            { name: 'Yes, use this location', value: 'yes' },
+            { name: 'No, enter a different path', value: 'retry' },
+            new inquirer.Separator(),
+            { name: '← Go back', value: 'back' },
+          ],
+        },
+      ])
+
+      if (confirm === 'back') return BACK_OPTION
+      if (confirm === 'retry') continue
+    }
+
+    return expandedLocation
   }
-
-  return expandedLocation
 }
 
 /**
  * Prompt for file selection - which config files to back up
  */
-async function promptFileSelection(osType: OperatingSystem): Promise<TrackedFile[] | typeof BACK_OPTION> {
-  console.log(chalk.yellow('\n' + '='.repeat(20)))
-  console.log(chalk.yellow.bold('  SELECT FILES TO BACKUP'))
-  console.log(chalk.yellow('='.repeat(20)))
-  console.log(chalk.gray('  Choose which configuration files you want to back up\n'))
+async function promptFileSelection(osType: OperatingSystem, stepNumber = 5): Promise<TrackedFile[] | typeof BACK_OPTION> {
+  displayStepProgress(stepNumber, 8, 'Select Files to Backup')
+  console.log(chalk.gray('\n  Choose which configuration files you want to back up\n'))
 
   // Discover existing files
   const existingFiles = getExistingFiles(osType)
@@ -713,7 +773,7 @@ async function promptFileSelection(osType: OperatingSystem): Promise<TrackedFile
         pageSize: 15,
         validate: (input) => {
           if (input.length === 0) {
-            return 'Please select at least one file, or add files manually'
+            return 'Please select at least one file to continue (you can add more files manually in the next step)'
           }
           return true
         },
@@ -856,11 +916,9 @@ async function promptManualFileAddition(existingFiles: TrackedFile[]): Promise<T
 /**
  * Prompt for secret storage preferences
  */
-async function promptSecretStorage(showBack = false): Promise<SetupConfig['secrets'] | typeof BACK_OPTION> {
-  console.log(chalk.yellow('\n' + '='.repeat(20)))
-  console.log(chalk.yellow.bold('  SECRET STORAGE'))
-  console.log(chalk.yellow('='.repeat(20)))
-  console.log(chalk.gray('  Secrets: environment variables, API keys, SSH keys, etc.\n'))
+async function promptSecretStorage(showBack = false, stepNumber = 3): Promise<SetupConfig['secrets'] | typeof BACK_OPTION> {
+  displayStepProgress(stepNumber, 8, 'Secret Management')
+  console.log(chalk.gray('\n  Secrets: environment variables, API keys, SSH keys, etc.\n'))
 
   const secretChoices: any[] = [
     { name: 'Yes, I want to set up or configure secret management', value: 'yes' },
@@ -1148,10 +1206,9 @@ async function promptSecretStorage(showBack = false): Promise<SetupConfig['secre
 /**
  * Display configuration summary
  */
-function displaySummary(config: SetupConfig) {
-  console.log(chalk.green('\n' + '='.repeat(20)))
-  console.log(chalk.green.bold('  CONFIGURATION SUMMARY'))
-  console.log(chalk.green('='.repeat(20) + '\n'))
+function displaySummary(config: SetupConfig, stepNumber = 4) {
+  displayStepProgress(stepNumber, 8, 'Configuration Summary')
+  console.log()
 
   console.log(chalk.bold('Operating System:'))
   console.log(`  ${config.os}\n`)
@@ -1188,8 +1245,11 @@ async function promptAndExecuteBackup(
   files: TrackedFile[],
   repoPath: string,
   osOrDistro: string,
-  backupConfig: BackupConfig
+  backupConfig: BackupConfig,
+  stepNumber = 6
 ): Promise<boolean | typeof BACK_OPTION> {
+  displayStepProgress(stepNumber, 8, 'Backup Files to Repository')
+
   if (files.length === 0) {
     console.log(chalk.yellow('\n⚠️  No files selected for backup. Skipping backup step.\n'))
     return true
@@ -1278,8 +1338,9 @@ async function saveConfiguration(config: SetupConfig) {
 /**
  * Prompt user to commit and push changes to the dotfiles repository
  */
-async function promptGitCommitAndPush(repoPath: string): Promise<void> {
-  console.log(chalk.cyan('\n📝 Git Repository Update\n'))
+async function promptGitCommitAndPush(repoPath: string, stepNumber = 7): Promise<void> {
+  displayStepProgress(stepNumber, 8, 'Git Commit & Push')
+  console.log()
 
   const { commitAndPush } = await inquirer.prompt<{ commitAndPush: string }>([
     {
@@ -1309,14 +1370,17 @@ async function promptGitCommitAndPush(repoPath: string): Promise<void> {
       await execPromise('git add .', { cwd: repoPath })
       console.log(chalk.green('✅ Staged all changes'))
 
-      // Create commit
+      // Create commit using heredoc for safety
       const commitMessage = `Update dotfiles configuration
 
 🤖 Generated with dev-machine-backup-restore
 
 Co-Authored-By: dev-machine-backup-restore <noreply@github.com>`
 
-      await execPromise(`git commit -m "${commitMessage.replace(/"/g, '\\"')}"`, { cwd: repoPath })
+      await execPromise(`git commit -m "$(cat <<'EOF'
+${commitMessage}
+EOF
+)"`, { cwd: repoPath })
       console.log(chalk.green('✅ Created commit'))
 
       // Push to remote
@@ -1349,10 +1413,11 @@ Co-Authored-By: dev-machine-backup-restore <noreply@github.com>`
  */
 async function promptSymlinkCreation(
   files: TrackedFile[],
-  repoPath: string
+  repoPath: string,
+  stepNumber = 8
 ): Promise<void> {
-  console.log(chalk.cyan('\n🔗 Symlink Creation\n'))
-  console.log(chalk.gray('Symlinks allow files to be stored in your dotfiles repository'))
+  displayStepProgress(stepNumber, 8, 'Create Symlinks')
+  console.log(chalk.gray('\nSymlinks allow files to be stored in your dotfiles repository'))
   console.log(chalk.gray('while still being accessible from their expected locations.\n'))
 
   const { createSymlinks } = await inquirer.prompt<{ createSymlinks: string }>([
@@ -1565,7 +1630,7 @@ export default async function setup() {
   while (true) {
     try {
       if (currentStep === 'os') {
-        const os = await promptOperatingSystem(true)
+        const os = await promptOperatingSystem(true, 1)
         if (os === BACK_OPTION) {
           // Can't go back from first step
           continue
@@ -1573,7 +1638,7 @@ export default async function setup() {
         config.os = os as OperatingSystem
         currentStep = 'config'
       } else if (currentStep === 'config') {
-        const configFiles = await promptConfigFileStorage(config.os, true)
+        const configFiles = await promptConfigFileStorage(config.os, true, 2)
         if (configFiles === BACK_OPTION) {
           currentStep = 'os'
           continue
@@ -1581,7 +1646,7 @@ export default async function setup() {
         config.configFiles = configFiles as SetupConfig['configFiles']
         currentStep = 'secrets'
       } else if (currentStep === 'secrets') {
-        const secrets = await promptSecretStorage(true)
+        const secrets = await promptSecretStorage(true, 3)
         if (secrets === BACK_OPTION) {
           currentStep = 'config'
           continue
@@ -1589,7 +1654,7 @@ export default async function setup() {
         config.secrets = secrets as SetupConfig['secrets']
         currentStep = 'confirm'
       } else if (currentStep === 'confirm') {
-        displaySummary(config)
+        displaySummary(config, 4)
 
         const { confirm } = await inquirer.prompt<{ confirm: string }>([
           {
@@ -1656,44 +1721,15 @@ export default async function setup() {
           }
         }
 
-        // Select files to backup
+        // Select files to backup (manual file addition is handled within promptFileSelection)
         const osType = config.os === 'macOS' ? 'macos' : config.os.toLowerCase()
-        const files = await promptFileSelection(osType as any)
+        const files = await promptFileSelection(osType as any, 5)
         if (files === BACK_OPTION) {
           currentStep = 'confirm'
           continue
         }
 
-        // Ask if they want to manually add more files
-        const { addMore } = await inquirer.prompt<{ addMore: string }>([
-          {
-            type: 'list',
-            name: 'addMore',
-            message: 'Would you like to add more files manually?',
-            choices: [
-              { name: 'No, continue with selected files', value: 'no' },
-              { name: 'Yes, add more files', value: 'yes' },
-              new inquirer.Separator(),
-              { name: '← Go back', value: 'back' },
-            ],
-          },
-        ])
-
-        if (addMore === 'back') {
-          currentStep = 'confirm'
-          continue
-        }
-
-        let finalFiles = files as TrackedFile[]
-
-        if (addMore === 'yes') {
-          const moreFiles = await promptManualFileAddition(finalFiles)
-          if (moreFiles === BACK_OPTION) {
-            // Stay on files step
-            continue
-          }
-          finalFiles = moreFiles as TrackedFile[]
-        }
+        const finalFiles = files as TrackedFile[]
 
         // Generate repoPath for each file
         const multiOS = config.configFiles.multiOS || false
@@ -1770,7 +1806,8 @@ export default async function setup() {
           selectedFiles,
           config.configFiles.cloneLocation,
           osType,
-          backupConfig
+          backupConfig,
+          6
         )
 
         if (backupResult === BACK_OPTION) {
@@ -1780,12 +1817,12 @@ export default async function setup() {
 
         // Backup complete, ask about git commit/push
         if (config.configFiles.cloneLocation) {
-          await promptGitCommitAndPush(config.configFiles.cloneLocation)
+          await promptGitCommitAndPush(config.configFiles.cloneLocation, 7)
         }
 
         // Ask about creating symlinks
         if (config.configFiles.cloneLocation && selectedFiles.length > 0) {
-          await promptSymlinkCreation(selectedFiles, config.configFiles.cloneLocation)
+          await promptSymlinkCreation(selectedFiles, config.configFiles.cloneLocation, 8)
         }
 
         // Finish setup
