@@ -33,6 +33,16 @@ export interface TrackedFile {
   repoPath: string          // Path in repo: 'macos/.bashrc'
   symlinkEnabled: boolean   // Whether to create symlink
   tracked: boolean          // Whether file is tracked in git
+
+  // Symlink state tracking
+  symlinkCreated?: boolean  // Whether symlink was actually created
+  symlinkCreatedAt?: string // ISO 8601 timestamp when symlink was created
+  symlinkTarget?: string    // Absolute path where symlink points
+  backupPath?: string       // Path to .backup file if existing file was backed up
+
+  // Secret detection
+  containsSecrets?: boolean // Whether file contains potential secrets
+  secretsScannedAt?: string // When file was last scanned for secrets
 }
 
 export interface DotfilesStructure {

@@ -8,7 +8,12 @@
     "script": "tsx scripts/index.ts",
     "script:init": "pnpm run script init",
     "script:populate-backup-schema": "pnpm run script populate-backup-schema",
-    "script:setup": "pnpm run script setup"
+    "script:setup": "pnpm run script setup",
+    "setup": "pnpm run script:setup",
+    "test": "node --test --experimental-strip-types tests/*.test.ts",
+    "test:secret-scanner": "node --test --experimental-strip-types tests/secret-scanner.test.ts",
+    "test:dry-run": "node --test --experimental-strip-types tests/dry-run.test.ts",
+    "test:watch": "node --test --watch --experimental-strip-types tests/*.test.ts"
   },
   "keywords": [],
   "author": "Bob Bass",
