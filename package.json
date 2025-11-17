@@ -1,0 +1,21 @@
+{
+  "name": "dev-machine-backup-restore",
+  "version": "1.0.0",
+  "description": "A lightweight tool that snapshots and restores your entire system configuration and dotfiles, making new-machine setup fast, consistent, and painless",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "script": "tsx scripts/index.ts",
+    "script:init": "pnpm run script init",
+    "script:populate-backup-schema": "pnpm run script populate-backup-schema"
+  },
+  "keywords": [],
+  "author": "Bob Bass",
+  "license": "ISC",
+  "packageManager": "pnpm@10.20.0",
+  "devDependencies": {
+    "@types/node": "^24.10.1",
+    "prettier": "^3.6.2",
+    "tsx": "^4.20.6"
+  }
+}
