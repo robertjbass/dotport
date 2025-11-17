@@ -9,7 +9,7 @@
 // Top-Level Schema
 // ============================================================================
 
-export interface BackupSchema {
+export type BackupSchema = {
   version: string
   darwin?: DarwinConfig
   linux?: LinuxConfig
@@ -20,14 +20,14 @@ export interface BackupSchema {
 // Metadata & Preferences (OS-Specific)
 // ============================================================================
 
-export interface Metadata {
+export type Metadata = {
   hostname: string | null
   username: string | null
   shell: string | null
   lastBackup: string | null
 }
 
-export interface Preferences {
+export type Preferences = {
   defaultTerminal: string | null // e.g., "ghostty", "iterm2", "warp"
   nodeVersionManager: string | null // "fnm" | "nvm" | "n" | "asdf"
   packageManager: string | null // "npm" | "pnpm" | "yarn" | "bun"
@@ -37,7 +37,7 @@ export interface Preferences {
 // Platform-Specific Configs
 // ============================================================================
 
-export interface DarwinConfig {
+export type DarwinConfig = {
   metadata: Metadata
   preferences: Preferences
   packages: DarwinPackages
@@ -47,7 +47,7 @@ export interface DarwinConfig {
   applications?: DarwinApplications
 }
 
-export interface LinuxConfig {
+export type LinuxConfig = {
   metadata: Metadata
   preferences: Preferences
   packages: LinuxPackages
@@ -57,7 +57,7 @@ export interface LinuxConfig {
   applications?: LinuxApplications
 }
 
-export interface SharedConfig {
+export type SharedConfig = {
   git: GitConfig
   ssh: SSHConfig
   secrets: SecretsConfig
@@ -67,7 +67,7 @@ export interface SharedConfig {
 // Package Management
 // ============================================================================
 
-export interface DarwinPackages {
+export type DarwinPackages = {
   homebrew: {
     formulae: string[]
     casks: string[]
@@ -82,7 +82,7 @@ export interface DarwinPackages {
   deno: { installed: string[] }
 }
 
-export interface LinuxPackages {
+export type LinuxPackages = {
   apt: {
     packages: string[]
     ppas: string[]
@@ -101,7 +101,7 @@ export interface LinuxPackages {
   deno: { installed: string[] }
 }
 
-export interface Runtimes {
+export type Runtimes = {
   node: {
     manager: string // "fnm" | "nvm" | "n" | "asdf"
     defaultVersion: string | null
@@ -138,7 +138,7 @@ export interface Runtimes {
 // System Settings
 // ============================================================================
 
-export interface DarwinSystemSettings {
+export type DarwinSystemSettings = {
   keybindings?: {
     karabiner?: ConfigFile<object>
   }
@@ -147,7 +147,7 @@ export interface DarwinSystemSettings {
   }
 }
 
-export interface LinuxSystemSettings {
+export type LinuxSystemSettings = {
   keybindings?: Record<string, unknown>
   automation?: Record<string, unknown>
 }
@@ -156,7 +156,7 @@ export interface LinuxSystemSettings {
 // Applications
 // ============================================================================
 
-export interface DarwinApplications {
+export type DarwinApplications = {
   terminals?: {
     ghostty?: ConfigFile<string>
     iterm2?: ConfigFile<string>
@@ -169,7 +169,7 @@ export interface DarwinApplications {
   }
 }
 
-export interface LinuxApplications {
+export type LinuxApplications = {
   terminals?: {
     ghostty?: ConfigFile<string>
   }
@@ -181,7 +181,7 @@ export interface LinuxApplications {
   }
 }
 
-export interface EditorConfig {
+export type EditorConfig = {
   settingsPath: string
   keybindingsPath: string
   backupPaths: {
@@ -198,13 +198,13 @@ export interface EditorConfig {
 // Config Files
 // ============================================================================
 
-export interface ConfigFile<T = string> {
+export type ConfigFile<T = string> = {
   configPath: string
   backupPath: string
   content: T | null
 }
 
-export interface DotfileConfig {
+export type DotfileConfig = {
   filename: string
   detectedLocally: boolean
   dir: string
@@ -214,7 +214,7 @@ export interface DotfileConfig {
   remoteGitLocation: string | null
 }
 
-export interface DotfilesConfig {
+export type DotfilesConfig = {
   '.zshrc'?: DotfileConfig
   '.bashrc'?: DotfileConfig
   '.bash_profile'?: DotfileConfig
@@ -226,7 +226,7 @@ export interface DotfilesConfig {
   [key: string]: DotfileConfig | undefined // Allow additional dotfiles
 }
 
-export interface SecretsConfig {
+export type SecretsConfig = {
   template: {
     path: string
     backupPath: string
@@ -235,7 +235,7 @@ export interface SecretsConfig {
   note: string
 }
 
-export interface SSHConfig {
+export type SSHConfig = {
   config: {
     path: string
     backupPath: string
@@ -244,7 +244,7 @@ export interface SSHConfig {
   note: string
 }
 
-export interface GitConfig {
+export type GitConfig = {
   config: {
     path: string
     backupPath: string
