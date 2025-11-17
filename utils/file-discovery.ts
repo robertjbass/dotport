@@ -41,6 +41,10 @@ const COMMON_FILES = {
     { path: '~/.secrets', name: '.secrets' },
     { path: '~/.zshsecrets', name: '.zshsecrets' },
     { path: '~/.bashsecrets', name: '.bashsecrets' },
+    { path: '~/.npmrc', name: '.npmrc (may contain auth tokens)' },
+    { path: '~/.pypirc', name: '.pypirc (may contain PyPI credentials)' },
+    { path: '~/.docker/config.json', name: 'Docker config (may contain registry auth)' },
+    { path: '~/.aws/credentials', name: 'AWS credentials' },
   ],
 
   // Git configuration
@@ -55,13 +59,13 @@ const COMMON_FILES = {
   // Developer tools
   devtools: [
     // Node.js / npm / yarn / pnpm
-    { path: '~/.npmrc', name: 'npm config' },
+    // Note: .npmrc moved to secrets (contains auth tokens)
     { path: '~/.yarnrc', name: 'Yarn config' },
     { path: '~/.yarnrc.yml', name: 'Yarn 2+ config' },
     { path: '~/.config/pnpm/rc', name: 'pnpm config' },
 
     // Python
-    { path: '~/.pypirc', name: 'PyPI config' },
+    // Note: .pypirc moved to secrets (contains PyPI credentials)
     { path: '~/.pythonrc', name: 'Python startup script' },
     { path: '~/.config/pip/pip.conf', name: 'pip config' },
 
@@ -70,12 +74,12 @@ const COMMON_FILES = {
     { path: '~/.irbrc', name: 'IRB config' },
 
     // Docker / Kubernetes
-    { path: '~/.docker/config.json', name: 'Docker config' },
+    // Note: Docker config.json moved to secrets (contains registry auth)
     { path: '~/.kube/config', name: 'Kubernetes config' },
 
     // AWS
     { path: '~/.aws/config', name: 'AWS config' },
-    // Note: ~/.aws/credentials should be in secrets, not here
+    // Note: ~/.aws/credentials is in secrets category
 
     // Terraform
     { path: '~/.terraformrc', name: 'Terraform config' },
