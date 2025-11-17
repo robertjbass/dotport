@@ -91,7 +91,7 @@ function getPnpmGlobalPackages(): string[] {
  * Get global yarn packages
  */
 function getYarnGlobalPackages(): string[] {
-  const output = safeExec('yarn global list --json')
+  const output = safeExec('yarn global list --json 2>/dev/null')
   if (!output) return []
 
   try {
@@ -126,7 +126,7 @@ function getPipPackages(): string[] {
  * Get pipx packages
  */
 function getPipxPackages(): string[] {
-  const output = safeExec('pipx list --short')
+  const output = safeExec('pipx list --short 2>/dev/null')
   if (!output) return []
   return output.split('\n').filter(Boolean)
 }
@@ -135,7 +135,7 @@ function getPipxPackages(): string[] {
  * Get Bun global packages
  */
 function getBunGlobalPackages(): string[] {
-  const output = safeExec('bun pm ls -g')
+  const output = safeExec('bun pm ls -g 2>/dev/null')
   if (!output) return []
 
   // Bun outputs package list, one per line
@@ -207,18 +207,47 @@ function getFnmNodeVersions(): {
 
 /**
  * Get apt packages (Linux)
+ * Only returns user-installed packages, excluding:
+ * - Base system packages (required/important/standard priority)
+ * - Desktop environment packages (gnome-*, kde-*, xfce-*)
+ * - Library packages (lib*, gir1.2-*, python3-*)
+ * - Font packages (fonts-*)
  */
 function getAptPackages(): string[] {
-  const output = safeExec("apt list --installed 2>/dev/null | grep -v 'Listing'")
-  if (!output) return []
+  // Get manually installed packages
+  const manualPackages = safeExec('apt-mark showmanual')
+  if (!manualPackages) return []
 
-  return output
+  // Get base system packages to exclude
+  const basePackages = safeExec(
+    "dpkg-query -Wf '${Package} ${Priority}\\n' | awk '$2 ~ /^(required|important|standard)$/ {print $1}'",
+  )
+  const basePackageSet = new Set(basePackages?.split('\n').filter(Boolean) || [])
+
+  // Patterns to exclude
+  const excludePatterns = [
+    /^lib.+/,           // Library packages
+    /^gir1\.2-.+/,      // GObject introspection bindings
+    /^python3-.+/,      // Python libraries
+    /^fonts-.+/,        // Font packages
+    /^gnome-.+/,        // GNOME desktop packages
+    /^kde-.+/,          // KDE desktop packages
+    /^xfce.+/,          // XFCE desktop packages
+    /^gcc-\d+-.+/,      // GCC version-specific packages
+    /^linux-(headers|image|modules)-.+/, // Kernel packages
+  ]
+
+  return manualPackages
     .split('\n')
     .filter(Boolean)
-    .map((line) => {
-      // Format: "package/version architecture [status]"
-      const packageName = line.split('/')[0]
-      return packageName
+    .filter((pkg) => {
+      // Exclude base system packages
+      if (basePackageSet.has(pkg)) return false
+
+      // Exclude packages matching patterns
+      if (excludePatterns.some((pattern) => pattern.test(pkg))) return false
+
+      return true
     })
 }
 
@@ -241,7 +270,7 @@ function getAptPPAs(): string[] {
  * Get snap packages (Linux)
  */
 function getSnapPackages(): string[] {
-  const output = safeExec('snap list')
+  const output = safeExec('snap list 2>/dev/null')
   if (!output) return []
 
   return output
@@ -258,7 +287,7 @@ function getSnapPackages(): string[] {
  * Get flatpak packages (Linux)
  */
 function getFlatpakPackages(): string[] {
-  const output = safeExec('flatpak list --app --columns=application')
+  const output = safeExec('flatpak list --app --columns=application 2>/dev/null')
   if (!output) return []
   return output.split('\n').filter(Boolean)
 }
@@ -267,7 +296,7 @@ function getFlatpakPackages(): string[] {
  * Get flatpak remotes (Linux)
  */
 function getFlatpakRemotes(): string[] {
-  const output = safeExec('flatpak remotes --columns=name')
+  const output = safeExec('flatpak remotes --columns=name 2>/dev/null')
   if (!output) return []
   return output.split('\n').filter(Boolean)
 }
@@ -285,29 +314,29 @@ function detectRuntimes(): Runtimes {
       installedVersions: nodeVersions.installedVersions,
     },
     python: {
-      defaultVersion: safeExec('python3 --version')?.split(' ')[1] || null,
+      defaultVersion: safeExec('python3 --version 2>/dev/null')?.split(' ')[1] || null,
       installedVersions: [], // TODO: Detect installed Python versions
     },
     ruby: {
-      defaultVersion: safeExec('ruby --version')?.split(' ')[1] || null,
+      defaultVersion: safeExec('ruby --version 2>/dev/null')?.split(' ')[1] || null,
       installedVersions: [],
     },
     go: {
-      version: safeExec('go version')?.split(' ')[2]?.replace('go', '') || null,
+      version: safeExec('go version 2>/dev/null')?.split(' ')[2]?.replace('go', '') || null,
     },
     rust: {
-      version: safeExec('rustc --version')?.split(' ')[1] || null,
+      version: safeExec('rustc --version 2>/dev/null')?.split(' ')[1] || null,
     },
     java: {
       defaultVersion: safeExec('java -version 2>&1')?.split('\n')[0]?.split('"')[1] || null,
       installedVersions: [],
     },
     databases: {
-      mysql: safeExec('mysql --version')?.split(' ')[2] || null,
-      postgresql: safeExec('psql --version')?.split(' ')[2] || null,
-      mongodb: safeExec('mongod --version')?.split(' ')[2] || null,
-      redis: safeExec('redis-server --version')?.split(' ')[2] || null,
-      sqlite: safeExec('sqlite3 --version')?.split(' ')[0] || null,
+      mysql: safeExec('mysql --version 2>/dev/null')?.split(' ')[2] || null,
+      postgresql: safeExec('psql --version 2>/dev/null')?.split(' ')[2] || null,
+      mongodb: safeExec('mongod --version 2>/dev/null')?.split(' ')[2] || null,
+      redis: safeExec('redis-server --version 2>/dev/null')?.split(' ')[2] || null,
+      sqlite: safeExec('sqlite3 --version 2>/dev/null')?.split(' ')[0] || null,
     },
   }
 }
@@ -483,11 +512,7 @@ function detectNodeVersionManager(): string | null {
  * Detect preferred package manager
  */
 function detectPackageManager(): string | null {
-  // Check if there's a package manager lockfile in home or common projects
-  const homeDir = ScriptSession.homeDirectory || process.env.HOME
-
-  // Look for pnpm-lock.yaml, yarn.lock, bun.lockb in recent projects
-  // For now, just check which is installed and prioritize based on speed
+  // Check which package manager is installed and prioritize based on speed
   if (safeExec('which pnpm')) return 'pnpm'
   if (safeExec('which bun')) return 'bun'
   if (safeExec('which yarn')) return 'yarn'
