@@ -140,11 +140,18 @@ vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 .vite/
 
-# Secret files - DO NOT COMMIT
+# macOS system files
+.DS_Store
+
+# Secret and credential files (should NEVER be committed)
 .env.sh
+.npmrc
+.pypirc
 .secrets
 .zshsecrets
 .bashsecrets
+.aws/credentials
+.docker/config.json
 *.secret
 *.key
 *.pem
