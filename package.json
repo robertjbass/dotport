@@ -7,7 +7,8 @@
   "scripts": {
     "script": "tsx scripts/index.ts",
     "script:init": "pnpm run script init",
-    "script:populate-backup-schema": "pnpm run script populate-backup-schema"
+    "script:populate-backup-schema": "pnpm run script populate-backup-schema",
+    "script:setup": "pnpm run script setup"
   },
   "keywords": [],
   "author": "Bob Bass",
@@ -17,5 +18,10 @@
     "@types/node": "^24.10.1",
     "prettier": "^3.6.2",
     "tsx": "^4.20.6"
+  },
+  "dependencies": {
+    "@types/inquirer": "^9.0.9",
+    "chalk": "^5.6.2",
+    "inquirer": "^13.0.1"
   }
 }
