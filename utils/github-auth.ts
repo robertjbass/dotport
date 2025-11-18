@@ -7,9 +7,9 @@
 import { Octokit } from '@octokit/rest'
 import chalk from 'chalk'
 import fs from 'fs'
-import { getConfig, ensureDirectories } from './config.js'
+import { getConfig, ensureDirectories } from './config'
 
-interface GitHubAuthConfig {
+type GitHubAuthConfig = {
   token: string
   expiresAt?: string
   username?: string
@@ -25,7 +25,11 @@ const CLIENT_ID = 'YOUR_GITHUB_OAUTH_CLIENT_ID' // TODO: Replace with actual cli
  */
 export async function authenticateWithGitHub(): Promise<Octokit> {
   console.log(chalk.cyan('\n🔐 GitHub Authentication Required\n'))
-  console.log(chalk.gray('To perform operations on your GitHub repositories, we need to authenticate.\n'))
+  console.log(
+    chalk.gray(
+      'To perform operations on your GitHub repositories, we need to authenticate.\n',
+    ),
+  )
 
   // Check if we already have a valid token
   const existingAuth = loadAuthConfig()
@@ -38,11 +42,19 @@ export async function authenticateWithGitHub(): Promise<Octokit> {
       const scopeCheck = await validateTokenScopes(octokit)
 
       if (!scopeCheck.valid) {
-        console.log(chalk.yellow(`⚠️  Authenticated as ${user.login}, but token is missing permissions:\n`))
-        scopeCheck.missing.forEach(scope => {
+        console.log(
+          chalk.yellow(
+            `⚠️  Authenticated as ${user.login}, but token is missing permissions:\n`,
+          ),
+        )
+        scopeCheck.missing.forEach((scope) => {
           console.log(chalk.red(`  ✗ ${scope}`))
         })
-        console.log(chalk.gray('\nPlease re-authenticate with a token that has the required scopes.\n'))
+        console.log(
+          chalk.gray(
+            '\nPlease re-authenticate with a token that has the required scopes.\n',
+          ),
+        )
 
         // Clear the invalid token
         clearAuthConfig()
@@ -51,11 +63,15 @@ export async function authenticateWithGitHub(): Promise<Octokit> {
         return await promptForPersonalAccessToken()
       }
 
-      console.log(chalk.green(`✅ Already authenticated as ${chalk.bold(user.login)}\n`))
+      console.log(
+        chalk.green(`✅ Already authenticated as ${chalk.bold(user.login)}\n`),
+      )
       return octokit
     } catch (error: any) {
       if (error.status === 401) {
-        console.log(chalk.yellow('⚠️  Existing token has expired or is invalid.\n'))
+        console.log(
+          chalk.yellow('⚠️  Existing token has expired or is invalid.\n'),
+        )
         console.log(chalk.gray('Please create a new token at:'))
         console.log(chalk.cyan('https://github.com/settings/tokens/new\n'))
 
@@ -65,7 +81,11 @@ export async function authenticateWithGitHub(): Promise<Octokit> {
         // Prompt for new token
         return await promptForPersonalAccessToken()
       } else {
-        console.log(chalk.yellow('⚠️  Could not validate existing token, re-authenticating...\n'))
+        console.log(
+          chalk.yellow(
+            '⚠️  Could not validate existing token, re-authenticating...\n',
+          ),
+        )
 
         // Prompt for new token
         return await promptForPersonalAccessToken()
@@ -74,8 +94,14 @@ export async function authenticateWithGitHub(): Promise<Octokit> {
   }
 
   // No existing token found, prompt for new one
-  console.log(chalk.yellow('📱 Starting GitHub device authentication flow...\n'))
-  console.log(chalk.gray('We will open GitHub in your browser to approve this application.\n'))
+  console.log(
+    chalk.yellow('📱 Starting GitHub device authentication flow...\n'),
+  )
+  console.log(
+    chalk.gray(
+      'We will open GitHub in your browser to approve this application.\n',
+    ),
+  )
 
   // For now, prompt for a Personal Access Token as a simpler alternative
   // In production, implement full OAuth device flow
@@ -90,9 +116,15 @@ async function promptForPersonalAccessToken(): Promise<Octokit> {
   const inquirer = (await import('inquirer')).default
 
   console.log(chalk.cyan('📝 Personal Access Token Setup\n'))
-  console.log(chalk.gray('Please create a Personal Access Token with the following scopes:'))
+  console.log(
+    chalk.gray(
+      'Please create a Personal Access Token with the following scopes:',
+    ),
+  )
   console.log(chalk.gray('  - repo (Full control of private repositories)\n'))
-  console.log(chalk.gray('Create one at: https://github.com/settings/tokens/new\n'))
+  console.log(
+    chalk.gray('Create one at: https://github.com/settings/tokens/new\n'),
+  )
 
   let token: string
   try {
@@ -112,7 +144,10 @@ async function promptForPersonalAccessToken(): Promise<Octokit> {
     token = response.token
   } catch (error: any) {
     // Handle Ctrl+C gracefully
-    if (error?.name === 'ExitPromptError' || error?.message?.includes('force closed')) {
+    if (
+      error?.name === 'ExitPromptError' ||
+      error?.message?.includes('force closed')
+    ) {
       console.log(chalk.yellow('\n\n⚠️  Authentication cancelled.\n'))
       process.exit(0)
     }
@@ -128,11 +163,17 @@ async function promptForPersonalAccessToken(): Promise<Octokit> {
     const scopeCheck = await validateTokenScopes(octokit)
 
     if (!scopeCheck.valid) {
-      console.log(chalk.yellow('\n⚠️  Token is valid but missing required permissions:\n'))
-      scopeCheck.missing.forEach(scope => {
+      console.log(
+        chalk.yellow(
+          '\n⚠️  Token is valid but missing required permissions:\n',
+        ),
+      )
+      scopeCheck.missing.forEach((scope) => {
         console.log(chalk.red(`  ✗ ${scope}`))
       })
-      console.log(chalk.gray('\nPlease create a new token with these scopes at:'))
+      console.log(
+        chalk.gray('\nPlease create a new token with these scopes at:'),
+      )
       console.log(chalk.cyan('https://github.com/settings/tokens/new\n'))
 
       let continueAnyway: string
@@ -151,7 +192,10 @@ async function promptForPersonalAccessToken(): Promise<Octokit> {
         continueAnyway = response.continueAnyway
       } catch (error: any) {
         // Handle Ctrl+C gracefully
-        if (error?.name === 'ExitPromptError' || error?.message?.includes('force closed')) {
+        if (
+          error?.name === 'ExitPromptError' ||
+          error?.message?.includes('force closed')
+        ) {
           console.log(chalk.yellow('\n\n⚠️  Authentication cancelled.\n'))
           process.exit(0)
         }
@@ -163,7 +207,11 @@ async function promptForPersonalAccessToken(): Promise<Octokit> {
       }
     }
 
-    console.log(chalk.green(`\n✅ Successfully authenticated as ${chalk.bold(user.login)}!\n`))
+    console.log(
+      chalk.green(
+        `\n✅ Successfully authenticated as ${chalk.bold(user.login)}!\n`,
+      ),
+    )
 
     if (scopeCheck.valid) {
       console.log(chalk.green('✓ Token has all required permissions\n'))
@@ -183,9 +231,15 @@ async function promptForPersonalAccessToken(): Promise<Octokit> {
       console.error(chalk.gray('Please create a new Personal Access Token at:'))
       console.error(chalk.cyan('https://github.com/settings/tokens/new\n'))
     } else if (error.message === 'Insufficient token permissions') {
-      console.error(chalk.yellow('\n⚠️  Setup cancelled. Please create a token with the required permissions.\n'))
+      console.error(
+        chalk.yellow(
+          '\n⚠️  Setup cancelled. Please create a token with the required permissions.\n',
+        ),
+      )
     } else {
-      console.error(chalk.red('\n❌ Failed to authenticate with the provided token.'))
+      console.error(
+        chalk.red('\n❌ Failed to authenticate with the provided token.'),
+      )
       console.error(chalk.gray('Error: ' + error.message + '\n'))
     }
     throw error
@@ -195,7 +249,9 @@ async function promptForPersonalAccessToken(): Promise<Octokit> {
 /**
  * Validate token has required scopes
  */
-async function validateTokenScopes(octokit: Octokit): Promise<{ valid: boolean; missing: string[] }> {
+async function validateTokenScopes(
+  octokit: Octokit,
+): Promise<{ valid: boolean; missing: string[] }> {
   try {
     // Try to access a protected endpoint to check scopes
     // We'll check if we can list user repos (requires 'repo' scope)
@@ -207,7 +263,8 @@ async function validateTokenScopes(octokit: Octokit): Promise<{ valid: boolean; 
     })
 
     // Check the X-OAuth-Scopes header
-    const scopes = response.headers['x-oauth-scopes']?.split(',').map(s => s.trim()) || []
+    const scopes =
+      response.headers['x-oauth-scopes']?.split(',').map((s) => s.trim()) || []
     const requiredScopes = ['repo'] // Only require repo scope
     const missing: string[] = []
 
@@ -274,8 +331,12 @@ function saveAuthConfig(authConfig: GitHubAuthConfig): void {
       mode: 0o600, // Only owner can read/write
     })
 
-    console.log(chalk.gray(`📁 Token stored securely at: ${chalk.bold(authPath)}`))
-    console.log(chalk.gray(`   (Permissions: 0600 - only you can read/write)\n`))
+    console.log(
+      chalk.gray(`📁 Token stored securely at: ${chalk.bold(authPath)}`),
+    )
+    console.log(
+      chalk.gray(`   (Permissions: 0600 - only you can read/write)\n`),
+    )
   } catch (error) {
     console.error(chalk.red('❌ Failed to save GitHub auth config'))
     throw error

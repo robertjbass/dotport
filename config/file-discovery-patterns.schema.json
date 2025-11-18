@@ -1,0 +1,125 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/robertjbass/dev-machine-backup-restore/schemas/file-discovery-patterns.json",
+  "title": "File Discovery Patterns",
+  "description": "Configuration for discovering dotfiles and config files across different operating systems",
+  "type": "object",
+  "required": ["version", "common"],
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "JSON Schema reference"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$",
+      "description": "Configuration version (semver)"
+    },
+    "description": {
+      "type": "string",
+      "description": "Description of this configuration file"
+    },
+    "common": {
+      "type": "object",
+      "description": "Cross-platform configuration files",
+      "patternProperties": {
+        "^[a-zA-Z]+$": {
+          "$ref": "#/definitions/filePatternArray"
+        }
+      }
+    },
+    "macos": {
+      "type": "object",
+      "description": "macOS-specific configuration files",
+      "patternProperties": {
+        "^[a-zA-Z]+$": {
+          "$ref": "#/definitions/filePatternArray"
+        }
+      }
+    },
+    "linux": {
+      "type": "object",
+      "description": "Linux-specific configuration files",
+      "patternProperties": {
+        "^[a-zA-Z]+$": {
+          "$ref": "#/definitions/filePatternArray"
+        }
+      }
+    },
+    "secretPatterns": {
+      "type": "object",
+      "description": "Patterns for detecting secrets in files",
+      "properties": {
+        "description": {
+          "type": "string"
+        },
+        "patterns": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/secretPattern"
+          }
+        }
+      }
+    }
+  },
+  "definitions": {
+    "filePatternArray": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/filePattern"
+      }
+    },
+    "filePattern": {
+      "type": "object",
+      "required": ["path", "name", "description"],
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Path to the file (supports ~ expansion)",
+          "pattern": "^~/"
+        },
+        "name": {
+          "type": "string",
+          "description": "Display name for the file",
+          "minLength": 1
+        },
+        "description": {
+          "type": "string",
+          "description": "Human-readable description of the file's purpose",
+          "minLength": 1
+        },
+        "autoExclude": {
+          "type": "boolean",
+          "description": "Whether to automatically exclude this file from backup (for secrets)",
+          "default": false
+        },
+        "warnSecrets": {
+          "type": "boolean",
+          "description": "Whether to warn user that this file may contain secrets",
+          "default": false
+        }
+      }
+    },
+    "secretPattern": {
+      "type": "object",
+      "required": ["name", "regex", "severity"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Name of the secret type",
+          "minLength": 1
+        },
+        "regex": {
+          "type": "string",
+          "description": "Regular expression pattern to match secrets",
+          "minLength": 1
+        },
+        "severity": {
+          "type": "string",
+          "enum": ["low", "medium", "high", "critical"],
+          "description": "Severity level of the secret"
+        }
+      }
+    }
+  }
+}

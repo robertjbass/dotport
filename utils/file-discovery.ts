@@ -7,16 +7,26 @@
 import fs from 'fs'
 import path from 'path'
 import os from 'os'
-import { OperatingSystem } from '../types/backup-config.js'
+import { OperatingSystem } from '../types/backup-config'
 
-export interface DiscoveredFile {
-  name: string           // Display name (e.g., '.zshrc', 'Ghostty config')
-  path: string           // Absolute path (e.g., '/Users/bob/.zshrc')
-  relativePath: string   // Relative to home (e.g., '~/.zshrc')
-  category: 'shell' | 'secrets' | 'git' | 'devtools' | 'ssh' | 'editor' | 'terminal' | 'app-config' | 'keybinding' | 'other'
-  exists: boolean        // Whether file actually exists
-  size?: number          // File size in bytes
-  isDirectory: boolean   // Whether it's a directory
+export type DiscoveredFile = {
+  name: string // Display name (e.g., '.zshrc', 'Ghostty config')
+  path: string // Absolute path (e.g., '/Users/bob/.zshrc')
+  relativePath: string // Relative to home (e.g., '~/.zshrc')
+  category:
+    | 'shell'
+    | 'secrets'
+    | 'git'
+    | 'devtools'
+    | 'ssh'
+    | 'editor'
+    | 'terminal'
+    | 'app-config'
+    | 'keybinding'
+    | 'other'
+  exists: boolean // Whether file actually exists
+  size?: number // File size in bytes
+  isDirectory: boolean // Whether it's a directory
 }
 
 /**
@@ -43,7 +53,10 @@ const COMMON_FILES = {
     { path: '~/.bashsecrets', name: '.bashsecrets' },
     { path: '~/.npmrc', name: '.npmrc (may contain auth tokens)' },
     { path: '~/.pypirc', name: '.pypirc (may contain PyPI credentials)' },
-    { path: '~/.docker/config.json', name: 'Docker config (may contain registry auth)' },
+    {
+      path: '~/.docker/config.json',
+      name: 'Docker config (may contain registry auth)',
+    },
     { path: '~/.aws/credentials', name: 'AWS credentials' },
   ],
 
@@ -95,9 +108,7 @@ const COMMON_FILES = {
   ],
 
   // SSH configuration
-  ssh: [
-    { path: '~/.ssh/config', name: 'SSH config' },
-  ],
+  ssh: [{ path: '~/.ssh/config', name: 'SSH config' }],
 
   // Editor configurations
   editor: [
@@ -107,42 +118,87 @@ const COMMON_FILES = {
 
     // VS Code (Linux/cross-platform paths)
     { path: '~/.config/Code/User/settings.json', name: 'VS Code settings' },
-    { path: '~/.config/Code/User/keybindings.json', name: 'VS Code keybindings' },
+    {
+      path: '~/.config/Code/User/keybindings.json',
+      name: 'VS Code keybindings',
+    },
     { path: '~/.config/Code/User/snippets', name: 'VS Code snippets' },
     { path: '~/.config/Code/User/profiles', name: 'VS Code profiles' },
     { path: '~/.config/Code/User/tasks.json', name: 'VS Code tasks' },
     { path: '~/.config/Code/User/launch.json', name: 'VS Code launch config' },
 
     // VS Code (macOS paths)
-    { path: '~/Library/Application Support/Code/User/settings.json', name: 'VS Code settings (macOS)' },
-    { path: '~/Library/Application Support/Code/User/keybindings.json', name: 'VS Code keybindings (macOS)' },
-    { path: '~/Library/Application Support/Code/User/snippets', name: 'VS Code snippets (macOS)' },
-    { path: '~/Library/Application Support/Code/User/profiles', name: 'VS Code profiles (macOS)' },
+    {
+      path: '~/Library/Application Support/Code/User/settings.json',
+      name: 'VS Code settings (macOS)',
+    },
+    {
+      path: '~/Library/Application Support/Code/User/keybindings.json',
+      name: 'VS Code keybindings (macOS)',
+    },
+    {
+      path: '~/Library/Application Support/Code/User/snippets',
+      name: 'VS Code snippets (macOS)',
+    },
+    {
+      path: '~/Library/Application Support/Code/User/profiles',
+      name: 'VS Code profiles (macOS)',
+    },
 
     // Cursor (AI-powered VS Code fork)
     { path: '~/.config/Cursor/User/settings.json', name: 'Cursor settings' },
-    { path: '~/.config/Cursor/User/keybindings.json', name: 'Cursor keybindings' },
+    {
+      path: '~/.config/Cursor/User/keybindings.json',
+      name: 'Cursor keybindings',
+    },
     { path: '~/.config/Cursor/User/snippets', name: 'Cursor snippets' },
     { path: '~/.config/Cursor/User/profiles', name: 'Cursor profiles' },
-    { path: '~/Library/Application Support/Cursor/User/settings.json', name: 'Cursor settings (macOS)' },
-    { path: '~/Library/Application Support/Cursor/User/keybindings.json', name: 'Cursor keybindings (macOS)' },
-    { path: '~/Library/Application Support/Cursor/User/snippets', name: 'Cursor snippets (macOS)' },
+    {
+      path: '~/Library/Application Support/Cursor/User/settings.json',
+      name: 'Cursor settings (macOS)',
+    },
+    {
+      path: '~/Library/Application Support/Cursor/User/keybindings.json',
+      name: 'Cursor keybindings (macOS)',
+    },
+    {
+      path: '~/Library/Application Support/Cursor/User/snippets',
+      name: 'Cursor snippets (macOS)',
+    },
 
     // Windsurf (Codeium IDE)
-    { path: '~/.config/Windsurf/User/settings.json', name: 'Windsurf settings' },
-    { path: '~/.config/Windsurf/User/keybindings.json', name: 'Windsurf keybindings' },
+    {
+      path: '~/.config/Windsurf/User/settings.json',
+      name: 'Windsurf settings',
+    },
+    {
+      path: '~/.config/Windsurf/User/keybindings.json',
+      name: 'Windsurf keybindings',
+    },
     { path: '~/.config/Windsurf/User/snippets', name: 'Windsurf snippets' },
     { path: '~/.config/Windsurf/User/profiles', name: 'Windsurf profiles' },
-    { path: '~/Library/Application Support/Windsurf/User/settings.json', name: 'Windsurf settings (macOS)' },
-    { path: '~/Library/Application Support/Windsurf/User/keybindings.json', name: 'Windsurf keybindings (macOS)' },
-    { path: '~/Library/Application Support/Windsurf/User/snippets', name: 'Windsurf snippets (macOS)' },
+    {
+      path: '~/Library/Application Support/Windsurf/User/settings.json',
+      name: 'Windsurf settings (macOS)',
+    },
+    {
+      path: '~/Library/Application Support/Windsurf/User/keybindings.json',
+      name: 'Windsurf keybindings (macOS)',
+    },
+    {
+      path: '~/Library/Application Support/Windsurf/User/snippets',
+      name: 'Windsurf snippets (macOS)',
+    },
 
     // JetBrains IDEs (common settings location)
     { path: '~/.config/JetBrains', name: 'JetBrains IDEs config' },
 
     // Sublime Text
     { path: '~/.config/sublime-text', name: 'Sublime Text config' },
-    { path: '~/Library/Application Support/Sublime Text/Packages/User', name: 'Sublime Text User packages (macOS)' },
+    {
+      path: '~/Library/Application Support/Sublime Text/Packages/User',
+      name: 'Sublime Text User packages (macOS)',
+    },
 
     // Emacs
     { path: '~/.emacs', name: '.emacs' },
@@ -194,13 +250,14 @@ const LINUX_FILES = {
     { path: '~/keyd-default.conf.backup', name: 'keyd config backup' },
   ],
   gnome: [
-    { path: '~/.local/share/gnome-shell/extensions', name: 'GNOME Shell extensions' },
+    {
+      path: '~/.local/share/gnome-shell/extensions',
+      name: 'GNOME Shell extensions',
+    },
     { path: '~/.config/gtk-3.0', name: 'GTK 3 settings' },
     { path: '~/.config/gtk-4.0', name: 'GTK 4 settings' },
   ],
-  scripts: [
-    { path: '~/scripts', name: 'Custom scripts directory' },
-  ],
+  scripts: [{ path: '~/scripts', name: 'Custom scripts directory' }],
 }
 
 /**
@@ -257,7 +314,7 @@ export function discoverConfigFiles(osType: OperatingSystem): DiscoveredFile[] {
 
   // Add common files
   Object.entries(COMMON_FILES).forEach(([category, files]) => {
-    files.forEach(file => {
+    files.forEach((file) => {
       const absolutePath = expandTilde(file.path)
       const fileInfo = checkFileExists(file.path)
 
@@ -274,7 +331,7 @@ export function discoverConfigFiles(osType: OperatingSystem): DiscoveredFile[] {
   // Add OS-specific files
   if (osType === 'macos') {
     Object.entries(MACOS_FILES).forEach(([category, files]) => {
-      files.forEach(file => {
+      files.forEach((file) => {
         const absolutePath = expandTilde(file.path)
         const fileInfo = checkFileExists(file.path)
 
@@ -289,7 +346,7 @@ export function discoverConfigFiles(osType: OperatingSystem): DiscoveredFile[] {
     })
   } else if (osType === 'linux') {
     Object.entries(LINUX_FILES).forEach(([category, files]) => {
-      files.forEach(file => {
+      files.forEach((file) => {
         const absolutePath = expandTilde(file.path)
         const fileInfo = checkFileExists(file.path)
 
@@ -311,16 +368,18 @@ export function discoverConfigFiles(osType: OperatingSystem): DiscoveredFile[] {
  * Get only files that exist
  */
 export function getExistingFiles(osType: OperatingSystem): DiscoveredFile[] {
-  return discoverConfigFiles(osType).filter(file => file.exists)
+  return discoverConfigFiles(osType).filter((file) => file.exists)
 }
 
 /**
  * Group files by category
  */
-export function groupFilesByCategory(files: DiscoveredFile[]): Map<string, DiscoveredFile[]> {
+export function groupFilesByCategory(
+  files: DiscoveredFile[],
+): Map<string, DiscoveredFile[]> {
   const grouped = new Map<string, DiscoveredFile[]>()
 
-  files.forEach(file => {
+  files.forEach((file) => {
     const category = file.category
     if (!grouped.has(category)) {
       grouped.set(category, [])
@@ -338,8 +397,8 @@ export function formatFileForDisplay(file: DiscoveredFile): string {
   const sizeStr = file.isDirectory
     ? '(dir)'
     : file.size
-    ? `(${formatBytes(file.size)})`
-    : ''
+      ? `(${formatBytes(file.size)})`
+      : ''
 
   return `${file.name} ${sizeStr} - ${file.relativePath}`
 }

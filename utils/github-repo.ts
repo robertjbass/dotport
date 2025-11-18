@@ -13,7 +13,7 @@ import { fileURLToPath } from 'url'
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
-export interface RepoCheckResult {
+export type RepoCheckResult = {
   exists: boolean
   isPrivate?: boolean
   url?: string
@@ -21,7 +21,7 @@ export interface RepoCheckResult {
   httpsUrl?: string
 }
 
-export interface CreateRepoOptions {
+export type CreateRepoOptions = {
   name: string
   isPrivate: boolean
   description?: string
@@ -33,7 +33,7 @@ export interface CreateRepoOptions {
  */
 export async function checkRepositoryExists(
   octokit: Octokit,
-  repoName: string
+  repoName: string,
 ): Promise<RepoCheckResult> {
   try {
     const { data: user } = await octokit.users.getAuthenticated()
@@ -70,7 +70,7 @@ export async function checkRepositoryExists(
  */
 export async function createRepository(
   octokit: Octokit,
-  options: CreateRepoOptions
+  options: CreateRepoOptions,
 ): Promise<{
   success: boolean
   url?: string
@@ -83,7 +83,8 @@ export async function createRepository(
 
     const { data: repo } = await octokit.repos.createForAuthenticatedUser({
       name: options.name,
-      description: options.description || 'Dotfiles and development machine configuration',
+      description:
+        options.description || 'Dotfiles and development machine configuration',
       private: options.isPrivate,
       auto_init: options.autoInit !== false, // Default to true
       gitignore_template: undefined,
@@ -92,7 +93,9 @@ export async function createRepository(
 
     console.log(chalk.green(`✅ Repository created successfully!`))
     console.log(chalk.gray(`   URL: ${repo.html_url}`))
-    console.log(chalk.gray(`   Visibility: ${repo.private ? 'Private' : 'Public'}\n`))
+    console.log(
+      chalk.gray(`   Visibility: ${repo.private ? 'Private' : 'Public'}\n`),
+    )
 
     return {
       success: true,
@@ -128,7 +131,7 @@ export async function listUserRepositories(
     type?: 'all' | 'owner' | 'public' | 'private' | 'member'
     sort?: 'created' | 'updated' | 'pushed' | 'full_name'
     perPage?: number
-  } = {}
+  } = {},
 ): Promise<Array<{ name: string; private: boolean; url: string }>> {
   try {
     const { data: repos } = await octokit.repos.listForAuthenticatedUser({
@@ -137,7 +140,7 @@ export async function listUserRepositories(
       per_page: options.perPage || 100,
     })
 
-    return repos.map(repo => ({
+    return repos.map((repo) => ({
       name: repo.name,
       private: repo.private,
       url: repo.html_url,
@@ -155,7 +158,7 @@ export async function listUserRepositories(
 export async function getRepositoryDetails(
   octokit: Octokit,
   owner: string,
-  repo: string
+  repo: string,
 ): Promise<{
   defaultBranch: string
   isPrivate: boolean
@@ -174,7 +177,9 @@ export async function getRepositoryDetails(
       httpsUrl: data.clone_url,
     }
   } catch (error: any) {
-    console.error(chalk.red(`❌ Failed to get repository details for ${owner}/${repo}`))
+    console.error(
+      chalk.red(`❌ Failed to get repository details for ${owner}/${repo}`),
+    )
     console.error(chalk.gray('Error: ' + error.message))
     throw error
   }
@@ -183,13 +188,25 @@ export async function getRepositoryDetails(
 /**
  * Create .gitignore file in the repository from template (local file system)
  */
-export function createGitignoreFile(repoPath: string, additionalPatterns?: string[]): boolean {
+export function createGitignoreFile(
+  repoPath: string,
+  additionalPatterns?: string[],
+): boolean {
   try {
     // Get the template path
-    const templatePath = path.join(__dirname, '..', 'templates', 'dotfiles.gitignore')
+    const templatePath = path.join(
+      __dirname,
+      '..',
+      'templates',
+      'dotfiles.gitignore',
+    )
 
     if (!fs.existsSync(templatePath)) {
-      console.error(chalk.yellow('⚠️  Warning: .gitignore template not found at ' + templatePath))
+      console.error(
+        chalk.yellow(
+          '⚠️  Warning: .gitignore template not found at ' + templatePath,
+        ),
+      )
       return false
     }
 
@@ -199,7 +216,7 @@ export function createGitignoreFile(repoPath: string, additionalPatterns?: strin
     // Add any additional patterns (e.g., user-selected secret files)
     if (additionalPatterns && additionalPatterns.length > 0) {
       gitignoreContent += '\n\n# Additional user-specified files\n'
-      additionalPatterns.forEach(pattern => {
+      additionalPatterns.forEach((pattern) => {
         gitignoreContent += `${pattern}\n`
       })
     }
@@ -227,11 +244,16 @@ export async function addGitignoreToRepo(
   owner: string,
   repo: string,
   branch: string = 'main',
-  additionalPatterns?: string[]
+  additionalPatterns?: string[],
 ): Promise<{ success: boolean; error?: string }> {
   try {
     // Get the template path
-    const templatePath = path.join(__dirname, '..', 'templates', 'dotfiles.gitignore')
+    const templatePath = path.join(
+      __dirname,
+      '..',
+      'templates',
+      'dotfiles.gitignore',
+    )
 
     if (!fs.existsSync(templatePath)) {
       return {
@@ -246,7 +268,7 @@ export async function addGitignoreToRepo(
     // Add any additional patterns (e.g., user-selected secret files)
     if (additionalPatterns && additionalPatterns.length > 0) {
       gitignoreContent += '\n\n# Additional user-specified files\n'
-      additionalPatterns.forEach(pattern => {
+      additionalPatterns.forEach((pattern) => {
         gitignoreContent += `${pattern}\n`
       })
     }

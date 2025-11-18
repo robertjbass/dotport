@@ -4,7 +4,7 @@
  * Parses various GitHub URL formats into a standardized format
  */
 
-export interface ParsedGitUrl {
+export type ParsedGitUrl = {
   owner: string
   repo: string
   fullUrl: string
