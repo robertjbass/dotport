@@ -86,8 +86,8 @@ async function getHomebrewPackages(): Promise<PackageInfo[]> {
         const version = parts.slice(1).join(' ') || undefined
         return { name, version }
       })
-  } catch (error) {
-    console.error('Error getting Homebrew packages:', error)
+  } catch (error: any) {
+    // Silently handle the error - package manager may not be installed
     return []
   }
 }
@@ -108,8 +108,8 @@ async function getHomebrewCasks(): Promise<PackageInfo[]> {
         const version = parts.slice(1).join(' ') || undefined
         return { name, version }
       })
-  } catch (error) {
-    console.error('Error getting Homebrew casks:', error)
+  } catch (error: any) {
+    // Silently handle the error - package manager may not be installed
     return []
   }
 }
@@ -135,8 +135,8 @@ async function getMasPackages(): Promise<PackageInfo[]> {
         }
         return { name: line.trim() }
       })
-  } catch (error) {
-    console.error('Error getting mas packages:', error)
+  } catch (error: any) {
+    // Silently handle the error - package manager may not be installed
     return []
   }
 }
@@ -161,8 +161,8 @@ async function getAptPackages(): Promise<PackageInfo[]> {
         const version = parts[1]
         return { name, version }
       })
-  } catch (error) {
-    console.error('Error getting APT packages:', error)
+  } catch (error: any) {
+    // Silently handle the error - package manager may not be installed
     return []
   }
 }
@@ -185,8 +185,8 @@ async function getDnfPackages(): Promise<PackageInfo[]> {
         const version = parts[1]
         return { name, version }
       })
-  } catch (error) {
-    console.error('Error getting DNF packages:', error)
+  } catch (error: any) {
+    // Silently handle the error - package manager may not be installed
     return []
   }
 }
@@ -205,8 +205,8 @@ async function getPacmanPackages(): Promise<PackageInfo[]> {
         const parts = line.split(' ')
         return { name: parts[0], version: parts[1] }
       })
-  } catch (error) {
-    console.error('Error getting Pacman packages:', error)
+  } catch (error: any) {
+    // Silently handle the error - package manager may not be installed
     return []
   }
 }
@@ -226,8 +226,8 @@ async function getSnapPackages(): Promise<PackageInfo[]> {
         const parts = line.split(/\s+/)
         return { name: parts[0], version: parts[1] }
       })
-  } catch (error) {
-    console.error('Error getting Snap packages:', error)
+  } catch (error: any) {
+    // Silently handle the error - package manager may not be installed
     return []
   }
 }
@@ -246,8 +246,8 @@ async function getFlatpakPackages(): Promise<PackageInfo[]> {
         const parts = line.split('\t')
         return { name: parts[0], version: parts[1] }
       })
-  } catch (error) {
-    console.error('Error getting Flatpak packages:', error)
+  } catch (error: any) {
+    // Silently handle the error - package manager may not be installed
     return []
   }
 }
@@ -271,8 +271,8 @@ async function getNpmPackages(): Promise<PackageInfo[]> {
     }
 
     return packages
-  } catch (error) {
-    console.error('Error getting npm packages:', error)
+  } catch (error: any) {
+    // Silently handle the error - package manager may not be installed
     return []
   }
 }
@@ -296,8 +296,8 @@ async function getPnpmPackages(): Promise<PackageInfo[]> {
     }
 
     return packages
-  } catch (error) {
-    console.error('Error getting pnpm packages:', error)
+  } catch (error: any) {
+    // Silently handle the error - package manager may not be installed
     return []
   }
 }
@@ -319,8 +319,8 @@ async function getYarnPackages(): Promise<PackageInfo[]> {
         }
         return { name: line.trim() }
       })
-  } catch (error) {
-    console.error('Error getting yarn packages:', error)
+  } catch (error: any) {
+    // Silently handle the error - package manager may not be installed
     return []
   }
 }
@@ -336,8 +336,8 @@ async function getPipPackages(): Promise<PackageInfo[]> {
       name: pkg.name,
       version: pkg.version,
     }))
-  } catch (error) {
-    console.error('Error getting pip packages:', error)
+  } catch (error: any) {
+    // Silently handle the error - package manager may not be installed
     return []
   }
 }
@@ -361,8 +361,8 @@ async function getPipxPackages(): Promise<PackageInfo[]> {
     }
 
     return packages
-  } catch (error) {
-    console.error('Error getting pipx packages:', error)
+  } catch (error: any) {
+    // Silently handle the error - package manager may not be installed
     return []
   }
 }
@@ -384,8 +384,8 @@ async function getCargoPackages(): Promise<PackageInfo[]> {
     }
 
     return packages
-  } catch (error) {
-    console.error('Error getting cargo packages:', error)
+  } catch (error: any) {
+    // Silently handle the error - package manager may not be installed
     return []
   }
 }
@@ -407,8 +407,8 @@ async function getGemPackages(): Promise<PackageInfo[]> {
         }
         return { name: line.trim() }
       })
-  } catch (error) {
-    console.error('Error getting gem packages:', error)
+  } catch (error: any) {
+    // Silently handle the error - package manager may not be installed
     return []
   }
 }
@@ -428,8 +428,8 @@ async function getGoPackages(): Promise<PackageInfo[]> {
         const parts = line.split(' ')
         return { name: parts[0], version: parts[1] }
       })
-  } catch (error) {
-    console.error('Error getting Go packages:', error)
+  } catch (error: any) {
+    // Silently handle the error - this is expected when no go.mod exists
     return []
   }
 }

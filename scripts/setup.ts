@@ -1114,14 +1114,15 @@ async function promptFileSelection(
   })
 
   try {
+    console.log(chalk.gray('  (use space to select, enter to confirm)\n'))
+
     const { selectedFiles } = await inquirer.prompt<{
       selectedFiles: DiscoveredFile[]
     }>([
       {
         type: 'checkbox',
         name: 'selectedFiles',
-        message:
-          'Select files to back up (use space to select, enter to confirm):',
+        message: 'Select files to back up',
         choices,
         pageSize: 15,
         validate: (input) => {
@@ -1133,12 +1134,19 @@ async function promptFileSelection(
       },
     ])
 
+    // Display selected files in a clean format
+    console.log(chalk.cyan(`\n📋 Selected ${selectedFiles.length} file(s):`))
+    selectedFiles.forEach((file) => {
+      console.log(chalk.gray(`  • ${file.name}`))
+    })
+    console.log()
+
     // Ask if they want to add more files manually
     const { addMore } = await inquirer.prompt<{ addMore: string }>([
       {
         type: 'list',
         name: 'addMore',
-        message: `\nSelected ${selectedFiles.length} file(s). Add more files manually?`,
+        message: 'Add more files manually?',
         choices: [
           { name: 'No, continue with the currently selected files only', value: 'no' },
           { name: 'Yes, add more files manually', value: 'yes' },
@@ -1308,12 +1316,18 @@ async function promptSecretStorage(
         secretChoices.push({ name: '← Go back', value: 'back' })
       }
 
+      console.log(
+        chalk.gray(
+          '  This includes local file(s) used for system environment variables\n',
+        ),
+      )
+
       const result = await inquirer.prompt<{ manageSecrets: string }>([
         {
           type: 'list',
           name: 'manageSecrets',
           message:
-            `Do you currently have secret management or wish to set up secret management?\n${chalk.dim('  This includes local file(s) used for system environment variables')}`,
+            'Do you currently have secret management or wish to set up secret management?',
           choices: secretChoices,
         },
       ])

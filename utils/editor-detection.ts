@@ -226,8 +226,38 @@ async function getVSCodeExtensions(
           enabled: true,
         }
       })
-  } catch (error) {
-    console.error(`Error getting extensions with command "${command}":`, error)
+  } catch (error: any) {
+    // If stdout exists despite the error (e.g., VS Code crash after outputting data),
+    // parse and return the extensions we got
+    if (error.stdout && typeof error.stdout === 'string') {
+      const stdout = error.stdout.trim()
+      if (stdout) {
+        return stdout
+          .split('\n')
+          .filter((line: string) => line.trim())
+          .map((line: string) => {
+            const match = line.match(/(.+)@(.+)/)
+            if (match) {
+              const id = match[1]
+              const version = match[2]
+              const parts = id.split('.')
+              return {
+                id,
+                version,
+                publisher: parts[0],
+                name: parts[1],
+                enabled: true,
+              }
+            }
+            return {
+              id: line.trim(),
+              enabled: true,
+            }
+          })
+      }
+    }
+
+    // Silently handle the error - command may have failed
     return []
   }
 }

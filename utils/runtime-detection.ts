@@ -405,7 +405,7 @@ export async function detectJavaVersion(): Promise<RuntimeVersion | null> {
         defaultVersion = version
       }
     } catch (error) {
-      console.error('Error detecting java version:', error)
+      // Silently handle the error - Java may not be installed
     }
   }
 

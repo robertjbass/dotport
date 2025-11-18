@@ -56,18 +56,30 @@ export function displayStepProgress(
   const filledLength = Math.round(
     (progressBarLength * currentStep) / totalSteps,
   )
-  const emptyLength = progressBarLength - filledLength
+  const emptyLength = Math.max(0, progressBarLength - filledLength)
   const progressBar = '█'.repeat(filledLength) + '░'.repeat(emptyLength)
 
   console.log(chalk.cyan(`\n┌${'─'.repeat(58)}┐`))
-  console.log(
-    chalk.cyan(
-      `│ Step ${currentStep} of ${totalSteps}: ${stepName}${' '.repeat(58 - 12 - stepName.length - String(currentStep).length - String(totalSteps).length)}│`,
-    ),
+
+  // Calculate spacing for step line, ensuring it's never negative
+  const stepLineSpacing = Math.max(
+    0,
+    58 - 12 - stepName.length - String(currentStep).length - String(totalSteps).length,
   )
   console.log(
     chalk.cyan(
-      `│ Progress: ${progressBar} ${percentage}%${' '.repeat(58 - 12 - progressBarLength - String(percentage).length - 1)}│`,
+      `│ Step ${currentStep} of ${totalSteps}: ${stepName}${' '.repeat(stepLineSpacing)}│`,
+    ),
+  )
+
+  // Calculate spacing for progress line, ensuring it's never negative
+  const progressLineSpacing = Math.max(
+    0,
+    58 - 12 - progressBarLength - String(percentage).length - 1,
+  )
+  console.log(
+    chalk.cyan(
+      `│ Progress: ${progressBar} ${percentage}%${' '.repeat(progressLineSpacing)}│`,
     ),
   )
   console.log(chalk.cyan(`└${'─'.repeat(58)}┘`))
