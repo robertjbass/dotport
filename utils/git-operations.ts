@@ -434,3 +434,76 @@ export async function getLastCommitAuthor(
     throw new Error(`Failed to get last commit author: ${error.message}`)
   }
 }
+
+/**
+ * Get all branches (local and remote) in a repository
+ *
+ * @param repoPath - Path to git repository (can contain tilde)
+ * @returns Object with local and remote branches
+ */
+export async function getAllBranches(repoPath: string): Promise<{
+  local: string[]
+  remote: string[]
+}> {
+  const absolutePath = expandTilde(repoPath)
+
+  try {
+    // Get local branches
+    const { stdout: localOutput } = await execPromise('git branch', {
+      cwd: absolutePath,
+    })
+    const local = localOutput
+      .split('\n')
+      .map((line) => line.replace('*', '').trim())
+      .filter(Boolean)
+
+    // Get remote branches
+    const { stdout: remoteOutput } = await execPromise('git branch -r', {
+      cwd: absolutePath,
+    })
+    const remote = remoteOutput
+      .split('\n')
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .filter((line) => !line.includes('HEAD'))
+      .map((line) => line.replace(/^origin\//, ''))
+
+    return { local, remote }
+  } catch (error: any) {
+    throw new Error(`Failed to get branches: ${error.message}`)
+  }
+}
+
+/**
+ * Checkout a branch in a repository
+ *
+ * @param repoPath - Path to git repository (can contain tilde)
+ * @param branch - Branch name to checkout
+ * @param options - Checkout options
+ * @returns Success status
+ */
+export async function checkoutBranch(
+  repoPath: string,
+  branch: string,
+  options: {
+    createIfMissing?: boolean
+  } = {},
+): Promise<{ success: boolean; error?: string }> {
+  const absolutePath = expandTilde(repoPath)
+  const { createIfMissing = false } = options
+
+  try {
+    let checkoutCommand = `git checkout ${branch}`
+    if (createIfMissing) {
+      checkoutCommand = `git checkout -b ${branch}`
+    }
+
+    await execPromise(checkoutCommand, { cwd: absolutePath })
+    return { success: true }
+  } catch (error: any) {
+    return {
+      success: false,
+      error: error.message,
+    }
+  }
+}
