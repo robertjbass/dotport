@@ -117,25 +117,18 @@ export function buildBackupConfig(options: {
   const detectedShell = shell || detectShell()
   const configFile = shellConfigFile || getShellConfigFile(detectedShell)
 
-  // Determine structure type
-  const structureType: 'flat' | 'nested' = multiOS ? 'nested' : 'flat'
-
-  // Build directory structure for nested repos
-  const directories: Record<string, string> = {}
-  if (multiOS) {
-    if (backupOS === 'macos') {
-      directories.macos = 'macos/'
-    } else if (backupOS === 'linux') {
-      // Use first supported distro or 'linux' as fallback
-      const distro = supportedDistros?.[0] || 'linux'
-      directories[distro] = `${distro}/`
-    }
-  }
+  // Always use nested structure (OS folders like macos/, debian/, etc.)
+  const structureType: 'flat' | 'nested' = 'nested'
 
   // Group tracked files by OS/distro
-  const osOrDistro = multiOS && backupOS === 'linux'
+  const osOrDistro = backupOS === 'linux'
     ? (supportedDistros?.[0] || 'linux')
     : backupOS
+
+  // Build directory structure for nested repos
+  const directories: Record<string, string> = {
+    [osOrDistro]: `${osOrDistro}/`
+  }
 
   // Build the complete config
   const config: BackupConfig = {
@@ -190,6 +183,36 @@ export function buildBackupConfig(options: {
       enabled: false,
       strategy: 'direct',
       conflictResolution: 'backup',
+    },
+
+    packages: DEFAULT_BACKUP_CONFIG.packages || {
+      enabled: false,
+      packageManagers: {},
+    },
+
+    applications: DEFAULT_BACKUP_CONFIG.applications || {
+      enabled: false,
+      applications: {},
+    },
+
+    extensions: DEFAULT_BACKUP_CONFIG.extensions || {
+      enabled: false,
+      editors: {},
+    },
+
+    services: DEFAULT_BACKUP_CONFIG.services || {
+      enabled: false,
+      services: {},
+    },
+
+    settings: DEFAULT_BACKUP_CONFIG.settings || {
+      enabled: false,
+      settings: {},
+    },
+
+    runtimes: DEFAULT_BACKUP_CONFIG.runtimes || {
+      enabled: false,
+      runtimes: {},
     },
 
     metadata: {
