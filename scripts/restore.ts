@@ -29,6 +29,16 @@ import {
   promptInput,
   BACK_OPTION,
 } from '../utils/prompt-helpers'
+import {
+  backupFileBeforeOverwrite,
+  getBackupSummary,
+  listAllBackups,
+  restoreBackupEntry,
+  findBackupEntriesForFile,
+  getBackupDirectory,
+  cleanupOldBackups,
+  type BackupEntry,
+} from '../utils/restore-backup'
 
 /**
  * Restore Script - Interactive restoration of backed up configuration
@@ -239,15 +249,21 @@ function restoreFile(
     const parentDir = path.dirname(absoluteTarget)
     ensureDirectory(parentDir)
 
-    // Check if target already exists
+    // Check if target already exists and back it up
     if (pathExists(absoluteTarget)) {
-      // Back up existing file with .backup extension
-      const backupFilePath = `${absoluteTarget}.backup`
-      fs.copyFileSync(absoluteTarget, backupFilePath)
-      displayInfo(
-        'Existing file backed up',
-        `Saved to: ${backupFilePath}`,
-      )
+      // Use the comprehensive backup system
+      const backupEntry = backupFileBeforeOverwrite(absoluteTarget)
+      if (backupEntry) {
+        displayInfo(
+          'Existing file backed up safely',
+          `Location: ${getBackupDirectory()}/${backupEntry.backupFilename}`,
+        )
+      } else {
+        displayWarning(
+          'Failed to backup existing file',
+          'Continuing with restore operation...',
+        )
+      }
     }
 
     if (action === 'copy-expected' || action === 'copy-custom') {
@@ -494,14 +510,154 @@ async function restoreRuntimes(
 }
 
 /**
+ * Manage backups menu - view, restore, and manage backed up files
+ */
+async function manageBackupsMenu(): Promise<void> {
+  while (true) {
+    console.log(chalk.cyan.bold('\n🗄️  Backup Management\n'))
+
+    const summary = getBackupSummary()
+
+    if (summary.totalBackups === 0) {
+      displayInfo(
+        'No backups found',
+        `Backup directory: ${summary.backupDirectory}\nBackups will be created automatically when you restore files that already exist.`,
+      )
+
+      const shouldReturn = await confirmAction('Return to main menu?', true)
+      if (shouldReturn) return
+      continue
+    }
+
+    // Display summary
+    console.log(chalk.gray(`Backup Directory: ${summary.backupDirectory}`))
+    console.log(chalk.gray(`Total Backups: ${summary.totalBackups}`))
+    console.log(chalk.gray(`Total Size: ${(summary.totalSize / 1024).toFixed(2)} KB`))
+    if (summary.oldestBackup) {
+      console.log(chalk.gray(`Oldest: ${new Date(summary.oldestBackup).toLocaleString()}`))
+    }
+    if (summary.newestBackup) {
+      console.log(chalk.gray(`Newest: ${new Date(summary.newestBackup).toLocaleString()}`))
+    }
+    console.log()
+
+    const action = await selectFromList<'list' | 'restore' | 'cleanup' | 'back'>(
+      'What would you like to do?',
+      [
+        { name: '📋 List all backups', value: 'list' },
+        { name: '♻️  Restore a backup', value: 'restore' },
+        { name: '🧹 Clean up old backups', value: 'cleanup' },
+        { name: '← Back to main menu', value: 'back' },
+      ],
+    )
+
+    if (action === BACK_OPTION || action === 'back') {
+      return
+    }
+
+    if (action === 'list') {
+      const backups = listAllBackups(true)
+
+      console.log(chalk.cyan.bold(`\n📋 All Backups (${backups.length})\n`))
+
+      backups.forEach((backup, index) => {
+        const date = new Date(backup.backedUpAt).toLocaleString()
+        const size = backup.originalSize ? `${(backup.originalSize / 1024).toFixed(2)} KB` : 'Unknown'
+        console.log(chalk.white(`${index + 1}. ${backup.filename}`))
+        console.log(chalk.gray(`   Location: ${backup.location}`))
+        console.log(chalk.gray(`   Backed up: ${date}`))
+        console.log(chalk.gray(`   Size: ${size}`))
+        console.log()
+      })
+
+      await confirmAction('Press Enter to continue...', true)
+    } else if (action === 'restore') {
+      const backups = listAllBackups(true)
+
+      const choices = backups.map((backup, index) => ({
+        name: `${backup.filename} (${new Date(backup.backedUpAt).toLocaleString()})`,
+        value: index,
+      }))
+
+      const selectedIndex = await selectFromList<number>(
+        'Select a backup to restore:',
+        choices,
+      )
+
+      if (selectedIndex !== BACK_OPTION) {
+        const backup = backups[selectedIndex]
+
+        displayWarning(
+          'Restore Backup',
+          `This will restore:\n  ${backup.location}\n  From: ${backup.backedUpAt}`,
+        )
+
+        const shouldRestore = await confirmAction(
+          'Are you sure you want to restore this backup?',
+          false,
+        )
+
+        if (shouldRestore && shouldRestore !== BACK_OPTION) {
+          const success = restoreBackupEntry(backup, false)
+
+          if (success) {
+            displaySuccess('Backup restored successfully', backup.location)
+
+            const shouldDelete = await confirmAction(
+              'Delete the backup file now that it has been restored?',
+              false,
+            )
+
+            if (shouldDelete && shouldDelete !== BACK_OPTION) {
+              restoreBackupEntry(backup, true)
+              displaySuccess('Backup file deleted')
+            }
+          } else {
+            displayError('Failed to restore backup')
+          }
+        }
+      }
+    } else if (action === 'cleanup') {
+      const daysInput = await promptInput(
+        'Delete backups older than how many days?',
+        {
+          defaultValue: '30',
+          validate: (input: string) => {
+            const num = parseInt(input, 10)
+            if (isNaN(num) || num < 1) {
+              return 'Please enter a valid number of days (minimum 1)'
+            }
+            return true
+          },
+        },
+      )
+
+      if (daysInput) {
+        const days = parseInt(daysInput, 10)
+        const cleanedCount = cleanupOldBackups(days)
+
+        if (cleanedCount > 0) {
+          displaySuccess(
+            `Cleaned up ${cleanedCount} old backup(s)`,
+            `Deleted backups older than ${days} days`,
+          )
+        } else {
+          displayInfo('No old backups to clean up', `All backups are newer than ${days} days`)
+        }
+      }
+    }
+  }
+}
+
+/**
  * Main restore menu
  */
 async function showRestoreMenu(
   config: RestoreConfig,
-): Promise<'dotfiles' | 'packages' | 'runtimes' | 'all' | 'exit'> {
+): Promise<'dotfiles' | 'packages' | 'runtimes' | 'all' | 'backups' | 'exit'> {
   const platformData = config.platform === 'darwin' ? config.data?.darwin : config.data?.linux
 
-  const choices: Array<{ name: string; value: 'dotfiles' | 'packages' | 'runtimes' | 'all' | 'exit' }> = []
+  const choices: Array<{ name: string; value: 'dotfiles' | 'packages' | 'runtimes' | 'all' | 'backups' | 'exit' }> = []
 
   // Count available items
   const dotfilesCount = platformData?.dotfiles
@@ -536,13 +692,24 @@ async function showRestoreMenu(
     value: 'all',
   })
 
+  // Get backup summary to show count
+  const backupSummary = getBackupSummary()
+  const backupLabel = backupSummary.totalBackups > 0
+    ? `🗄️  Manage Backups (${backupSummary.totalBackups} backup${backupSummary.totalBackups !== 1 ? 's' : ''})`
+    : '🗄️  Manage Backups'
+
+  choices.push({
+    name: backupLabel,
+    value: 'backups',
+  })
+
   choices.push({
     name: '🚪 Exit',
     value: 'exit',
   })
 
   const selection = await selectFromList<
-    'dotfiles' | 'packages' | 'runtimes' | 'all' | 'exit'
+    'dotfiles' | 'packages' | 'runtimes' | 'all' | 'backups' | 'exit'
   >('What would you like to restore?', choices)
 
   if (selection === BACK_OPTION) {
@@ -616,6 +783,11 @@ export default async function restore(): Promise<void> {
     if (selection === 'exit') {
       displaySuccess('Restore process exited', 'Goodbye!')
       break
+    }
+
+    if (selection === 'backups') {
+      await manageBackupsMenu()
+      continue // Return to main menu after backup management
     }
 
     if (selection === 'dotfiles' || selection === 'all') {
