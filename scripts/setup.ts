@@ -4,29 +4,29 @@ import inquirer from 'inquirer'
 import chalk from 'chalk'
 import fs from 'fs'
 import path from 'path'
-import os from 'os'
-import { exec } from 'child_process'
-import { promisify } from 'util'
 import ScriptSession from '../clients/script-session'
 
-const execPromise = promisify(exec)
-
+// Authentication and configuration
 import { authenticateWithGitHub } from '../utils/github-auth'
 import { getConfig, ensureDirectories } from '../utils/config'
+
+// Repository operations
 import {
   checkRepositoryExists,
   createRepository,
-  createGitignoreFile,
   addGitignoreToRepo,
 } from '../utils/github-repo'
+
+// Constants
 import {
   DEFAULT_REPO_NAME,
   DEFAULT_CLONE_LOCATION,
   COMMON_DISTRIBUTIONS,
   ALL_LINUX_DISTRIBUTIONS,
 } from '../utils/constants'
+
+// File discovery and backup
 import {
-  discoverConfigFiles,
   getExistingFiles,
   groupFilesByCategory,
   formatFileForDisplay,
@@ -38,12 +38,55 @@ import {
   generateRepoPath,
   previewBackup,
 } from '../utils/file-backup'
+
+// Schema export
 import { exportSchemaToRepo, createSchemaReadme } from '../utils/schema-export'
+
+// Type definitions
 import {
   TrackedFile,
   BackupConfig,
   DEFAULT_BACKUP_CONFIG,
 } from '../types/backup-config'
+
+// New utility modules
+import {
+  expandTilde,
+  validatePath,
+  pathExists,
+  isGitRepository,
+} from '../utils/path-helpers'
+import {
+  displayWelcome,
+  displayStepProgress,
+  displaySummarySection,
+  displayDivider,
+  displayError,
+  displaySuccess,
+  displayWarning,
+  displayInfo,
+  BACK_OPTION,
+} from '../utils/prompt-helpers'
+import {
+  getGitStatus,
+  stageAllChanges,
+  createGitCommit,
+  pushToRemote,
+  getCurrentBranch,
+  getAllBranches,
+  checkoutBranch,
+  pullFromRemote,
+} from '../utils/git-operations'
+import {
+  buildBackupConfig,
+  convertOSType,
+} from '../utils/schema-builder'
+import {
+  checkRCFileSourcesSecret,
+  addSecretSourceToRC,
+  parseEnvFile,
+  convertEnvToEnvSh,
+} from '../utils/shell-config'
 
 /**
  * Setup Script - Interactive configuration for dev machine backup/restore
@@ -69,6 +112,7 @@ type SecretStorageCategory =
 
 type SetupConfig = {
   os: OperatingSystem
+  shell?: string
   configFiles: {
     versionControl: boolean
     service: ConfigStorage
@@ -98,6 +142,11 @@ type SetupConfig = {
 
 /**
  * Detect operating system automatically
+ *
+ * Uses the ScriptSession client to determine the current operating system.
+ * Maps platform identifiers to user-friendly OS names.
+ *
+ * @returns Operating system type
  */
 function detectOS(): OperatingSystem {
   const platform = ScriptSession.operatingSystem
@@ -109,60 +158,19 @@ function detectOS(): OperatingSystem {
 }
 
 /**
- * Special symbol to indicate user wants to go back
+ * Detect the default shell
+ *
+ * Attempts to detect the user's default shell from environment variables.
+ *
+ * @returns Shell name (zsh, bash, fish, etc.) or null if unable to detect
  */
-const BACK_OPTION = Symbol('back')
+function detectShell(): string | null {
+  const shell = process.env.SHELL
+  if (!shell) return null
 
-/**
- * Display welcome message
- */
-function displayWelcome() {
-  console.clear()
-  console.log(chalk.cyan.bold('\n' + '='.repeat(60)))
-  console.log(
-    chalk.cyan.bold('  Dev Machine Backup & Restore - Interactive Setup'),
-  )
-  console.log(chalk.cyan.bold('='.repeat(60)))
-  console.log(
-    chalk.gray(
-      '\nThis wizard will help you configure your backup preferences.',
-    ),
-  )
-  console.log(
-    chalk.gray(
-      'Your responses will determine how your dotfiles and secrets are managed.\n',
-    ),
-  )
-}
-
-/**
- * Display step progress indicator
- */
-function displayStepProgress(
-  currentStep: number,
-  totalSteps: number,
-  stepName: string,
-) {
-  const percentage = Math.round((currentStep / totalSteps) * 100)
-  const progressBarLength = 40
-  const filledLength = Math.round(
-    (progressBarLength * currentStep) / totalSteps,
-  )
-  const emptyLength = progressBarLength - filledLength
-  const progressBar = '█'.repeat(filledLength) + '░'.repeat(emptyLength)
-
-  console.log(chalk.cyan(`\n┌${'─'.repeat(58)}┐`))
-  console.log(
-    chalk.cyan(
-      `│ Step ${currentStep} of ${totalSteps}: ${stepName}${' '.repeat(58 - 12 - stepName.length - String(currentStep).length - String(totalSteps).length)}│`,
-    ),
-  )
-  console.log(
-    chalk.cyan(
-      `│ Progress: ${progressBar} ${percentage}%${' '.repeat(58 - 12 - progressBarLength - String(percentage).length - 1)}│`,
-    ),
-  )
-  console.log(chalk.cyan(`└${'─'.repeat(58)}┘`))
+  // Extract shell name from path (e.g., /bin/zsh -> zsh)
+  const shellName = shell.split('/').pop()
+  return shellName || null
 }
 
 /**
@@ -174,7 +182,7 @@ async function promptOperatingSystem(
 ): Promise<OperatingSystem | typeof BACK_OPTION> {
   const detectedOS = detectOS()
 
-  displayStepProgress(stepNumber, 8, 'Operating System Detection')
+  displayStepProgress(stepNumber, 9, 'Operating System Detection')
 
   // First, confirm the detected OS
   const choices: any[] = [
@@ -245,14 +253,90 @@ async function promptOperatingSystem(
 }
 
 /**
+ * Prompt for default shell/terminal
+ */
+async function promptShell(
+  showBack = false,
+  stepNumber = 2,
+): Promise<string | typeof BACK_OPTION> {
+  const detectedShell = detectShell()
+
+  displayStepProgress(stepNumber, 9, 'Default Shell Detection')
+
+  console.log(
+    chalk.gray(
+      '\n  We need to know your default shell to configure the correct RC files.\n',
+    ),
+  )
+
+  const commonShells = ['zsh', 'bash', 'fish']
+  const choices: any[] = []
+
+  // If we detected a shell, show it first
+  if (detectedShell) {
+    console.log(chalk.gray(`  Detected shell: ${detectedShell}\n`))
+    choices.push({
+      name: `${detectedShell} (detected)`,
+      value: detectedShell,
+    })
+  }
+
+  // Add common shells that weren't detected
+  commonShells
+    .filter((shell) => shell !== detectedShell)
+    .forEach((shell) => {
+      choices.push({ name: shell, value: shell })
+    })
+
+  // Add "Other" option
+  choices.push({ name: 'Other (manual entry)', value: 'other' })
+
+  if (showBack) {
+    choices.push(new inquirer.Separator())
+    choices.push({ name: '← Go back', value: 'back' })
+  }
+
+  const { shell } = await inquirer.prompt<{ shell: string }>([
+    {
+      type: 'list',
+      name: 'shell',
+      message: 'What is your default shell?',
+      choices,
+    },
+  ])
+
+  if (shell === 'back') {
+    return BACK_OPTION
+  }
+
+  // If "Other", prompt for manual entry
+  if (shell === 'other') {
+    const { customShell } = await inquirer.prompt<{ customShell: string }>([
+      {
+        type: 'input',
+        name: 'customShell',
+        message: 'Enter your shell name:',
+        validate: (input) => {
+          if (!input.trim()) return 'Shell name is required'
+          return true
+        },
+      },
+    ])
+    return customShell.trim()
+  }
+
+  return shell
+}
+
+/**
  * Prompt for config file storage preferences
  */
 async function promptConfigFileStorage(
   currentOS: OperatingSystem,
   showBack = false,
-  stepNumber = 2,
+  stepNumber = 3,
 ): Promise<SetupConfig['configFiles'] | typeof BACK_OPTION> {
-  displayStepProgress(stepNumber, 8, 'Config File Storage')
+  displayStepProgress(stepNumber, 9, 'Config File Storage')
   console.log(
     chalk.gray(
       '\n  Config files: dotfiles like .bashrc, .zshrc, editor settings, etc.',
@@ -632,7 +716,7 @@ async function promptMultiOSSupport(currentOS: OperatingSystem): Promise<
       name: 'multiOS',
       message: 'Do you want to support multiple operating systems?',
       choices: [
-        { name: 'Yes, I want to support multiple OSes', value: 'yes' },
+        { name: 'Yes, I want to support multiple operating systems', value: 'yes' },
         { name: `No, just ${currentOS}`, value: 'no' },
         new inquirer.Separator(),
         { name: '← Go back', value: 'back' },
@@ -717,6 +801,17 @@ async function promptMultiOSSupport(currentOS: OperatingSystem): Promise<
 
 /**
  * Prompt for clone/repo location
+ *
+ * Asks user where their dotfiles repository is located (if existing)
+ * or where it should be created (if new). Validates the path and
+ * ensures it's a git repository if it should already exist.
+ * If it's an existing repo, prompts for branch selection and ensures
+ * the branch is checked out and up to date.
+ *
+ * @param repoExists - Whether the repository already exists
+ * @param repoName - Name of the repository
+ * @param showBack - Whether to show back navigation option
+ * @returns Absolute path to repository location or BACK_OPTION
  */
 async function promptCloneLocation(
   repoExists: boolean,
@@ -745,21 +840,17 @@ async function promptCloneLocation(
         validate: (input) => {
           if (!input.trim()) return 'Location is required'
 
-          // For existing repos, check if it exists
+          // Use validatePath utility for consistent validation
           if (repoExists) {
-            let expandedPath = input.trim()
-            if (expandedPath.startsWith('~/')) {
-              expandedPath = path.join(os.homedir(), expandedPath.slice(2))
-            }
+            const result = validatePath(input.trim(), {
+              mustExist: true,
+              mustBeDirectory: true,
+              mustBeGitRepo: true,
+            })
 
-            if (!fs.existsSync(expandedPath)) {
-              return `Directory does not exist: ${expandedPath}\nPlease provide the correct path to your existing repository`
-            }
-
-            // Check if it's a git repository
-            const gitDir = path.join(expandedPath, '.git')
-            if (!fs.existsSync(gitDir)) {
-              return `Not a git repository: ${expandedPath}\nPlease provide a path to a valid git repository`
+            // Return error message if validation failed
+            if (result !== true) {
+              return result
             }
           }
 
@@ -767,19 +858,13 @@ async function promptCloneLocation(
         },
         transformer: (input) => {
           // Show the expanded path
-          if (input.startsWith('~')) {
-            return input.replace('~', os.homedir())
-          }
-          return input
+          return expandTilde(input)
         },
       },
     ])
 
-    // Expand ~ to home directory
-    let expandedLocation = location.trim()
-    if (expandedLocation.startsWith('~')) {
-      expandedLocation = expandedLocation.replace('~', os.homedir())
-    }
+    // Expand path using utility
+    const expandedLocation = expandTilde(location.trim())
 
     // Offer confirmation with back option
     if (showBack) {
@@ -801,6 +886,99 @@ async function promptCloneLocation(
       if (confirm === 'retry') continue
     }
 
+    // If repo exists, handle branch selection and checkout
+    if (repoExists && isGitRepository(expandedLocation)) {
+      try {
+        // Get current branch
+        const currentBranch = await getCurrentBranch(expandedLocation)
+        console.log(chalk.gray(`\n  Current branch: ${currentBranch}\n`))
+
+        // Get all branches
+        const branches = await getAllBranches(expandedLocation)
+        const allBranches = Array.from(
+          new Set([...branches.local, ...branches.remote]),
+        )
+
+        if (allBranches.length === 0) {
+          console.log(
+            chalk.yellow(
+              '⚠️  No branches found. Using current branch.\n',
+            ),
+          )
+          return expandedLocation
+        }
+
+        // Prompt for branch selection
+        const { selectedBranch } = await inquirer.prompt<{
+          selectedBranch: string
+        }>([
+          {
+            type: 'list',
+            name: 'selectedBranch',
+            message: 'Which branch would you like to use?',
+            choices: allBranches,
+            default: currentBranch || 'main',
+          },
+        ])
+
+        // Checkout branch if different from current
+        if (selectedBranch !== currentBranch) {
+          console.log(
+            chalk.cyan(`\n🔄 Checking out branch: ${selectedBranch}...\n`),
+          )
+
+          const checkoutResult = await checkoutBranch(
+            expandedLocation,
+            selectedBranch,
+          )
+
+          if (!checkoutResult.success) {
+            console.log(
+              chalk.red(
+                `❌ Failed to checkout branch: ${checkoutResult.error}\n`,
+              ),
+            )
+            console.log(
+              chalk.yellow(
+                'Please manually checkout the branch and try again.\n',
+              ),
+            )
+            continue
+          }
+
+          console.log(
+            chalk.green(`✅ Checked out branch: ${selectedBranch}\n`),
+          )
+        }
+
+        // Pull latest changes
+        console.log(chalk.cyan('🔄 Pulling latest changes...\n'))
+        const pullResult = await pullFromRemote(expandedLocation, {
+          branch: selectedBranch,
+        })
+
+        if (!pullResult.success) {
+          console.log(
+            chalk.yellow(
+              `⚠️  Warning: Could not pull latest changes: ${pullResult.error}\n`,
+            ),
+          )
+          console.log(
+            chalk.gray('Continuing with local version of the repository.\n'),
+          )
+        } else {
+          console.log(chalk.green('✅ Repository is up to date\n'))
+        }
+      } catch (error: any) {
+        console.log(
+          chalk.yellow(
+            `⚠️  Warning: Could not check git status: ${error.message}\n`,
+          ),
+        )
+        console.log(chalk.gray('Continuing with repository as-is.\n'))
+      }
+    }
+
     return expandedLocation
   }
 }
@@ -810,9 +988,9 @@ async function promptCloneLocation(
  */
 async function promptFileSelection(
   osType: OperatingSystem,
-  stepNumber = 5,
+  stepNumber = 6,
 ): Promise<TrackedFile[] | typeof BACK_OPTION> {
-  displayStepProgress(stepNumber, 8, 'Select Files to Backup')
+  displayStepProgress(stepNumber, 9, 'Select Files to Backup')
   console.log(
     chalk.gray('\n  Choose which configuration files you want to back up\n'),
   )
@@ -931,9 +1109,9 @@ async function promptFileSelection(
       {
         type: 'list',
         name: 'addMore',
-        message: `Selected ${selectedFiles.length} file(s). Add more files manually?`,
+        message: `\nSelected ${selectedFiles.length} file(s). Add more files manually?`,
         choices: [
-          { name: 'No, continue with selected files', value: 'no' },
+          { name: 'No, continue with the currently selected files only', value: 'no' },
           { name: 'Yes, add more files manually', value: 'yes' },
         ],
       },
@@ -978,6 +1156,13 @@ async function promptFileSelection(
 
 /**
  * Prompt for manually adding files
+ *
+ * Allows users to manually specify files/directories to back up that
+ * weren't discovered automatically. Validates paths and asks whether
+ * they should be tracked in git or kept as secrets.
+ *
+ * @param existingFiles - Files already selected for backup
+ * @returns Updated list of files or BACK_OPTION
  */
 async function promptManualFileAddition(
   existingFiles: TrackedFile[],
@@ -999,18 +1184,12 @@ async function promptManualFileAddition(
         validate: (input) => {
           if (!input.trim()) return true // Allow empty to finish
 
-          // Expand tilde
-          let expandedPath = input.trim()
-          if (expandedPath.startsWith('~/')) {
-            expandedPath = path.join(os.homedir(), expandedPath.slice(2))
-          }
+          // Use validatePath utility
+          const result = validatePath(input.trim(), {
+            mustExist: true,
+          })
 
-          // Check if file exists
-          if (!fs.existsSync(expandedPath)) {
-            return `File or directory does not exist: ${expandedPath}`
-          }
-
-          return true
+          return result === true ? true : result
         },
       },
     ])
@@ -1020,17 +1199,11 @@ async function promptManualFileAddition(
       break
     }
 
-    // Expand path
-    let expandedPath = filePath.trim()
-    if (expandedPath.startsWith('~/')) {
-      expandedPath = path.join(os.homedir(), expandedPath.slice(2))
-    }
+    // Expand path using utility
+    const expandedPath = expandTilde(filePath.trim())
 
-    // Get relative path
-    const homeDir = os.homedir()
-    const relativePath = expandedPath.startsWith(homeDir)
-      ? '~' + expandedPath.slice(homeDir.length)
-      : expandedPath
+    // Get relative path using utility
+    const relativePath = `~${expandedPath.slice(expandTilde('~').length)}`
 
     // Check if it's a directory
     const stats = fs.statSync(expandedPath)
@@ -1050,14 +1223,15 @@ async function promptManualFileAddition(
     ])
 
     // Preserve directory structure from home directory
+    // Remove '~/' to get .ssh/config instead of just config
     const homeRelativePath = relativePath.startsWith('~/')
-      ? relativePath.slice(2) // Remove '~/' to get .ssh/config instead of just config
+      ? relativePath.slice(2)
       : path.basename(expandedPath)
 
     files.push({
       name: homeRelativePath,
       sourcePath: relativePath,
-      repoPath: '', // Will be set later
+      repoPath: '', // Will be set later based on OS/distro
       symlinkEnabled: !isDirectory,
       tracked: tracked === 'yes',
     })
@@ -1073,9 +1247,10 @@ async function promptManualFileAddition(
  */
 async function promptSecretStorage(
   showBack = false,
-  stepNumber = 3,
+  stepNumber = 4,
+  shell?: string,
 ): Promise<SetupConfig['secrets'] | typeof BACK_OPTION> {
-  displayStepProgress(stepNumber, 8, 'Secret Management')
+  displayStepProgress(stepNumber, 9, 'Secret Management')
   console.log(
     chalk.gray(
       '\n  Secrets: environment variables, API keys, SSH keys, etc.\n',
@@ -1100,7 +1275,7 @@ async function promptSecretStorage(
       type: 'list',
       name: 'manageSecrets',
       message:
-        'Do you currently have secret management or wish to set up secret management?',
+        `Do you currently have secret management or wish to set up secret management?\n${chalk.gray('  This includes local file(s) used for system environment variables')}`,
       choices: secretChoices,
     },
   ])
@@ -1251,22 +1426,19 @@ async function promptSecretStorage(
         message: 'Where is this file located?',
         default: '~',
         transformer: (input) => {
-          // Show the expanded path
-          if (input.startsWith('~')) {
-            return input.replace('~', os.homedir())
-          }
-          return input
+          // Show the expanded path using utility
+          return expandTilde(input)
         },
       },
     ])
     details.secretFileLocation = secretFileLocation
 
-    // Check if the file exists
+    // Check if the file exists using path utilities
     const fullPath = path.join(
-      secretFileLocation.replace('~', os.homedir()),
+      expandTilde(secretFileLocation),
       secretFileName,
     )
-    const fileExists = fs.existsSync(fullPath)
+    const fileExists = pathExists(fullPath)
 
     if (fileExists) {
       console.log(chalk.green(`\n✅ Found existing file at ${fullPath}\n`))
@@ -1274,22 +1446,28 @@ async function promptSecretStorage(
     } else {
       console.log(chalk.yellow(`\n⚠️  File not found at ${fullPath}\n`))
 
-      const { createFile } = await inquirer.prompt<{ createFile: string }>([
+      const { fileAction } = await inquirer.prompt<{ fileAction: string }>([
         {
           type: 'list',
-          name: 'createFile',
-          message: 'Would you like to create this file?',
+          name: 'fileAction',
+          message: 'What would you like to do?',
           choices: [
-            { name: 'Yes, create it now', value: 'yes' },
-            { name: "No, I'll create it manually later", value: 'no' },
+            { name: 'Create this file now', value: 'create' },
+            { name: 'Select a different file', value: 'select-different' },
+            { name: "I'll create it manually later", value: 'manual' },
           ],
         },
       ])
 
-      details.secretFileExists = 'no'
-      details.createSecretFile = createFile
+      if (fileAction === 'select-different') {
+        // Recursively prompt for a different file by returning to the local file type prompt
+        return await promptSecretStorage(showBack, stepNumber, shell)
+      }
 
-      if (createFile === 'yes') {
+      details.secretFileExists = 'no'
+      details.createSecretFile = fileAction === 'create' ? 'yes' : 'no'
+
+      if (fileAction === 'create') {
         try {
           // Create the directory if it doesn't exist
           const dir = path.dirname(fullPath)
@@ -1312,6 +1490,127 @@ async function promptSecretStorage(
         } catch (error: any) {
           console.log(chalk.red(`❌ Failed to create file: ${error.message}\n`))
           console.log(chalk.gray('You can create it manually later.\n'))
+        }
+      }
+    }
+
+    // Configure shell RC file to source the secret file
+    if (shell && details.secretFileExists === 'yes' && secretFileName) {
+      const secretFilePath = path.join(secretFileLocation, secretFileName)
+
+      // Check if the secret file uses export syntax
+      console.log(chalk.cyan('\n🔍 Checking secret file format...\n'))
+      const parsed = parseEnvFile(secretFilePath)
+
+      // If the file doesn't use exports and isn't already a .sh file, offer to convert
+      if (!parsed.hasExports && !secretFileName.endsWith('.sh')) {
+        console.log(
+          chalk.yellow(
+            `⚠️  Your secret file (${secretFileName}) doesn't use 'export' syntax.\n`,
+          ),
+        )
+        console.log(
+          chalk.gray(
+            '   For shell sourcing to work, variables need to be exported.\n',
+          ),
+        )
+
+        const { convertFile } = await inquirer.prompt<{ convertFile: string }>([
+          {
+            type: 'list',
+            name: 'convertFile',
+            message: 'Would you like to create a .env.sh file with proper exports?',
+            choices: [
+              { name: 'Yes, create .env.sh with exports', value: 'yes' },
+              { name: 'No, I will handle this manually', value: 'no' },
+            ],
+          },
+        ])
+
+        if (convertFile === 'yes') {
+          const envShPath = path.join(secretFileLocation, '.env.sh')
+          const convertResult = convertEnvToEnvSh(secretFilePath, envShPath)
+
+          if (convertResult.success) {
+            console.log(
+              chalk.green(
+                `\n✅ Created ${envShPath} with proper export syntax\n`,
+              ),
+            )
+            // Update the secret file name to the new .env.sh file
+            details.secretFileName = '.env.sh'
+          } else {
+            console.log(
+              chalk.red(
+                `\n❌ Failed to create .env.sh: ${convertResult.error}\n`,
+              ),
+            )
+          }
+        }
+      }
+
+      // Now configure the shell RC file
+      const finalSecretFile =
+        details.secretFileName || secretFileName
+      const finalSecretPath = path.join(secretFileLocation, finalSecretFile)
+
+      console.log(
+        chalk.cyan(
+          `\n🔧 Configuring ${shell} to source ${finalSecretPath}...\n`,
+        ),
+      )
+
+      // Check if already configured
+      if (checkRCFileSourcesSecret(shell, finalSecretPath)) {
+        console.log(
+          chalk.green(
+            `✅ Your .${shell}rc already sources ${finalSecretPath}\n`,
+          ),
+        )
+      } else {
+        const { addSource } = await inquirer.prompt<{ addSource: string }>([
+          {
+            type: 'list',
+            name: 'addSource',
+            message: `Add source command to .${shell}rc?`,
+            choices: [
+              { name: 'Yes, configure automatically', value: 'yes' },
+              { name: 'No, I will configure manually', value: 'no' },
+            ],
+          },
+        ])
+
+        if (addSource === 'yes') {
+          const addResult = addSecretSourceToRC(shell, finalSecretPath)
+
+          if (addResult.success) {
+            console.log(
+              chalk.green(
+                `\n✅ Added source command to .${shell}rc\n`,
+              ),
+            )
+            console.log(
+              chalk.gray(
+                `   Restart your shell or run: source ~/.${shell}rc\n`,
+              ),
+            )
+          } else {
+            console.log(
+              chalk.red(
+                `\n❌ Failed to update .${shell}rc: ${addResult.error}\n`,
+              ),
+            )
+            console.log(
+              chalk.gray(
+                `   You can manually add this to your .${shell}rc:\n`,
+              ),
+            )
+            console.log(
+              chalk.gray(
+                `   if [ -f ${finalSecretPath} ]; then source ${finalSecretPath}; fi\n`,
+              ),
+            )
+          }
         }
       }
     }
@@ -1389,37 +1688,57 @@ async function promptSecretStorage(
 
 /**
  * Display configuration summary
+ *
+ * Shows a formatted summary of the user's configuration choices
+ * before they confirm and save.
+ *
+ * @param config - Setup configuration to summarize
+ * @param stepNumber - Current step number for progress display
  */
-function displaySummary(config: SetupConfig, stepNumber = 4) {
-  displayStepProgress(stepNumber, 8, 'Configuration Summary')
+function displaySummary(config: SetupConfig, stepNumber = 5) {
+  displayStepProgress(stepNumber, 9, 'Configuration Summary')
   console.log()
 
-  console.log(chalk.bold('Operating System:'))
-  console.log(`  ${config.os}\n`)
+  // Operating System
+  displaySummarySection('Operating System', {
+    OS: config.os,
+    Shell: config.shell || 'Not specified',
+  })
 
-  console.log(chalk.bold('Config File Storage:'))
+  // Config File Storage
   if (config.configFiles.versionControl) {
-    console.log(`  Service: ${config.configFiles.service}`)
-    if (config.configFiles.gitRepoUrl) {
-      console.log(`  Repository: ${config.configFiles.gitRepoUrl}`)
-    }
+    displaySummarySection('Config File Storage', {
+      Service: config.configFiles.service,
+      Repository: config.configFiles.gitRepoUrl,
+      'Clone Location': config.configFiles.cloneLocation,
+      'Multi-OS Support': config.configFiles.multiOS ? 'Yes' : 'No',
+    })
   } else {
-    console.log('  Not using version control')
+    displaySummarySection('Config File Storage', {
+      'Version Control': 'Not using version control',
+    })
   }
-  console.log()
 
-  console.log(chalk.bold('Secret Management:'))
-  if (config.secrets.enabled) {
-    console.log(`  Type: ${config.secrets.storageType}`)
+  // Secret Management
+  if (config.secrets.enabled && config.secrets.storageType) {
+    const secretDetails: Record<string, string | undefined> = {
+      Type: config.secrets.storageType,
+    }
+
     if (config.secrets.details) {
       Object.entries(config.secrets.details).forEach(([key, value]) => {
-        console.log(`  ${key}: ${value}`)
+        if (value) {
+          secretDetails[key] = String(value)
+        }
       })
     }
+
+    displaySummarySection('Secret Management', secretDetails)
   } else {
-    console.log('  Not managing secrets')
+    displaySummarySection('Secret Management', {
+      Enabled: 'Not managing secrets',
+    })
   }
-  console.log()
 }
 
 /**
@@ -1430,9 +1749,9 @@ async function promptAndExecuteBackup(
   repoPath: string,
   osOrDistro: string,
   backupConfig: BackupConfig,
-  stepNumber = 6,
+  stepNumber = 7,
 ): Promise<boolean | typeof BACK_OPTION> {
-  displayStepProgress(stepNumber, 8, 'Backup Files to Repository')
+  displayStepProgress(stepNumber, 9, 'Backup Files to Repository')
 
   if (files.length === 0) {
     console.log(
@@ -1549,12 +1868,18 @@ async function saveConfiguration(config: SetupConfig) {
 
 /**
  * Prompt user to commit and push changes to the dotfiles repository
+ *
+ * Offers to commit and push changes to the remote repository.
+ * Uses the git-operations utility for reliable git commands with retry logic.
+ *
+ * @param repoPath - Path to the dotfiles repository
+ * @param stepNumber - Current step number for progress display
  */
 async function promptGitCommitAndPush(
   repoPath: string,
-  stepNumber = 7,
+  stepNumber = 8,
 ): Promise<void> {
-  displayStepProgress(stepNumber, 8, 'Git Commit & Push')
+  displayStepProgress(stepNumber, 9, 'Git Commit & Push')
   console.log()
 
   const { commitAndPush } = await inquirer.prompt<{ commitAndPush: string }>([
@@ -1564,8 +1889,8 @@ async function promptGitCommitAndPush(
       message:
         'Would you like to commit and push the changes to your dotfiles repository?',
       choices: [
-        { name: 'Yes, commit and push now', value: 'yes' },
         { name: 'No, I will do it manually later', value: 'no' },
+        { name: 'Yes, commit and push now', value: 'yes' },
       ],
     },
   ])
@@ -1574,45 +1899,46 @@ async function promptGitCommitAndPush(
     try {
       console.log(chalk.cyan('\n🔄 Committing and pushing changes...\n'))
 
-      // Check git status
-      const { stdout: status } = await execPromise('git status --porcelain', {
-        cwd: repoPath,
-      })
+      // Check git status using utility
+      const status = await getGitStatus(repoPath)
 
-      if (!status.trim()) {
+      if (!status.hasChanges) {
         console.log(chalk.yellow('ℹ️  No changes to commit.\n'))
         return
       }
 
-      // Stage all changes
-      await execPromise('git add .', { cwd: repoPath })
+      // Stage all changes using utility
+      await stageAllChanges(repoPath)
       console.log(chalk.green('✅ Staged all changes'))
 
-      // Create commit using heredoc for safety
+      // Create commit using utility
       const commitMessage = `Update dotfiles configuration
 
-🤖 Generated with dev-machine-backup-restore
+🤖 Generated with dev-machine-backup-restore`
 
-Co-Authored-By: dev-machine-backup-restore <noreply@github.com>`
+      const commitResult = await createGitCommit(repoPath, commitMessage, {
+        coAuthors: ['dev-machine-backup-restore <noreply@github.com>'],
+      })
 
-      await execPromise(
-        `git commit -m "$(cat <<'EOF'
-${commitMessage}
-EOF
-)"`,
-        { cwd: repoPath },
-      )
+      if (!commitResult.success) {
+        throw new Error(commitResult.error || 'Failed to create commit')
+      }
+
       console.log(chalk.green('✅ Created commit'))
 
-      // Push to remote
-      await execPromise('git push', { cwd: repoPath })
-      console.log(chalk.green('✅ Pushed to remote\n'))
+      // Push to remote using utility with retry logic
+      const pushResult = await pushToRemote(repoPath, { verbose: true })
 
+      if (!pushResult.success) {
+        throw new Error(pushResult.error || 'Failed to push to remote')
+      }
+
+      console.log(chalk.green('✅ Pushed to remote\n'))
       console.log(
         chalk.green('🎉 Changes successfully committed and pushed!\n'),
       )
     } catch (error: any) {
-      console.log(chalk.red(`\n❌ Failed to commit/push: ${error.message}\n`))
+      displayError('Failed to commit/push', error.message)
       console.log(chalk.yellow('You can commit and push manually:'))
       console.log(chalk.gray(`  cd ${repoPath}`))
       console.log(chalk.gray('  git add .'))
@@ -1639,17 +1965,18 @@ EOF
 async function promptSymlinkCreation(
   files: TrackedFile[],
   repoPath: string,
-  stepNumber = 8,
+  stepNumber = 9,
 ): Promise<void> {
-  displayStepProgress(stepNumber, 8, 'Create Symlinks')
+  displayStepProgress(stepNumber, 9, 'Create Symlinks')
   console.log(
     chalk.gray(
       '\nSymlinks allow files to be stored in your dotfiles repository',
     ),
   )
   console.log(
-    chalk.gray('while still being accessible from their expected locations.\n'),
+    chalk.gray('while still being accessible from their expected locations.'),
   )
+  console.log(chalk.gray('If you are unsure, select no.\n'))
 
   const { createSymlinks } = await inquirer.prompt<{ createSymlinks: string }>([
     {
@@ -1657,8 +1984,8 @@ async function promptSymlinkCreation(
       name: 'createSymlinks',
       message: 'Would you like to create symlinks for your backed up files?',
       choices: [
-        { name: 'Yes, let me select which files to symlink', value: 'yes' },
         { name: 'No, I will create them manually later', value: 'no' },
+        { name: 'Yes, let me select which files to symlink', value: 'yes' },
       ],
     },
   ])
@@ -1795,17 +2122,11 @@ async function promptSymlinkCreation(
 }
 
 /**
- * Expand tilde in path for symlink creation
- */
-function expandTilde(filePath: string): string {
-  if (filePath.startsWith('~/')) {
-    return path.join(os.homedir(), filePath.slice(2))
-  }
-  return filePath
-}
-
-/**
  * Display next steps
+ *
+ * Shows the user what to do next after completing setup.
+ *
+ * @param config - Setup configuration
  */
 function displayNextSteps(config: SetupConfig) {
   const appConfig = getConfig()
@@ -1875,10 +2196,27 @@ function handleInquirerExit(error: any): never {
 
 /**
  * Main setup function with back button support
+ *
+ * Orchestrates the entire interactive setup wizard:
+ * 1. OS Detection
+ * 2. Config File Storage setup
+ * 3. Secret Management configuration
+ * 4. Configuration confirmation
+ * 5. File selection
+ * 6. Backup execution
+ * 7. Git commit/push
+ * 8. Symlink creation
+ *
+ * Supports back navigation throughout the flow for easy correction of choices.
  */
 export default async function setup() {
   setupExitHandlers()
-  displayWelcome()
+
+  // Display welcome banner using utility
+  displayWelcome(
+    'Dev Machine Backup & Restore - Interactive Setup',
+    'This wizard will help you configure your backup preferences.\nYour responses will determine how your dotfiles and secrets are managed.',
+  )
 
   const config: SetupConfig = {
     os: 'macOS' as OperatingSystem,
@@ -1887,10 +2225,11 @@ export default async function setup() {
   }
 
   // State machine for navigation
-  type Step = 'os' | 'config' | 'secrets' | 'confirm' | 'files' | 'backup'
+  type Step = 'os' | 'shell' | 'config' | 'secrets' | 'confirm' | 'files' | 'backup'
   let currentStep: Step = 'os'
   const stepOrder: Step[] = [
     'os',
+    'shell',
     'config',
     'secrets',
     'confirm',
@@ -1910,17 +2249,25 @@ export default async function setup() {
           continue
         }
         config.os = os as OperatingSystem
+        currentStep = 'shell'
+      } else if (currentStep === 'shell') {
+        const shell = await promptShell(true, 2)
+        if (shell === BACK_OPTION) {
+          currentStep = 'os'
+          continue
+        }
+        config.shell = shell as string
         currentStep = 'config'
       } else if (currentStep === 'config') {
-        const configFiles = await promptConfigFileStorage(config.os, true, 2)
+        const configFiles = await promptConfigFileStorage(config.os, true, 3)
         if (configFiles === BACK_OPTION) {
-          currentStep = 'os'
+          currentStep = 'shell'
           continue
         }
         config.configFiles = configFiles as SetupConfig['configFiles']
         currentStep = 'secrets'
       } else if (currentStep === 'secrets') {
-        const secrets = await promptSecretStorage(true, 3)
+        const secrets = await promptSecretStorage(true, 4, config.shell)
         if (secrets === BACK_OPTION) {
           currentStep = 'config'
           continue
@@ -1928,7 +2275,7 @@ export default async function setup() {
         config.secrets = secrets as SetupConfig['secrets']
         currentStep = 'confirm'
       } else if (currentStep === 'confirm') {
-        displaySummary(config, 4)
+        displaySummary(config, 5)
 
         const { confirm } = await inquirer.prompt<{ confirm: string }>([
           {
@@ -2014,7 +2361,7 @@ export default async function setup() {
 
         // Select files to backup (manual file addition is handled within promptFileSelection)
         const osType = config.os === 'macOS' ? 'macos' : config.os.toLowerCase()
-        const files = await promptFileSelection(osType as any, 5)
+        const files = await promptFileSelection(osType as any, 6)
         if (files === BACK_OPTION) {
           currentStep = 'confirm'
           continue
@@ -2126,7 +2473,7 @@ export default async function setup() {
           config.configFiles.cloneLocation,
           osType,
           backupConfig,
-          6,
+          7,
         )
 
         if (backupResult === BACK_OPTION) {
@@ -2136,7 +2483,7 @@ export default async function setup() {
 
         // Backup complete, ask about git commit/push
         if (config.configFiles.cloneLocation) {
-          await promptGitCommitAndPush(config.configFiles.cloneLocation, 7)
+          await promptGitCommitAndPush(config.configFiles.cloneLocation, 8)
         }
 
         // Ask about creating symlinks
@@ -2144,7 +2491,7 @@ export default async function setup() {
           await promptSymlinkCreation(
             selectedFiles,
             config.configFiles.cloneLocation,
-            8,
+            9,
           )
         }
 
