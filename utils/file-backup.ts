@@ -7,9 +7,9 @@
 
 import fs from 'fs'
 import path from 'path'
-import os from 'os'
 import chalk from 'chalk'
 import { TrackedFile } from '../types/backup-config'
+import { expandTilde } from './path-helpers'
 
 export type BackupResult = {
   success: boolean
@@ -22,16 +22,6 @@ export type BackupResult = {
 export type BackupOptions = {
   dryRun?: boolean // If true, only simulate the backup without copying files
   verbose?: boolean // Show detailed output
-}
-
-/**
- * Expand tilde in path
- */
-function expandTilde(filePath: string): string {
-  if (filePath.startsWith('~/')) {
-    return path.join(os.homedir(), filePath.slice(2))
-  }
-  return filePath
 }
 
 /**

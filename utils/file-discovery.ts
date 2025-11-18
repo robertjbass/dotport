@@ -6,8 +6,8 @@
 
 import fs from 'fs'
 import path from 'path'
-import os from 'os'
 import { OperatingSystem } from '../types/backup-config'
+import { expandTilde, getRelativePath } from './path-helpers'
 
 export type DiscoveredFile = {
   name: string // Display name (e.g., '.zshrc', 'Ghostty config')
@@ -258,27 +258,6 @@ const LINUX_FILES = {
     { path: '~/.config/gtk-4.0', name: 'GTK 4 settings' },
   ],
   scripts: [{ path: '~/scripts', name: 'Custom scripts directory' }],
-}
-
-/**
- * Expand tilde in path
- */
-function expandTilde(filePath: string): string {
-  if (filePath.startsWith('~/')) {
-    return path.join(os.homedir(), filePath.slice(2))
-  }
-  return filePath
-}
-
-/**
- * Get relative path from home directory
- */
-function getRelativePath(absolutePath: string): string {
-  const homeDir = os.homedir()
-  if (absolutePath.startsWith(homeDir)) {
-    return '~' + absolutePath.slice(homeDir.length)
-  }
-  return absolutePath
 }
 
 /**
