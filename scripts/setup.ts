@@ -2462,6 +2462,30 @@ export default async function setup() {
             strategy: 'direct',
             conflictResolution: 'backup',
           },
+          packages: DEFAULT_BACKUP_CONFIG.packages || {
+            enabled: false,
+            packageManagers: {},
+          },
+          applications: DEFAULT_BACKUP_CONFIG.applications || {
+            enabled: false,
+            applications: {},
+          },
+          extensions: DEFAULT_BACKUP_CONFIG.extensions || {
+            enabled: false,
+            editors: {},
+          },
+          services: DEFAULT_BACKUP_CONFIG.services || {
+            enabled: false,
+            services: {},
+          },
+          settings: DEFAULT_BACKUP_CONFIG.settings || {
+            enabled: false,
+            settings: {},
+          },
+          runtimes: DEFAULT_BACKUP_CONFIG.runtimes || {
+            enabled: false,
+            runtimes: {},
+          },
           metadata: {
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),

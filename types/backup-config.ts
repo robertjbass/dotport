@@ -163,6 +163,208 @@ export type MetadataConfig = {
 }
 
 /**
+ * Package Manager Types
+ */
+export type PackageManagerType =
+  | 'homebrew' // macOS: brew
+  | 'homebrew-cask' // macOS: brew cask (GUI apps)
+  | 'mas' // macOS App Store
+  | 'apt' // Debian/Ubuntu
+  | 'dnf' // Fedora
+  | 'yum' // RHEL/CentOS
+  | 'pacman' // Arch
+  | 'snap' // Snap packages (cross-platform)
+  | 'flatpak' // Flatpak (cross-platform)
+  | 'npm' // npm global packages
+  | 'pnpm' // pnpm global packages
+  | 'yarn' // yarn global packages
+  | 'pip' // Python packages
+  | 'pipx' // Python applications
+  | 'cargo' // Rust packages
+  | 'gem' // Ruby packages
+  | 'go' // Go packages
+
+export type PackageInfo = {
+  name: string
+  version?: string
+  description?: string
+  installedAt?: string // ISO 8601 timestamp
+}
+
+export type PackageManager = {
+  type: PackageManagerType
+  enabled: boolean
+  packages: PackageInfo[]
+  exportedAt?: string // When package list was last exported
+  exportPath?: string // Path to exported package list file in dotfiles (e.g., 'macos/Brewfile')
+  command?: string // Command to export packages (e.g., 'brew bundle dump')
+  restoreCommand?: string // Command to restore packages (e.g., 'brew bundle install')
+}
+
+/**
+ * Application Types
+ */
+export type ApplicationInfo = {
+  name: string
+  version?: string
+  path?: string // Install path
+  bundleId?: string // macOS bundle identifier
+  installedVia?: PackageManagerType | 'manual' | 'app-store'
+  category?: string // e.g., 'development', 'productivity', 'utilities'
+}
+
+/**
+ * Editor/IDE Extension Types
+ */
+export type EditorType =
+  | 'vscode'
+  | 'vscode-insiders'
+  | 'cursor'
+  | 'windsurf'
+  | 'vim'
+  | 'neovim'
+  | 'jetbrains-idea' // IntelliJ IDEA
+  | 'jetbrains-pycharm' // PyCharm
+  | 'jetbrains-webstorm' // WebStorm
+  | 'jetbrains-other' // Other JetBrains IDEs
+  | 'sublime'
+  | 'emacs'
+  | 'zed'
+
+export type ExtensionInfo = {
+  id: string // Extension identifier (e.g., 'ms-python.python')
+  name?: string
+  version?: string
+  publisher?: string
+  enabled: boolean
+}
+
+export type EditorExtensions = {
+  editor: EditorType
+  enabled: boolean
+  configPath?: string // Path to editor config directory
+  extensions: ExtensionInfo[]
+  exportedAt?: string
+  exportPath?: string // Path to exported extensions list in dotfiles
+
+  // Keybindings
+  keybindingsPath?: string // Path to keybindings file in dotfiles
+  keybindingsBackedUp: boolean
+
+  // Settings
+  settingsPath?: string // Path to settings file in dotfiles
+  settingsBackedUp: boolean
+
+  // Snippets
+  snippetsPath?: string // Path to snippets directory in dotfiles
+  snippetsBackedUp: boolean
+}
+
+/**
+ * System Service Types (Linux systemd, macOS launchd)
+ */
+export type ServiceType = 'systemd' | 'launchd'
+
+export type SystemService = {
+  name: string
+  type: ServiceType
+  enabled: boolean
+  state?: 'running' | 'stopped' | 'failed' | 'unknown'
+  description?: string
+  configPath?: string // Path to service file
+  backupPath?: string // Path in dotfiles where service is backed up
+}
+
+/**
+ * System Settings Types
+ */
+export type SettingsType =
+  | 'gnome-gsettings'
+  | 'gnome-dconf'
+  | 'gnome-extensions'
+  | 'gnome-keybindings'
+  | 'macos-defaults'
+  | 'kde-plasma'
+  | 'xfce'
+
+export type SystemSettings = {
+  type: SettingsType
+  enabled: boolean
+  exportPath?: string // Path to exported settings file in dotfiles
+  exportedAt?: string
+  keys?: string[] // Specific keys/paths to track
+  command?: string // Command to export settings
+  restoreCommand?: string // Command to restore settings
+}
+
+/**
+ * Runtime Version Types (Node, Python, Ruby, etc.)
+ */
+export type RuntimeType =
+  | 'node'
+  | 'python'
+  | 'ruby'
+  | 'go'
+  | 'rust'
+  | 'java'
+  | 'php'
+  | 'deno'
+
+export type RuntimeVersion = {
+  type: RuntimeType
+  manager?: string // e.g., 'fnm', 'nvm', 'pyenv', 'rbenv', 'asdf', 'sdkman'
+  versions: string[] // Installed versions
+  defaultVersion?: string // Default/active version
+  exportedAt?: string
+  installCommand?: string // Command to install runtime (e.g., 'fnm install 24')
+}
+
+/**
+ * System Configuration (aggregates packages, apps, extensions, etc.)
+ */
+export type SystemPackagesConfig = {
+  enabled: boolean
+  packageManagers: {
+    [osOrDistro: string]: PackageManager[]
+  }
+}
+
+export type SystemApplicationsConfig = {
+  enabled: boolean
+  applications: {
+    [osOrDistro: string]: ApplicationInfo[]
+  }
+}
+
+export type SystemExtensionsConfig = {
+  enabled: boolean
+  editors: {
+    [osOrDistro: string]: EditorExtensions[]
+  }
+}
+
+export type SystemServicesConfig = {
+  enabled: boolean
+  services: {
+    [osOrDistro: string]: SystemService[]
+  }
+}
+
+export type SystemSettingsConfig = {
+  enabled: boolean
+  settings: {
+    [osOrDistro: string]: SystemSettings[]
+  }
+}
+
+export type SystemRuntimesConfig = {
+  enabled: boolean
+  runtimes: {
+    [osOrDistro: string]: RuntimeVersion[]
+  }
+}
+
+/**
  * Complete backup configuration schema
  */
 export type BackupConfig = {
@@ -172,6 +374,12 @@ export type BackupConfig = {
   dotfiles: DotfilesConfig
   secrets: SecretsConfig
   symlinks: SymlinksConfig
+  packages: SystemPackagesConfig
+  applications: SystemApplicationsConfig
+  extensions: SystemExtensionsConfig
+  services: SystemServicesConfig
+  settings: SystemSettingsConfig
+  runtimes: SystemRuntimesConfig
   metadata: MetadataConfig
 }
 
@@ -215,6 +423,30 @@ export const DEFAULT_BACKUP_CONFIG: Partial<BackupConfig> = {
     strategy: 'direct',
     conflictResolution: 'ask',
     backupLocation: '~/.dotfiles-backup',
+  },
+  packages: {
+    enabled: false,
+    packageManagers: {},
+  },
+  applications: {
+    enabled: false,
+    applications: {},
+  },
+  extensions: {
+    enabled: false,
+    editors: {},
+  },
+  services: {
+    enabled: false,
+    services: {},
+  },
+  settings: {
+    enabled: false,
+    settings: {},
+  },
+  runtimes: {
+    enabled: false,
+    runtimes: {},
   },
 }
 
