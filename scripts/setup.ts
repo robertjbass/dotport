@@ -39,6 +39,21 @@ import {
   previewBackup,
 } from '../utils/file-backup'
 
+// Package, extension, and runtime detection
+import {
+  detectPackageManagers,
+  createPackageManager,
+  getPackageManagerCommands,
+} from '../utils/package-detection'
+import {
+  detectInstalledEditors,
+  createEditorExtensions,
+  exportExtensionsToFile,
+} from '../utils/editor-detection'
+import {
+  detectAllRuntimes,
+} from '../utils/runtime-detection'
+
 // Schema export
 import { exportSchemaToRepo, createSchemaReadme } from '../utils/schema-export'
 
@@ -47,6 +62,10 @@ import {
   TrackedFile,
   BackupConfig,
   DEFAULT_BACKUP_CONFIG,
+  PackageManager,
+  EditorExtensions,
+  RuntimeVersion,
+  OperatingSystem as BackupOS,
 } from '../types/backup-config'
 
 // New utility modules
@@ -138,6 +157,9 @@ type SetupConfig = {
       createSecretFile?: string
     }
   }
+  detectedPackages?: PackageManager[]
+  detectedExtensions?: EditorExtensions[]
+  detectedRuntimes?: RuntimeVersion[]
 }
 
 /**
@@ -579,6 +601,7 @@ async function handleRepositorySetup(
       if (useExisting === 'back') return BACK_OPTION
 
       if (useExisting === 'yes') {
+        console.log('') // Add spacing after answer
         return {
           exists: true,
           repoName,
@@ -586,6 +609,8 @@ async function handleRepositorySetup(
           visibility: checkResult.isPrivate ? 'private' : 'public',
         }
       }
+
+      console.log('') // Add spacing before next question
 
       // User wants a different name
       const { newRepoName } = await inquirer.prompt<{ newRepoName: string }>([
@@ -710,11 +735,16 @@ async function promptMultiOSSupport(currentOS: OperatingSystem): Promise<
     }
   | typeof BACK_OPTION
 > {
+  console.log('') // Add spacing before question
+
   const { multiOS } = await inquirer.prompt<{ multiOS: string }>([
     {
       type: 'list',
       name: 'multiOS',
       message: 'Do you want to support multiple operating systems?',
+      prefix: chalk.gray(
+        'You can have 1 macOS setup and several different Linux distros.\nIf you select yes, you can prep your dotfiles repo for other OS configurations to add later.\n',
+      ),
       choices: [
         { name: 'Yes, I want to support multiple operating systems', value: 'yes' },
         { name: `No, just ${currentOS}`, value: 'no' },
@@ -1742,6 +1772,176 @@ function displaySummary(config: SetupConfig, stepNumber = 5) {
 }
 
 /**
+ * Prompt user for package, extension, and runtime detection
+ */
+async function promptSystemDetection(
+  os: OperatingSystem,
+  osOrDistro: string,
+  stepNumber = 6,
+): Promise<
+  | {
+      packages: PackageManager[]
+      extensions: EditorExtensions[]
+      runtimes: RuntimeVersion[]
+    }
+  | typeof BACK_OPTION
+> {
+  displayStepProgress(stepNumber, 9, 'Detect Packages, Extensions & Runtimes')
+
+  console.log('')
+  console.log(
+    chalk.gray(
+      'This step will detect and track:\n' +
+      '  • Package managers and installed packages (Homebrew, apt, npm, etc.)\n' +
+      '  • Editor extensions (VS Code, Cursor, Windsurf, Vim, etc.)\n' +
+      '  • Runtime versions (Node.js, Python, Ruby, etc.)\n',
+    ),
+  )
+
+  const { enableDetection } = await inquirer.prompt<{ enableDetection: string }>([
+    {
+      type: 'list',
+      name: 'enableDetection',
+      message: 'Do you want to detect and track system packages and configurations?',
+      choices: [
+        { name: 'Yes, detect packages, extensions, and runtimes', value: 'yes' },
+        { name: 'No, skip detection (only backup dotfiles)', value: 'no' },
+        new inquirer.Separator(),
+        { name: '← Go back', value: 'back' },
+      ],
+    },
+  ])
+
+  if (enableDetection === 'back') return BACK_OPTION
+
+  if (enableDetection === 'no') {
+    console.log(
+      chalk.yellow('\n⚠️  Skipping system detection. Only dotfiles will be tracked.\n'),
+    )
+    return { packages: [], extensions: [], runtimes: [] }
+  }
+
+  console.log('')
+  console.log(chalk.cyan('🔍 Detecting system packages and configurations...\n'))
+
+  const backupOsType: BackupOS = os === 'macOS' ? 'macos' : 'linux'
+
+  // Detect package managers
+  console.log(chalk.gray('  Detecting package managers...'))
+  const packageManagers: PackageManager[] = []
+  try {
+    const availableManagers = await detectPackageManagers(backupOsType)
+    console.log(chalk.green(`    ✓ Found ${availableManagers.length} package manager(s)`))
+
+    // Ask which package managers to track
+    if (availableManagers.length > 0) {
+      const { selectedManagers } = await inquirer.prompt<{
+        selectedManagers: string[]
+      }>([
+        {
+          type: 'checkbox',
+          name: 'selectedManagers',
+          message: 'Select package managers to track:',
+          choices: availableManagers.map((pm) => ({
+            name: pm,
+            value: pm,
+            checked: true,
+          })),
+        },
+      ])
+
+      // Get packages for selected managers
+      for (const manager of selectedManagers) {
+        console.log(chalk.gray(`    Getting packages for ${manager}...`))
+        try {
+          const pm = await createPackageManager(manager as any)
+          packageManagers.push(pm)
+          console.log(chalk.green(`      ✓ Found ${pm.packages.length} package(s)`))
+        } catch (error) {
+          console.log(chalk.yellow(`      ⚠️  Could not get packages for ${manager}`))
+        }
+      }
+    }
+  } catch (error) {
+    console.log(chalk.yellow('    ⚠️  Error detecting package managers'))
+  }
+
+  console.log('')
+
+  // Detect editors and extensions
+  console.log(chalk.gray('  Detecting editors and extensions...'))
+  const editorExtensions: EditorExtensions[] = []
+  try {
+    const installedEditors = await detectInstalledEditors(backupOsType)
+    console.log(chalk.green(`    ✓ Found ${installedEditors.length} editor(s)`))
+
+    if (installedEditors.length > 0) {
+      const { selectedEditors } = await inquirer.prompt<{
+        selectedEditors: string[]
+      }>([
+        {
+          type: 'checkbox',
+          name: 'selectedEditors',
+          message: 'Select editors to track extensions for:',
+          choices: installedEditors.map((editor) => ({
+            name: editor,
+            value: editor,
+            checked: true,
+          })),
+        },
+      ])
+
+      // Get extensions for selected editors
+      for (const editor of selectedEditors) {
+        console.log(chalk.gray(`    Getting extensions for ${editor}...`))
+        try {
+          const ext = await createEditorExtensions(editor as any, backupOsType, osOrDistro)
+          editorExtensions.push(ext)
+          console.log(chalk.green(`      ✓ Found ${ext.extensions.length} extension(s)`))
+        } catch (error) {
+          console.log(chalk.yellow(`      ⚠️  Could not get extensions for ${editor}`))
+        }
+      }
+    }
+  } catch (error) {
+    console.log(chalk.yellow('    ⚠️  Error detecting editors'))
+  }
+
+  console.log('')
+
+  // Detect runtimes
+  console.log(chalk.gray('  Detecting runtime versions...'))
+  const runtimes: RuntimeVersion[] = []
+  try {
+    const detectedRuntimes = await detectAllRuntimes()
+    console.log(chalk.green(`    ✓ Found ${detectedRuntimes.length} runtime(s)`))
+
+    for (const runtime of detectedRuntimes) {
+      console.log(
+        chalk.gray(
+          `      ${runtime.type}: ${runtime.defaultVersion || 'N/A'}${runtime.manager ? ` (${runtime.manager})` : ''}`,
+        ),
+      )
+      runtimes.push(runtime)
+    }
+  } catch (error) {
+    console.log(chalk.yellow('    ⚠️  Error detecting runtimes'))
+  }
+
+  console.log('')
+  console.log(
+    chalk.green(
+      `✓ Detection complete!\n` +
+      `  • ${packageManagers.length} package manager(s)\n` +
+      `  • ${editorExtensions.length} editor(s)\n` +
+      `  • ${runtimes.length} runtime(s)\n`,
+    ),
+  )
+
+  return { packages: packageManagers, extensions: editorExtensions, runtimes }
+}
+
+/**
  * Prompt user to confirm and execute file backup
  */
 async function promptAndExecuteBackup(
@@ -2225,7 +2425,7 @@ export default async function setup() {
   }
 
   // State machine for navigation
-  type Step = 'os' | 'shell' | 'config' | 'secrets' | 'confirm' | 'files' | 'backup'
+  type Step = 'os' | 'shell' | 'config' | 'secrets' | 'confirm' | 'files' | 'detect' | 'backup'
   let currentStep: Step = 'os'
   const stepOrder: Step[] = [
     'os',
@@ -2395,6 +2595,30 @@ export default async function setup() {
           ),
         }))
 
+        currentStep = 'detect'
+      } else if (currentStep === 'detect') {
+        // Detect packages, extensions, and runtimes
+        const osType = config.os === 'macOS' ? 'macos' : config.os.toLowerCase()
+        const osOrDistro = config.os === 'macOS'
+          ? 'macos'
+          : (config.configFiles.supportedDistros?.[0] || 'linux')
+
+        const detectionResult = await promptSystemDetection(
+          config.os,
+          osOrDistro,
+          7,
+        )
+
+        if (detectionResult === BACK_OPTION) {
+          currentStep = 'files'
+          continue
+        }
+
+        // Store detected data in config
+        config.detectedPackages = detectionResult.packages
+        config.detectedExtensions = detectionResult.extensions
+        config.detectedRuntimes = detectionResult.runtimes
+
         currentStep = 'backup'
       } else if (currentStep === 'backup') {
         // Execute backup
@@ -2410,6 +2634,10 @@ export default async function setup() {
 
         // Build BackupConfig for schema export
         const osType = config.os === 'macOS' ? 'macos' : 'linux'
+        const osOrDistro = config.os === 'macOS'
+          ? 'macos'
+          : (config.configFiles.supportedDistros?.[0] || 'linux')
+
         const backupConfig: BackupConfig = {
           ...DEFAULT_BACKUP_CONFIG,
           version: '1.0.0',
@@ -2440,7 +2668,7 @@ export default async function setup() {
                 : {},
             },
             trackedFiles: {
-              [osType]: {
+              [osOrDistro]: {
                 files: selectedFiles,
               },
             },
@@ -2462,17 +2690,21 @@ export default async function setup() {
             strategy: 'direct',
             conflictResolution: 'backup',
           },
-          packages: DEFAULT_BACKUP_CONFIG.packages || {
-            enabled: false,
-            packageManagers: {},
+          packages: {
+            enabled: (config.detectedPackages?.length || 0) > 0,
+            packageManagers: {
+              [osOrDistro]: config.detectedPackages || [],
+            },
           },
           applications: DEFAULT_BACKUP_CONFIG.applications || {
             enabled: false,
             applications: {},
           },
-          extensions: DEFAULT_BACKUP_CONFIG.extensions || {
-            enabled: false,
-            editors: {},
+          extensions: {
+            enabled: (config.detectedExtensions?.length || 0) > 0,
+            editors: {
+              [osOrDistro]: config.detectedExtensions || [],
+            },
           },
           services: DEFAULT_BACKUP_CONFIG.services || {
             enabled: false,
@@ -2482,9 +2714,11 @@ export default async function setup() {
             enabled: false,
             settings: {},
           },
-          runtimes: DEFAULT_BACKUP_CONFIG.runtimes || {
-            enabled: false,
-            runtimes: {},
+          runtimes: {
+            enabled: (config.detectedRuntimes?.length || 0) > 0,
+            runtimes: {
+              [osOrDistro]: config.detectedRuntimes || [],
+            },
           },
           metadata: {
             createdAt: new Date().toISOString(),
@@ -2495,19 +2729,111 @@ export default async function setup() {
         const backupResult = await promptAndExecuteBackup(
           selectedFiles,
           config.configFiles.cloneLocation,
-          osType,
+          osOrDistro,
           backupConfig,
-          7,
+          8,
         )
 
         if (backupResult === BACK_OPTION) {
-          currentStep = 'files'
+          currentStep = 'detect'
           continue
+        }
+
+        // Export detected packages, extensions, and runtimes to files
+        if (config.configFiles.cloneLocation) {
+          const repoPath = expandTilde(config.configFiles.cloneLocation)
+          const osDir = config.configFiles.multiOS ? osOrDistro : ''
+          const baseDir = osDir ? path.join(repoPath, osDir) : repoPath
+
+          // Export package manager data
+          if (config.detectedPackages && config.detectedPackages.length > 0) {
+            console.log(chalk.cyan('\n📦 Exporting package lists...\n'))
+            for (const pm of config.detectedPackages) {
+              if (pm.exportPath) {
+                const exportFilePath = path.join(baseDir, pm.exportPath)
+                const exportDir = path.dirname(exportFilePath)
+
+                // Ensure directory exists
+                if (!fs.existsSync(exportDir)) {
+                  fs.mkdirSync(exportDir, { recursive: true })
+                }
+
+                // Export package list
+                try {
+                  const packageData = {
+                    type: pm.type,
+                    exportedAt: pm.exportedAt,
+                    packages: pm.packages,
+                    restoreCommand: pm.restoreCommand,
+                  }
+                  fs.writeFileSync(
+                    exportFilePath,
+                    JSON.stringify(packageData, null, 2),
+                    'utf-8',
+                  )
+                  console.log(chalk.green(`  ✓ Exported ${pm.type} to ${pm.exportPath}`))
+                } catch (error) {
+                  console.log(chalk.yellow(`  ⚠️  Could not export ${pm.type}`))
+                }
+              }
+            }
+          }
+
+          // Export editor extensions
+          if (config.detectedExtensions && config.detectedExtensions.length > 0) {
+            console.log(chalk.cyan('\n🔌 Exporting editor extensions...\n'))
+            for (const editor of config.detectedExtensions) {
+              if (editor.exportPath) {
+                const exportFilePath = path.join(baseDir, editor.exportPath)
+                const exportDir = path.dirname(exportFilePath)
+
+                // Ensure directory exists
+                if (!fs.existsSync(exportDir)) {
+                  fs.mkdirSync(exportDir, { recursive: true })
+                }
+
+                // Export extensions
+                try {
+                  await exportExtensionsToFile(editor, exportFilePath)
+                  console.log(chalk.green(`  ✓ Exported ${editor.editor} extensions to ${editor.exportPath}`))
+                } catch (error) {
+                  console.log(chalk.yellow(`  ⚠️  Could not export ${editor.editor} extensions`))
+                }
+              }
+            }
+          }
+
+          // Export runtime versions
+          if (config.detectedRuntimes && config.detectedRuntimes.length > 0) {
+            console.log(chalk.cyan('\n⚙️  Exporting runtime versions...\n'))
+            const runtimesFilePath = path.join(baseDir, '.config/runtimes.json')
+            const runtimesDir = path.dirname(runtimesFilePath)
+
+            // Ensure directory exists
+            if (!fs.existsSync(runtimesDir)) {
+              fs.mkdirSync(runtimesDir, { recursive: true })
+            }
+
+            try {
+              const runtimesData = {
+                exportedAt: new Date().toISOString(),
+                runtimes: config.detectedRuntimes,
+              }
+              fs.writeFileSync(
+                runtimesFilePath,
+                JSON.stringify(runtimesData, null, 2),
+                'utf-8',
+              )
+              console.log(chalk.green(`  ✓ Exported runtime versions to .config/runtimes.json`))
+            } catch (error) {
+              console.log(chalk.yellow('  ⚠️  Could not export runtime versions'))
+            }
+          }
         }
 
         // Backup complete, ask about git commit/push
         if (config.configFiles.cloneLocation) {
-          await promptGitCommitAndPush(config.configFiles.cloneLocation, 8)
+          await promptGitCommitAndPush(config.configFiles.cloneLocation, 9)
         }
 
         // Ask about creating symlinks
@@ -2515,7 +2841,7 @@ export default async function setup() {
           await promptSymlinkCreation(
             selectedFiles,
             config.configFiles.cloneLocation,
-            9,
+            10,
           )
         }
 
