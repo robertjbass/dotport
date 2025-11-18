@@ -12,9 +12,9 @@ import path from 'path'
 import os from 'os'
 import { exec } from 'child_process'
 import { promisify } from 'util'
-import { backupFilesToRepo } from '../utils/file-backup.js'
-import { exportSchemaToRepo } from '../utils/schema-export.js'
-import type { TrackedFile, BackupConfig } from '../types/backup-config.js'
+import { backupFilesToRepo } from '../utils/file-backup'
+import { exportSchemaToRepo } from '../utils/schema-export'
+import type { TrackedFile, BackupConfig } from '../types/backup-config'
 
 const execPromise = promisify(exec)
 
@@ -35,15 +35,23 @@ describe('Dry Run - Full Backup Flow', () => {
 
     // Initialize git repository
     await execPromise('git init', { cwd: repoDir })
-    await execPromise('git config user.email "test@example.com"', { cwd: repoDir })
+    await execPromise('git config user.email "test@example.com"', {
+      cwd: repoDir,
+    })
     await execPromise('git config user.name "Test User"', { cwd: repoDir })
 
     // Create test dotfiles in fake home directory
     testFiles = new Map()
 
     const dotfiles = [
-      { name: '.zshrc', content: '# Zsh configuration\nexport PATH=$HOME/bin:$PATH' },
-      { name: '.gitconfig', content: '[user]\n\tname = Test User\n\temail = test@example.com' },
+      {
+        name: '.zshrc',
+        content: '# Zsh configuration\nexport PATH=$HOME/bin:$PATH',
+      },
+      {
+        name: '.gitconfig',
+        content: '[user]\n\tname = Test User\n\temail = test@example.com',
+      },
       { name: '.vimrc', content: 'set number\nset tabstop=2' },
     ]
 
@@ -84,15 +92,23 @@ describe('Dry Run - Full Backup Flow', () => {
       },
     ]
 
-    const result = await backupFilesToRepo(trackedFiles, repoDir, 'macos', { verbose: false })
+    const result = await backupFilesToRepo(trackedFiles, repoDir, 'macos', {
+      verbose: false,
+    })
 
     assert.strictEqual(result.success, true, 'Backup should succeed')
     assert.strictEqual(result.backedUpCount, 2, 'Should backup 2 files')
     assert.strictEqual(result.errors.length, 0, 'Should have no errors')
 
     // Verify files exist in repo
-    assert.ok(fs.existsSync(path.join(repoDir, 'macos', '.zshrc')), '.zshrc should be in repo')
-    assert.ok(fs.existsSync(path.join(repoDir, 'macos', '.gitconfig')), '.gitconfig should be in repo')
+    assert.ok(
+      fs.existsSync(path.join(repoDir, 'macos', '.zshrc')),
+      '.zshrc should be in repo',
+    )
+    assert.ok(
+      fs.existsSync(path.join(repoDir, 'macos', '.gitconfig')),
+      '.gitconfig should be in repo',
+    )
   })
 
   it('should preserve directory structure', async () => {
@@ -106,12 +122,23 @@ describe('Dry Run - Full Backup Flow', () => {
       },
     ]
 
-    const result = await backupFilesToRepo(trackedFiles, repoDir, 'macos', { verbose: false })
+    const result = await backupFilesToRepo(trackedFiles, repoDir, 'macos', {
+      verbose: false,
+    })
 
     assert.strictEqual(result.success, true, 'Backup should succeed')
 
-    const nestedFile = path.join(repoDir, 'macos', '.config', 'nvim', 'init.vim')
-    assert.ok(fs.existsSync(nestedFile), 'Nested file should exist in correct directory structure')
+    const nestedFile = path.join(
+      repoDir,
+      'macos',
+      '.config',
+      'nvim',
+      'init.vim',
+    )
+    assert.ok(
+      fs.existsSync(nestedFile),
+      'Nested file should exist in correct directory structure',
+    )
   })
 
   it('should export schema to repository', async () => {
@@ -128,7 +155,11 @@ describe('Dry Run - Full Backup Flow', () => {
       },
     }
 
-    const result = await exportSchemaToRepo(backupConfig as BackupConfig, repoDir, { verbose: false })
+    const result = await exportSchemaToRepo(
+      backupConfig as BackupConfig,
+      repoDir,
+      { verbose: false },
+    )
 
     assert.strictEqual(result.success, true, 'Schema export should succeed')
 
@@ -137,7 +168,11 @@ describe('Dry Run - Full Backup Flow', () => {
 
     // Verify schema content
     const schemaContent = JSON.parse(fs.readFileSync(schemaPath, 'utf-8'))
-    assert.strictEqual(schemaContent.version, '1.0.0', 'Schema should have correct version')
+    assert.strictEqual(
+      schemaContent.version,
+      '1.0.0',
+      'Schema should have correct version',
+    )
   })
 
   it('should create git commits', async () => {
@@ -161,10 +196,20 @@ describe('Dry Run - Full Backup Flow', () => {
       },
     ]
 
-    const result = await backupFilesToRepo(trackedFiles, repoDir, 'macos', { verbose: false })
+    const result = await backupFilesToRepo(trackedFiles, repoDir, 'macos', {
+      verbose: false,
+    })
 
-    assert.strictEqual(result.success, true, 'Should complete even with missing files')
-    assert.strictEqual(result.backedUpCount, 0, 'Should not backup missing files')
+    assert.strictEqual(
+      result.success,
+      true,
+      'Should complete even with missing files',
+    )
+    assert.strictEqual(
+      result.backedUpCount,
+      0,
+      'Should not backup missing files',
+    )
     assert.ok(result.errors.length > 0, 'Should have errors for missing files')
   })
 
@@ -174,7 +219,10 @@ describe('Dry Run - Full Backup Flow', () => {
     fs.mkdirSync(sshDir, { recursive: true })
 
     const privateKey = path.join(sshDir, 'id_rsa')
-    fs.writeFileSync(privateKey, '-----BEGIN RSA PRIVATE KEY-----\nfake key content')
+    fs.writeFileSync(
+      privateKey,
+      '-----BEGIN RSA PRIVATE KEY-----\nfake key content',
+    )
 
     const sshConfig = path.join(sshDir, 'config')
     fs.writeFileSync(sshConfig, 'Host github.com\n  IdentityFile ~/.ssh/id_rsa')
@@ -196,13 +244,23 @@ describe('Dry Run - Full Backup Flow', () => {
       },
     ]
 
-    const result = await backupFilesToRepo(trackedFiles, repoDir, 'macos', { verbose: false })
+    const result = await backupFilesToRepo(trackedFiles, repoDir, 'macos', {
+      verbose: false,
+    })
 
     // SSH keys should be skipped, but config should be backed up
-    const backedUpKey = fs.existsSync(path.join(repoDir, 'macos', '.ssh', 'id_rsa'))
-    const backedUpConfig = fs.existsSync(path.join(repoDir, 'macos', '.ssh', 'config'))
+    const backedUpKey = fs.existsSync(
+      path.join(repoDir, 'macos', '.ssh', 'id_rsa'),
+    )
+    const backedUpConfig = fs.existsSync(
+      path.join(repoDir, 'macos', '.ssh', 'config'),
+    )
 
-    assert.strictEqual(backedUpKey, false, 'SSH private key should NOT be backed up')
+    assert.strictEqual(
+      backedUpKey,
+      false,
+      'SSH private key should NOT be backed up',
+    )
     assert.strictEqual(backedUpConfig, true, 'SSH config should be backed up')
   })
 })

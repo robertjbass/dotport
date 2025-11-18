@@ -13,22 +13,22 @@ import { dirname } from 'path'
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
 
-export interface SecretPattern {
+export type SecretPattern = {
   name: string
   regex: string
   severity: 'low' | 'medium' | 'high' | 'critical'
 }
 
-export interface SecretMatch {
+export type SecretMatch = {
   pattern: string
   severity: 'low' | 'medium' | 'high' | 'critical'
   line: number
   column: number
   match: string
-  context: string  // Surrounding text for context
+  context: string // Surrounding text for context
 }
 
-export interface ScanResult {
+export type ScanResult = {
   filePath: string
   scanned: boolean
   containsSecrets: boolean
@@ -42,7 +42,12 @@ export interface ScanResult {
  */
 function loadSecretPatterns(): SecretPattern[] {
   try {
-    const configPath = path.join(__dirname, '..', 'config', 'file-discovery-patterns.json')
+    const configPath = path.join(
+      __dirname,
+      '..',
+      'config',
+      'file-discovery-patterns.json',
+    )
     const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'))
     return config.secretPatterns?.patterns || []
   } catch (error: any) {
@@ -85,7 +90,10 @@ function isTextFile(filePath: string): boolean {
 /**
  * Scan a single file for secrets
  */
-export function scanFile(filePath: string, patterns: SecretPattern[] = []): ScanResult {
+export function scanFile(
+  filePath: string,
+  patterns: SecretPattern[] = [],
+): ScanResult {
   const result: ScanResult = {
     filePath,
     scanned: false,
@@ -118,7 +126,9 @@ export function scanFile(filePath: string, patterns: SecretPattern[] = []): Scan
 
   // Skip very large files (> 10MB)
   if (stats.size > 10 * 1024 * 1024) {
-    result.errors!.push(`File too large (${Math.round(stats.size / 1024 / 1024)}MB), skipping scan`)
+    result.errors!.push(
+      `File too large (${Math.round(stats.size / 1024 / 1024)}MB), skipping scan`,
+    )
     return result
   }
 
@@ -131,7 +141,7 @@ export function scanFile(filePath: string, patterns: SecretPattern[] = []): Scan
 
     // Scan each line
     lines.forEach((line, lineIndex) => {
-      patternsToUse.forEach(pattern => {
+      patternsToUse.forEach((pattern) => {
         const regex = new RegExp(pattern.regex, 'gi')
         let match
 
@@ -150,7 +160,6 @@ export function scanFile(filePath: string, patterns: SecretPattern[] = []): Scan
 
     result.scanned = true
     result.containsSecrets = result.matches.length > 0
-
   } catch (error: any) {
     result.errors!.push(`Error reading file: ${error.message}`)
   }
@@ -161,7 +170,12 @@ export function scanFile(filePath: string, patterns: SecretPattern[] = []): Scan
 /**
  * Get surrounding context for a match
  */
-function getContext(lines: string[], lineIndex: number, columnIndex: number, matchLength: number): string {
+function getContext(
+  lines: string[],
+  lineIndex: number,
+  columnIndex: number,
+  matchLength: number,
+): string {
   const line = lines[lineIndex]
   const start = Math.max(0, columnIndex - 20)
   const end = Math.min(line.length, columnIndex + matchLength + 20)
@@ -178,8 +192,11 @@ function getContext(lines: string[], lineIndex: number, columnIndex: number, mat
 /**
  * Scan multiple files for secrets
  */
-export function scanFiles(filePaths: string[], patterns?: SecretPattern[]): ScanResult[] {
-  return filePaths.map(filePath => scanFile(filePath, patterns))
+export function scanFiles(
+  filePaths: string[],
+  patterns?: SecretPattern[],
+): ScanResult[] {
+  return filePaths.map((filePath) => scanFile(filePath, patterns))
 }
 
 /**
@@ -199,8 +216,8 @@ export function generateSummary(results: ScanResult[]): {
 } {
   const summary = {
     totalFiles: results.length,
-    scannedFiles: results.filter(r => r.scanned).length,
-    filesWithSecrets: results.filter(r => r.containsSecrets).length,
+    scannedFiles: results.filter((r) => r.scanned).length,
+    filesWithSecrets: results.filter((r) => r.containsSecrets).length,
     totalMatches: results.reduce((sum, r) => sum + r.matches.length, 0),
     bySeverity: {
       critical: 0,
@@ -210,8 +227,8 @@ export function generateSummary(results: ScanResult[]): {
     },
   }
 
-  results.forEach(result => {
-    result.matches.forEach(match => {
+  results.forEach((result) => {
+    result.matches.forEach((match) => {
       summary.bySeverity[match.severity]++
     })
   })
@@ -247,8 +264,9 @@ export function isKnownSecretFile(filePath: string): boolean {
   const fileName = path.basename(filePath)
   const normalizedPath = filePath.replace(/^~\//, '')
 
-  return secretFileNames.some(secretFile =>
-    fileName === secretFile || normalizedPath.endsWith(secretFile)
+  return secretFileNames.some(
+    (secretFile) =>
+      fileName === secretFile || normalizedPath.endsWith(secretFile),
   )
 }
 
@@ -277,13 +295,13 @@ export function getRecommendedAction(scanResult: ScanResult): {
   }
 
   // Check for critical secrets
-  const hasCritical = scanResult.matches.some(m => m.severity === 'critical')
-  const hasHigh = scanResult.matches.some(m => m.severity === 'high')
+  const hasCritical = scanResult.matches.some((m) => m.severity === 'critical')
+  const hasHigh = scanResult.matches.some((m) => m.severity === 'high')
 
   if (hasCritical) {
     return {
       action: 'exclude',
-      reason: `Contains critical secrets (${scanResult.matches.filter(m => m.severity === 'critical').length} matches)`,
+      reason: `Contains critical secrets (${scanResult.matches.filter((m) => m.severity === 'critical').length} matches)`,
       severity: 'critical',
     }
   }

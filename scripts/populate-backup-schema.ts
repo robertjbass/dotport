@@ -2,7 +2,7 @@ import { execSync } from 'child_process'
 import fs from 'fs'
 import os from 'os'
 import path from 'path'
-import ScriptSession from '../clients/script-session.js'
+import ScriptSession from '../clients/script-session'
 import type {
   BackupSchema,
   DarwinConfig,
@@ -12,7 +12,7 @@ import type {
   Metadata,
   Preferences,
   Runtimes,
-} from '../types/backup-schema.js'
+} from '../types/backup-schema'
 
 /**
  * Executes a command and returns the output, or null if it fails
@@ -222,18 +222,20 @@ function getAptPackages(): string[] {
   const basePackages = safeExec(
     "dpkg-query -Wf '${Package} ${Priority}\\n' | awk '$2 ~ /^(required|important|standard)$/ {print $1}'",
   )
-  const basePackageSet = new Set(basePackages?.split('\n').filter(Boolean) || [])
+  const basePackageSet = new Set(
+    basePackages?.split('\n').filter(Boolean) || [],
+  )
 
   // Patterns to exclude
   const excludePatterns = [
-    /^lib.+/,           // Library packages
-    /^gir1\.2-.+/,      // GObject introspection bindings
-    /^python3-.+/,      // Python libraries
-    /^fonts-.+/,        // Font packages
-    /^gnome-.+/,        // GNOME desktop packages
-    /^kde-.+/,          // KDE desktop packages
-    /^xfce.+/,          // XFCE desktop packages
-    /^gcc-\d+-.+/,      // GCC version-specific packages
+    /^lib.+/, // Library packages
+    /^gir1\.2-.+/, // GObject introspection bindings
+    /^python3-.+/, // Python libraries
+    /^fonts-.+/, // Font packages
+    /^gnome-.+/, // GNOME desktop packages
+    /^kde-.+/, // KDE desktop packages
+    /^xfce.+/, // XFCE desktop packages
+    /^gcc-\d+-.+/, // GCC version-specific packages
     /^linux-(headers|image|modules)-.+/, // Kernel packages
   ]
 
@@ -287,7 +289,9 @@ function getSnapPackages(): string[] {
  * Get flatpak packages (Linux)
  */
 function getFlatpakPackages(): string[] {
-  const output = safeExec('flatpak list --app --columns=application 2>/dev/null')
+  const output = safeExec(
+    'flatpak list --app --columns=application 2>/dev/null',
+  )
   if (!output) return []
   return output.split('\n').filter(Boolean)
 }
@@ -314,28 +318,34 @@ function detectRuntimes(): Runtimes {
       installedVersions: nodeVersions.installedVersions,
     },
     python: {
-      defaultVersion: safeExec('python3 --version 2>/dev/null')?.split(' ')[1] || null,
+      defaultVersion:
+        safeExec('python3 --version 2>/dev/null')?.split(' ')[1] || null,
       installedVersions: [], // TODO: Detect installed Python versions
     },
     ruby: {
-      defaultVersion: safeExec('ruby --version 2>/dev/null')?.split(' ')[1] || null,
+      defaultVersion:
+        safeExec('ruby --version 2>/dev/null')?.split(' ')[1] || null,
       installedVersions: [],
     },
     go: {
-      version: safeExec('go version 2>/dev/null')?.split(' ')[2]?.replace('go', '') || null,
+      version:
+        safeExec('go version 2>/dev/null')?.split(' ')[2]?.replace('go', '') ||
+        null,
     },
     rust: {
       version: safeExec('rustc --version 2>/dev/null')?.split(' ')[1] || null,
     },
     java: {
-      defaultVersion: safeExec('java -version 2>&1')?.split('\n')[0]?.split('"')[1] || null,
+      defaultVersion:
+        safeExec('java -version 2>&1')?.split('\n')[0]?.split('"')[1] || null,
       installedVersions: [],
     },
     databases: {
       mysql: safeExec('mysql --version 2>/dev/null')?.split(' ')[2] || null,
       postgresql: safeExec('psql --version 2>/dev/null')?.split(' ')[2] || null,
       mongodb: safeExec('mongod --version 2>/dev/null')?.split(' ')[2] || null,
-      redis: safeExec('redis-server --version 2>/dev/null')?.split(' ')[2] || null,
+      redis:
+        safeExec('redis-server --version 2>/dev/null')?.split(' ')[2] || null,
       sqlite: safeExec('sqlite3 --version 2>/dev/null')?.split(' ')[0] || null,
     },
   }
@@ -569,17 +579,21 @@ export default async function populateBackupSchema() {
           backupPath: 'shared/secrets/.env.sh.example',
           content: null, // TODO: Read secrets template
         },
-        note: "Actual secrets file (~/.env.sh) is never backed up - only the template",
+        note: 'Actual secrets file (~/.env.sh) is never backed up - only the template',
       },
     },
   }
 
   // Only update the current OS section
   if (ScriptSession.operatingSystem === 'darwin') {
-    console.log('🍎 Updating macOS configuration (preserving Linux data if present)\n')
+    console.log(
+      '🍎 Updating macOS configuration (preserving Linux data if present)\n',
+    )
     backupData.darwin = populateDarwinConfig()
   } else if (ScriptSession.operatingSystem === 'linux') {
-    console.log('🐧 Updating Linux configuration (preserving macOS data if present)\n')
+    console.log(
+      '🐧 Updating Linux configuration (preserving macOS data if present)\n',
+    )
     backupData.linux = populateLinuxConfig()
   } else {
     console.error('❌ Unsupported operating system')
@@ -655,7 +669,9 @@ export default async function populateBackupSchema() {
       console.log(`  MySQL: ${currentConfig.runtimes.databases.mysql}`)
     }
     if (currentConfig.runtimes.databases.postgresql) {
-      console.log(`  PostgreSQL: ${currentConfig.runtimes.databases.postgresql}`)
+      console.log(
+        `  PostgreSQL: ${currentConfig.runtimes.databases.postgresql}`,
+      )
     }
   }
 }

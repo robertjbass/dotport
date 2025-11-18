@@ -11,7 +11,7 @@ import fs from 'fs'
 import path from 'path'
 import os from 'os'
 
-export interface AppConfig {
+export type AppConfig = {
   version: string
   paths: {
     // Root directory for all tool data
@@ -52,7 +52,10 @@ function getDefaultConfig(): AppConfig {
   let dataDir: string
   if (osType === 'windows') {
     // Windows: %APPDATA%\dev-machine-backup-restore
-    dataDir = path.join(process.env.APPDATA || path.join(homeDir, 'AppData', 'Roaming'), 'dev-machine-backup-restore')
+    dataDir = path.join(
+      process.env.APPDATA || path.join(homeDir, 'AppData', 'Roaming'),
+      'dev-machine-backup-restore',
+    )
   } else if (osType === 'darwin') {
     // macOS: ~/.dev-machine-backup-restore
     dataDir = path.join(homeDir, '.dev-machine-backup-restore')

@@ -8,12 +8,12 @@ import fs from 'fs'
 import path from 'path'
 import { fileURLToPath } from 'url'
 import { dirname } from 'path'
-import { OperatingSystem } from '../types/backup-config.js'
+import { OperatingSystem } from '../types/backup-config'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
 
-export interface FilePattern {
+type FilePattern = {
   path: string
   name: string
   description: string
@@ -21,7 +21,7 @@ export interface FilePattern {
   warnSecrets?: boolean
 }
 
-export interface FilePatternConfig {
+type FilePatternConfig = {
   version: string
   description?: string
   common: {
@@ -46,20 +46,29 @@ export function loadFilePatterns(): FilePatternConfig {
   }
 
   try {
-    const configPath = path.join(__dirname, '..', 'config', 'file-discovery-patterns.json')
+    const configPath = path.join(
+      __dirname,
+      '..',
+      'config',
+      'file-discovery-patterns.json',
+    )
     const content = fs.readFileSync(configPath, 'utf-8')
     cachedConfig = JSON.parse(content)
     return cachedConfig!
   } catch (error: any) {
     console.error('Failed to load file discovery patterns:', error.message)
-    throw new Error(`Could not load file discovery configuration: ${error.message}`)
+    throw new Error(
+      `Could not load file discovery configuration: ${error.message}`,
+    )
   }
 }
 
 /**
  * Get all file patterns for a specific OS
  */
-export function getFilePatternsForOS(osType: OperatingSystem): Map<string, FilePattern[]> {
+export function getFilePatternsForOS(
+  osType: OperatingSystem,
+): Map<string, FilePattern[]> {
   const config = loadFilePatterns()
   const patterns = new Map<string, FilePattern[]>()
 
@@ -108,7 +117,7 @@ export function filterAutoExcluded(patterns: FilePattern[]): {
   const safe: FilePattern[] = []
   const excluded: FilePattern[] = []
 
-  patterns.forEach(pattern => {
+  patterns.forEach((pattern) => {
     if (pattern.autoExclude) {
       excluded.push(pattern)
     } else {
@@ -122,8 +131,10 @@ export function filterAutoExcluded(patterns: FilePattern[]): {
 /**
  * Get patterns that should warn about secrets
  */
-export function getSecretWarningPatterns(patterns: FilePattern[]): FilePattern[] {
-  return patterns.filter(p => p.warnSecrets)
+export function getSecretWarningPatterns(
+  patterns: FilePattern[],
+): FilePattern[] {
+  return patterns.filter((p) => p.warnSecrets)
 }
 
 /**
@@ -145,7 +156,11 @@ export function validateConfig(config: FilePatternConfig): {
   }
 
   // Validate pattern structure
-  const validatePatterns = (patterns: FilePattern[], category: string, os: string) => {
+  const validatePatterns = (
+    patterns: FilePattern[],
+    category: string,
+    os: string,
+  ) => {
     patterns.forEach((pattern, index) => {
       if (!pattern.path) {
         errors.push(`${os}.${category}[${index}]: missing path`)

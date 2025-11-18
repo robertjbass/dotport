@@ -8,60 +8,69 @@ export type RepoType = 'github' | 'gitlab' | 'bitbucket' | 'other-git' | 'none'
 export type RepoVisibility = 'public' | 'private'
 export type StructureType = 'flat' | 'nested'
 export type SecretFileFormat = 'shell-export' | 'dotenv' | 'json' | 'yaml'
-export type SecretStorageType = 'git-repo' | 'cloud-service' | 'local-only' | 'password-manager' | 'os-keychain'
+export type SecretStorageType =
+  | 'git-repo'
+  | 'cloud-service'
+  | 'local-only'
+  | 'password-manager'
+  | 'os-keychain'
 export type EncryptionType = 'none' | 'age' | 'pgp' | 'git-crypt' | 'sops'
-export type CloudProvider = 'aws-secrets-manager' | 'gcp-secret-manager' | 'azure-key-vault' | 'hashicorp-vault'
+export type CloudProvider =
+  | 'aws-secrets-manager'
+  | 'gcp-secret-manager'
+  | 'azure-key-vault'
+  | 'hashicorp-vault'
 export type PasswordManager = '1password' | 'lastpass' | 'bitwarden' | 'pass'
 export type SymlinkStrategy = 'direct' | 'stow' | 'custom'
 export type ConflictResolution = 'backup' | 'overwrite' | 'skip' | 'ask'
 
-export interface SystemConfig {
+export type SystemConfig = {
   primary: OperatingSystem
   shell: Shell
-  shellConfigFile: string  // e.g., '.zshrc', '.bashrc'
+  shellConfigFile: string // e.g., '.zshrc', '.bashrc'
 }
 
-export interface MultiOSConfig {
+export type MultiOSConfig = {
   enabled: boolean
   supportedOS: OperatingSystem[]
-  linuxDistros?: string[]  // e.g., ['debian', 'ubuntu', 'fedora']
+  linuxDistros?: string[] // e.g., ['debian', 'ubuntu', 'fedora']
 }
 
-export interface TrackedFile {
-  name: string              // e.g., '.bashrc', '.zshrc'
-  sourcePath: string        // Home directory path: '~/.bashrc'
-  repoPath: string          // Path in repo: 'macos/.bashrc'
-  symlinkEnabled: boolean   // Whether to create symlink
-  tracked: boolean          // Whether file is tracked in git
+export type TrackedFile = {
+  name: string // e.g., '.bashrc', '.zshrc'
+  sourcePath: string // Home directory path: '~/.bashrc'
+  repoPath: string // Path in repo: 'macos/.bashrc'
+  symlinkEnabled: boolean // Whether to create symlink
+  tracked: boolean // Whether file is tracked in git
 
   // Symlink state tracking
-  symlinkCreated?: boolean  // Whether symlink was actually created
+  symlinkCreated?: boolean // Whether symlink was actually created
   symlinkCreatedAt?: string // ISO 8601 timestamp when symlink was created
-  symlinkTarget?: string    // Absolute path where symlink points
-  backupPath?: string       // Path to .backup file if existing file was backed up
+  symlinkTarget?: string // Absolute path where symlink points
+  backupPath?: string // Path to .backup file if existing file was backed up
 
   // Secret detection
   containsSecrets?: boolean // Whether file contains potential secrets
   secretsScannedAt?: string // When file was last scanned for secrets
 }
 
-export interface DotfilesStructure {
+export type DotfilesStructure = {
   type: StructureType
   // For nested structure, map OS/distro to directory
   directories: {
-    [osOrDistro: string]: string  // e.g., 'macos' -> 'macos/', 'debian' -> 'linux/debian/'
+    [osOrDistro: string]: string // e.g., 'macos' -> 'macos/', 'debian' -> 'linux/debian/'
   }
 }
 
-export interface DotfilesConfig {
+export type DotfilesConfig = {
   enabled: boolean
   repoType: RepoType
-  repoName: string          // e.g., 'dotfiles'
-  repoUrl: string           // e.g., 'https://github.com/username/dotfiles'
-  repoOwner?: string        // e.g., 'username'
-  branch: string            // e.g., 'main' or 'master'
+  repoName: string // e.g., 'dotfiles'
+  repoUrl: string // e.g., 'https://github.com/username/dotfiles'
+  repoOwner?: string // e.g., 'username'
+  branch: string // e.g., 'main' or 'master'
   visibility: RepoVisibility
-  cloneLocation: string     // e.g., '/Users/username' or '~'
+  cloneLocation: string // e.g., '/Users/username' or '~'
 
   // Directory structure within repo
   structure: DotfilesStructure
@@ -74,56 +83,56 @@ export interface DotfilesConfig {
   }
 }
 
-export interface SecretFile {
-  name: string              // Default: '.env.sh'
-  location: string          // Default: '~'
+export type SecretFile = {
+  name: string // Default: '.env.sh'
+  location: string // Default: '~'
   format: SecretFileFormat
 }
 
-export interface GitRepoStorage {
+export type GitRepoStorage = {
   repoType: RepoType
-  repoName: string          // e.g., 'my-secrets'
+  repoName: string // e.g., 'my-secrets'
   repoUrl: string
   repoOwner?: string
   branch: string
-  visibility: 'private'     // Secrets should always be private
+  visibility: 'private' // Secrets should always be private
   encryption: EncryptionType
-  encryptionKey?: string    // Path to encryption key
+  encryptionKey?: string // Path to encryption key
 }
 
-export interface CloudStorage {
+export type CloudStorage = {
   provider: CloudProvider
   region?: string
   vaultUrl?: string
   configPath?: string
 }
 
-export interface PasswordManagerStorage {
+export type PasswordManagerStorage = {
   type: PasswordManager
   cliPath?: string
 }
 
-export interface SecretStorage {
+export type SecretStorage = {
   type: SecretStorageType
   repo?: GitRepoStorage
   cloud?: CloudStorage
   passwordManager?: PasswordManagerStorage
 }
 
-export interface TrackedSecret {
-  name: string              // e.g., '.env.sh'
-  sourcePath: string        // e.g., '~/.env.sh'
-  repoPath?: string         // Only if using git-repo storage
+export type TrackedSecret = {
+  name: string // e.g., '.env.sh'
+  sourcePath: string // e.g., '~/.env.sh'
+  repoPath?: string // Only if using git-repo storage
   encrypted: boolean
 }
 
-export interface SecretVariable {
-  name: string              // e.g., 'API_KEY'
+export type SecretVariable = {
+  name: string // e.g., 'API_KEY'
   description?: string
   required: boolean
 }
 
-export interface SecretsConfig {
+export type SecretsConfig = {
   enabled: boolean
   secretFile: SecretFile
   storage: SecretStorage
@@ -138,16 +147,16 @@ export interface SecretsConfig {
   }
 }
 
-export interface SymlinksConfig {
+export type SymlinksConfig = {
   enabled: boolean
   strategy: SymlinkStrategy
-  customScript?: string     // Path to custom symlink script
+  customScript?: string // Path to custom symlink script
   conflictResolution: ConflictResolution
-  backupLocation?: string   // Where to backup existing files
+  backupLocation?: string // Where to backup existing files
 }
 
-export interface MetadataConfig {
-  createdAt: string         // ISO 8601 timestamp
+export type MetadataConfig = {
+  createdAt: string // ISO 8601 timestamp
   updatedAt: string
   lastBackup?: string
   lastRestore?: string
@@ -156,7 +165,7 @@ export interface MetadataConfig {
 /**
  * Complete backup configuration schema
  */
-export interface BackupConfig {
+export type BackupConfig = {
   version: string
   system: SystemConfig
   multiOS: MultiOSConfig
@@ -216,7 +225,7 @@ export function createTrackedFile(
   name: string,
   osOrDistro: string,
   repoPath: string,
-  options: Partial<TrackedFile> = {}
+  options: Partial<TrackedFile> = {},
 ): TrackedFile {
   return {
     name,
@@ -233,7 +242,7 @@ export function createTrackedFile(
  */
 export function createTrackedSecret(
   name: string,
-  options: Partial<TrackedSecret> = {}
+  options: Partial<TrackedSecret> = {},
 ): TrackedSecret {
   return {
     name,

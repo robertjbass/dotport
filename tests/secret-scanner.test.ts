@@ -16,7 +16,7 @@ import {
   isKnownSecretFile,
   getRecommendedAction,
   type SecretPattern,
-} from '../utils/secret-scanner.js'
+} from '../utils/secret-scanner'
 
 describe('Secret Scanner', () => {
   let testDir: string
@@ -29,24 +29,30 @@ describe('Secret Scanner', () => {
 
     // Create test file with secrets
     const secretFile = path.join(testDir, 'secrets.env')
-    fs.writeFileSync(secretFile, `
+    fs.writeFileSync(
+      secretFile,
+      `
 API_KEY=sk_live_123456789abcdef
 AWS_ACCESS_KEY_ID=AKIAIOSFODNN7EXAMPLE
 password=my_super_secret_password
 DATABASE_URL=postgres://user:pass@localhost/db
 # This is a comment
 SAFE_VALUE=123
-`.trim())
+`.trim(),
+    )
     testFiles.push(secretFile)
 
     // Create test file without secrets
     const safeFile = path.join(testDir, 'config.txt')
-    fs.writeFileSync(safeFile, `
+    fs.writeFileSync(
+      safeFile,
+      `
 # Configuration file
 PORT=3000
 HOST=localhost
 DEBUG=false
-`.trim())
+`.trim(),
+    )
     testFiles.push(safeFile)
 
     // Create binary file
@@ -57,7 +63,7 @@ DEBUG=false
 
   after(() => {
     // Cleanup test directory
-    testFiles.forEach(file => {
+    testFiles.forEach((file) => {
       try {
         fs.unlinkSync(file)
       } catch (e) {
@@ -75,7 +81,11 @@ DEBUG=false
     const result = scanFile(testFiles[0])
 
     assert.strictEqual(result.scanned, true, 'File should be scanned')
-    assert.strictEqual(result.containsSecrets, true, 'File should contain secrets')
+    assert.strictEqual(
+      result.containsSecrets,
+      true,
+      'File should contain secrets',
+    )
     assert.ok(result.matches.length > 0, 'Should have secret matches')
   })
 
@@ -83,29 +93,48 @@ DEBUG=false
     const result = scanFile(testFiles[1])
 
     assert.strictEqual(result.scanned, true, 'File should be scanned')
-    assert.strictEqual(result.containsSecrets, false, 'File should not contain secrets')
+    assert.strictEqual(
+      result.containsSecrets,
+      false,
+      'File should not contain secrets',
+    )
     assert.strictEqual(result.matches.length, 0, 'Should have no matches')
   })
 
   it('should skip binary files', () => {
     const result = scanFile(testFiles[2])
 
-    assert.strictEqual(result.scanned, false, 'Binary file should not be scanned')
+    assert.strictEqual(
+      result.scanned,
+      false,
+      'Binary file should not be scanned',
+    )
     assert.ok(result.errors!.length > 0, 'Should have error for binary file')
   })
 
   it('should handle non-existent files', () => {
     const result = scanFile(path.join(testDir, 'nonexistent.txt'))
 
-    assert.strictEqual(result.scanned, false, 'Non-existent file should not be scanned')
-    assert.ok(result.errors!.length > 0, 'Should have error for non-existent file')
+    assert.strictEqual(
+      result.scanned,
+      false,
+      'Non-existent file should not be scanned',
+    )
+    assert.ok(
+      result.errors!.length > 0,
+      'Should have error for non-existent file',
+    )
   })
 
   it('should scan multiple files', () => {
     const results = scanFiles([testFiles[0], testFiles[1]])
 
     assert.strictEqual(results.length, 2, 'Should scan all files')
-    assert.strictEqual(results[0].containsSecrets, true, 'First file has secrets')
+    assert.strictEqual(
+      results[0].containsSecrets,
+      true,
+      'First file has secrets',
+    )
     assert.strictEqual(results[1].containsSecrets, false, 'Second file is safe')
   })
 
@@ -115,15 +144,35 @@ DEBUG=false
 
     assert.strictEqual(summary.totalFiles, 3, 'Should count all files')
     assert.strictEqual(summary.scannedFiles, 2, 'Should count scanned files')
-    assert.strictEqual(summary.filesWithSecrets, 1, 'Should count files with secrets')
+    assert.strictEqual(
+      summary.filesWithSecrets,
+      1,
+      'Should count files with secrets',
+    )
     assert.ok(summary.totalMatches > 0, 'Should have total matches')
   })
 
   it('should identify known secret files', () => {
-    assert.strictEqual(isKnownSecretFile('.env'), true, '.env is a known secret file')
-    assert.strictEqual(isKnownSecretFile('.npmrc'), true, '.npmrc is a known secret file')
-    assert.strictEqual(isKnownSecretFile('~/.aws/credentials'), true, 'AWS credentials is a known secret file')
-    assert.strictEqual(isKnownSecretFile('.gitconfig'), false, '.gitconfig is not a secret file')
+    assert.strictEqual(
+      isKnownSecretFile('.env'),
+      true,
+      '.env is a known secret file',
+    )
+    assert.strictEqual(
+      isKnownSecretFile('.npmrc'),
+      true,
+      '.npmrc is a known secret file',
+    )
+    assert.strictEqual(
+      isKnownSecretFile('~/.aws/credentials'),
+      true,
+      'AWS credentials is a known secret file',
+    )
+    assert.strictEqual(
+      isKnownSecretFile('.gitconfig'),
+      false,
+      '.gitconfig is not a secret file',
+    )
   })
 
   it('should recommend correct actions', () => {
@@ -133,8 +182,15 @@ DEBUG=false
     const secretAction = getRecommendedAction(secretFileResult)
     const safeAction = getRecommendedAction(safeFileResult)
 
-    assert.ok(['exclude', 'review'].includes(secretAction.action), 'Should recommend exclude or review for secret file')
-    assert.strictEqual(safeAction.action, 'safe', 'Should recommend safe for clean file')
+    assert.ok(
+      ['exclude', 'review'].includes(secretAction.action),
+      'Should recommend exclude or review for secret file',
+    )
+    assert.strictEqual(
+      safeAction.action,
+      'safe',
+      'Should recommend safe for clean file',
+    )
   })
 
   it('should detect custom patterns', () => {
@@ -152,8 +208,15 @@ DEBUG=false
 
     const result = scanFile(testFile, customPatterns)
 
-    assert.strictEqual(result.containsSecrets, true, 'Should detect custom pattern')
-    assert.ok(result.matches.some(m => m.pattern === 'Custom Token'), 'Should match custom pattern')
+    assert.strictEqual(
+      result.containsSecrets,
+      true,
+      'Should detect custom pattern',
+    )
+    assert.ok(
+      result.matches.some((m) => m.pattern === 'Custom Token'),
+      'Should match custom pattern',
+    )
 
     fs.unlinkSync(testFile)
   })

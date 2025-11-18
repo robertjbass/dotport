@@ -8,7 +8,7 @@
 import fs from 'fs'
 import path from 'path'
 import chalk from 'chalk'
-import { BackupConfig } from '../types/backup-config.js'
+import { BackupConfig } from '../types/backup-config'
 
 /**
  * Sanitize config by removing sensitive information
@@ -30,7 +30,7 @@ export function sanitizeConfig(config: BackupConfig): BackupConfig {
 export async function exportSchemaToRepo(
   config: BackupConfig,
   repoPath: string,
-  options: { verbose?: boolean } = {}
+  options: { verbose?: boolean } = {},
 ): Promise<{ success: boolean; error?: string }> {
   const { verbose = true } = options
 
@@ -51,12 +51,16 @@ export async function exportSchemaToRepo(
     await fs.promises.writeFile(
       schemaPath,
       JSON.stringify(sanitizedConfig, null, 2),
-      'utf-8'
+      'utf-8',
     )
 
     if (verbose) {
       console.log(chalk.green('✅ Schema exported successfully'))
-      console.log(chalk.gray(`   Location: ${path.join('schema', 'backup-config.json')}\n`))
+      console.log(
+        chalk.gray(
+          `   Location: ${path.join('schema', 'backup-config.json')}\n`,
+        ),
+      )
     }
 
     return { success: true }
@@ -78,7 +82,7 @@ export async function exportSchemaToRepo(
  */
 export async function createSchemaReadme(
   repoPath: string,
-  options: { verbose?: boolean } = {}
+  options: { verbose?: boolean } = {},
 ): Promise<{ success: boolean; error?: string }> {
   const { verbose = true } = options
 
@@ -134,7 +138,9 @@ After editing, run the backup tool to sync the changes.
 
     if (verbose) {
       console.log(chalk.green('✅ Schema README created'))
-      console.log(chalk.gray(`   Location: ${path.join('schema', 'README.md')}\n`))
+      console.log(
+        chalk.gray(`   Location: ${path.join('schema', 'README.md')}\n`),
+      )
     }
 
     return { success: true }
