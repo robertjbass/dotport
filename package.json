@@ -8,12 +8,12 @@
     "scripts": "pnpm script",
     "script": "tsx scripts/index.ts",
     "script:init": "pnpm script init",
-    "script:populate-backup-schema": "pnpm script populate-backup-schema",
     "script:setup": "pnpm script setup",
     "setup": "pnpm script setup",
     "build": "tsc --build",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
     "test": "tsx --test tests/*.test.ts",
     "test:secret-scanner": "tsx --test tests/secret-scanner.test.ts",
     "test:dry-run": "tsx --test tests/dry-run.test.ts"

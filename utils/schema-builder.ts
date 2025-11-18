@@ -11,6 +11,7 @@ import {
   TrackedFile,
   OperatingSystem as BackupOS,
 } from '../types/backup-config'
+import { getLinuxSystemMetadata } from './linux-detection'
 
 /**
  * Operating system type from setup (matches setup.ts)
@@ -68,32 +69,36 @@ export function getShellConfigFile(
  * Build a complete BackupConfig from setup wizard data
  *
  * @param options - Configuration options from setup wizard
+ * @param existingConfig - Optional existing config to merge with (for multi-OS support)
  * @returns Complete BackupConfig object
  */
-export function buildBackupConfig(options: {
-  // Operating system
-  os: SetupOperatingSystem
+export function buildBackupConfig(
+  options: {
+    // Operating system
+    os: SetupOperatingSystem
 
-  // Multi-OS support
-  multiOS: boolean
-  supportedDistros?: string[]
+    // Multi-OS support
+    multiOS: boolean
+    supportedDistros?: string[]
 
-  // Repository configuration
-  repoType: 'github' | 'gitlab' | 'bitbucket' | 'other-git' | 'none'
-  repoName?: string
-  repoUrl?: string
-  repoOwner?: string
-  repoVisibility?: 'public' | 'private'
-  cloneLocation?: string
-  branch?: string
+    // Repository configuration
+    repoType: 'github' | 'gitlab' | 'bitbucket' | 'other-git' | 'none'
+    repoName?: string
+    repoUrl?: string
+    repoOwner?: string
+    repoVisibility?: 'public' | 'private'
+    cloneLocation?: string
+    branch?: string
 
-  // Files to track
-  trackedFiles: TrackedFile[]
+    // Files to track
+    trackedFiles: TrackedFile[]
 
-  // Optional overrides
-  shell?: 'bash' | 'zsh' | 'fish' | 'other'
-  shellConfigFile?: string
-}): BackupConfig {
+    // Optional overrides
+    shell?: 'bash' | 'zsh' | 'fish' | 'other'
+    shellConfigFile?: string
+  },
+  existingConfig?: BackupConfig,
+): BackupConfig {
   const {
     os,
     multiOS,
@@ -117,6 +122,9 @@ export function buildBackupConfig(options: {
   const detectedShell = shell || detectShell()
   const configFile = shellConfigFile || getShellConfigFile(detectedShell)
 
+  // Detect Linux-specific metadata if on Linux
+  const linuxMetadata = backupOS === 'linux' ? getLinuxSystemMetadata() : undefined
+
   // Always use nested structure (OS folders like macos/, debian/, etc.)
   const structureType: 'flat' | 'nested' = 'nested'
 
@@ -138,6 +146,11 @@ export function buildBackupConfig(options: {
       primary: backupOS,
       shell: detectedShell,
       shellConfigFile: configFile,
+      // Add Linux-specific metadata if available
+      ...(linuxMetadata && {
+        displayServer: linuxMetadata.displayServer,
+        desktopEnvironment: linuxMetadata.desktopEnvironment,
+      }),
     },
 
     multiOS: {
@@ -154,13 +167,13 @@ export function buildBackupConfig(options: {
       repoOwner,
       branch,
       visibility: repoVisibility,
-      cloneLocation,
       structure: {
         type: structureType,
         directories,
       },
       trackedFiles: {
         [osOrDistro]: {
+          cloneLocation,
           files: trackedFiles,
         },
       },
@@ -221,6 +234,11 @@ export function buildBackupConfig(options: {
     },
   }
 
+  // If an existing config was provided, merge with it to preserve other OS data
+  if (existingConfig) {
+    return mergeBackupConfig(existingConfig, config)
+  }
+
   return config
 }
 
@@ -246,6 +264,137 @@ export function updateBackupConfig(
 }
 
 /**
+ * Merge a new BackupConfig with an existing one, preserving data from other OSes
+ *
+ * This is critical for multi-OS support - when running the backup script on a
+ * different OS, we need to ADD that OS's data, not REPLACE the entire config.
+ *
+ * @param existing - Existing BackupConfig (e.g., from macOS)
+ * @param newConfig - New BackupConfig (e.g., from Debian)
+ * @returns Merged BackupConfig with data from both OSes
+ */
+export function mergeBackupConfig(
+  existing: BackupConfig,
+  newConfig: BackupConfig,
+): BackupConfig {
+  // Merge supportedOS arrays (deduplicate)
+  const supportedOSSet = new Set([
+    ...(existing.multiOS.supportedOS || []),
+    ...(newConfig.multiOS.supportedOS || []),
+  ])
+
+  // Merge linuxDistros arrays (deduplicate)
+  const linuxDistrosSet = new Set([
+    ...(existing.multiOS.linuxDistros || []),
+    ...(newConfig.multiOS.linuxDistros || []),
+  ])
+
+  // Merge structure directories
+  const mergedDirectories = {
+    ...existing.dotfiles.structure.directories,
+    ...newConfig.dotfiles.structure.directories,
+  }
+
+  // Merge trackedFiles for all OSes
+  const mergedTrackedFiles = {
+    ...existing.dotfiles.trackedFiles,
+    ...newConfig.dotfiles.trackedFiles,
+  }
+
+  // Merge package managers for all OSes
+  const mergedPackageManagers = {
+    ...existing.packages.packageManagers,
+    ...newConfig.packages.packageManagers,
+  }
+
+  // Merge applications for all OSes
+  const mergedApplications = {
+    ...existing.applications?.applications,
+    ...newConfig.applications?.applications,
+  }
+
+  // Merge extensions for all OSes
+  const mergedExtensions = {
+    ...existing.extensions?.editors,
+    ...newConfig.extensions?.editors,
+  }
+
+  // Merge runtimes for all OSes
+  const mergedRuntimes = {
+    ...existing.runtimes?.runtimes,
+    ...newConfig.runtimes?.runtimes,
+  }
+
+  return {
+    ...existing,
+    version: newConfig.version,
+
+    // Keep system info from the current run
+    system: newConfig.system,
+
+    // Merge multi-OS configuration
+    multiOS: {
+      enabled: true, // Always true when merging
+      supportedOS: Array.from(supportedOSSet),
+      linuxDistros: linuxDistrosSet.size > 0 ? Array.from(linuxDistrosSet) : undefined,
+    },
+
+    // Merge dotfiles configuration
+    dotfiles: {
+      ...existing.dotfiles,
+      ...newConfig.dotfiles,
+      structure: {
+        type: 'nested', // Always nested for multi-OS
+        directories: mergedDirectories,
+      },
+      trackedFiles: mergedTrackedFiles,
+    },
+
+    // Merge packages
+    packages: {
+      enabled: existing.packages.enabled || newConfig.packages.enabled,
+      packageManagers: mergedPackageManagers,
+    },
+
+    // Merge applications
+    applications: {
+      enabled: existing.applications?.enabled || newConfig.applications?.enabled || false,
+      applications: mergedApplications,
+    },
+
+    // Merge extensions
+    extensions: {
+      enabled: existing.extensions?.enabled || newConfig.extensions?.enabled || false,
+      editors: mergedExtensions,
+    },
+
+    // Merge runtimes
+    runtimes: {
+      enabled: existing.runtimes?.enabled || newConfig.runtimes?.enabled || false,
+      runtimes: mergedRuntimes,
+    },
+
+    // Keep secrets from existing (shouldn't change per OS)
+    secrets: existing.secrets,
+
+    // Keep symlinks from existing (can be overridden if needed)
+    symlinks: existing.symlinks,
+
+    // Keep services from existing
+    services: existing.services,
+
+    // Keep settings from existing
+    settings: existing.settings,
+
+    // Update metadata
+    metadata: {
+      createdAt: existing.metadata?.createdAt || newConfig.metadata?.createdAt,
+      updatedAt: new Date().toISOString(),
+    },
+  }
+}
+
+/**
  * Add tracked files to a specific OS/distro in the config
  *
  * @param config - Existing BackupConfig
@@ -258,7 +407,9 @@ export function addTrackedFiles(
   osOrDistro: string,
   files: TrackedFile[],
 ): BackupConfig {
-  const existingFiles = config.dotfiles.trackedFiles[osOrDistro]?.files || []
+  const existingData = config.dotfiles.trackedFiles[osOrDistro]
+  const existingFiles = existingData?.files || []
+  const existingCloneLocation = existingData?.cloneLocation || '~'
 
   // Merge files, avoiding duplicates based on sourcePath
   const existingPaths = new Set(existingFiles.map((f) => f.sourcePath))
@@ -271,6 +422,7 @@ export function addTrackedFiles(
       trackedFiles: {
         ...config.dotfiles.trackedFiles,
         [osOrDistro]: {
+          cloneLocation: existingCloneLocation,
           files: [...existingFiles, ...newFiles],
         },
       },
@@ -295,7 +447,9 @@ export function removeTrackedFiles(
   osOrDistro: string,
   filePaths: string[],
 ): BackupConfig {
-  const existingFiles = config.dotfiles.trackedFiles[osOrDistro]?.files || []
+  const existingData = config.dotfiles.trackedFiles[osOrDistro]
+  const existingFiles = existingData?.files || []
+  const existingCloneLocation = existingData?.cloneLocation || '~'
   const pathsToRemove = new Set(filePaths)
 
   const updatedFiles = existingFiles.filter(
@@ -309,6 +463,7 @@ export function removeTrackedFiles(
       trackedFiles: {
         ...config.dotfiles.trackedFiles,
         [osOrDistro]: {
+          cloneLocation: existingCloneLocation,
           files: updatedFiles,
         },
       },

@@ -2,6 +2,31 @@
 
 A comprehensive CLI tool for backing up and restoring development machine configurations, dotfiles, and settings across macOS and Linux.
 
+## Possible Names
+
+**Current working name:** `dev-machine-backup-restore`
+
+### Name Ideas
+
+- [ ] **dotshift** ✅ - Short, catchy. "Shift your dots anywhere" (AVAILABLE)
+- [ ] **devsnap** ⚠️ - Developer snapshots. Quick and memorable (unpublished, available)
+- [ ] **dotpack** ✅ - Pack up your dotfiles. Simple and clear (AVAILABLE)
+- [ ] ~~**machina**~~ ❌ - Taken (finite state machine library)
+- [ ] **dotporter** ✅ - Port your dots across machines (AVAILABLE)
+- [ ] **envclone** ✅ - Clone your development environment (AVAILABLE)
+- [ ] **setupkit** ✅ - Your development setup toolkit (AVAILABLE)
+- [ ] **dotmover** ✅ - Move dots between machines (AVAILABLE)
+- [ ] ~~**devsync**~~ ❌ - Taken (browser sync tool)
+- [ ] **workstation-backup** ✅ - Descriptive but longer (AVAILABLE)
+
+**Requirements:**
+- Must be available on npm
+- Should be descriptive or memorable
+- Ideally short (1-2 words, under 12 characters)
+- Easy to type and remember
+
+**TODO:** Research npm package name availability and finalize name choice
+
 ## Features ✅
 
 ### Completed
@@ -27,8 +52,15 @@ A comprehensive CLI tool for backing up and restoring development machine config
 - ✅ **SSH Key Protection** - Automatically excludes private keys, authorized_keys, known_hosts
 - ✅ **Backup Preview** - Shows what will be copied before execution
 - ✅ **Schema Export** - Saves TypeScript schema to dotfiles repo
+- ✅ **Schema Merging** - Intelligently merges configs from multiple OSes
 - ✅ **Git Commit & Push** - Optional automatic commit/push workflow
 - ✅ **Symlink Creation** - Interactive per-file symlink setup with backup
+- ✅ **Linux Display Server Detection** - Detects Wayland/X11 and stores in schema
+- ✅ **Linux Desktop Environment Detection** - Detects GNOME/KDE/i3/Sway and stores in schema
+- ✅ **GNOME dconf Export** - Automatically exports keybindings and settings on Linux
+- ✅ **Package Manager Export** - Homebrew, apt, cargo, gem, go, npm, pnpm, pip support
+- ✅ **Runtime Version Tracking** - Tracks Node.js, Python, Ruby, Go versions
+- ✅ **VS Code Extensions Export** - Exports installed extensions list
 
 ### Current Status
 
@@ -66,7 +98,10 @@ dev-machine-backup-restore/
 │   ├── github-auth.ts        # GitHub device flow authentication
 │   ├── github-repo.ts        # Repository operations
 │   ├── git-url-parser.ts     # Git URL parsing and validation
+│   ├── schema-builder.ts     # Build and merge backup configs
 │   ├── schema-export.ts      # Schema export to repo
+│   ├── dconf-export.ts       # GNOME settings export (Linux)
+│   ├── linux-detection.ts    # Linux system metadata detection
 │   ├── constants.ts          # Linux distros and constants
 │   └── config.ts             # App configuration management
 ├── types/
@@ -106,25 +141,19 @@ dev-machine-backup-restore/
 
 ### Medium Priority
 
-- [ ] **GUI Server Detection (Linux)**
-  - [ ] Detect X11 vs Wayland
-  - [ ] Store server type in schema
-  - [ ] Conditionally backup server-specific configs
+- [x] **Display Server Detection (Linux)** ✅ COMPLETED
+  - [x] Detect X11 vs Wayland
+  - [x] Store server type in schema
+  - [x] Desktop environment detection (GNOME/KDE/i3/Sway/etc.)
 
 - [ ] **Window Manager Support (Linux)**
-  - [ ] i3/Sway config backup
-  - [ ] Hyprland config backup
-  - [ ] GNOME Shell extensions
+  - [ ] i3/Sway config backup (file discovery already supports this)
+  - [ ] Hyprland config backup (file discovery already supports this)
+  - [x] GNOME Shell extensions (custom extensions backed up, third-party excluded)
+  - [x] GNOME dconf settings (keybindings, interface settings, WM settings)
   - [ ] KDE Plasma settings
 
-- [ ] **Enhanced Secret Management**
-  - [ ] Integration with system keychains
-  - [ ] 1Password CLI integration
-  - [ ] Bitwarden CLI integration
-  - [ ] Age encryption for sensitive files
-
 - [ ] **Update Workflow**
-  - [ ] `pnpm run update` command to re-run backup
   - [ ] Detect changed files since last backup
   - [ ] Incremental updates to dotfiles repo
   - [ ] Optional automatic commit messages
@@ -154,29 +183,40 @@ The tool generates a comprehensive TypeScript schema stored in your dotfiles rep
 ```typescript
 interface BackupConfig {
   version: string
-  os: OperatingSystem
-  backup: {
-    service: 'github' | 'gitlab' | 'other-git' | 'none'
-    repository?: string
-    multiOS: {
-      enabled: boolean
-      supportedOS: OperatingSystem[]
-      linuxDistros?: string[]
+  system: {
+    primary: OperatingSystem
+    shell: Shell
+    shellConfigFile: string
+    displayServer?: 'x11' | 'wayland' | 'unknown' // Linux only
+    desktopEnvironment?: string // Linux only (e.g., 'gnome', 'kde')
+  }
+  multiOS: {
+    enabled: boolean
+    supportedOS: OperatingSystem[]
+    linuxDistros?: string[]
+  }
+  dotfiles: {
+    enabled: boolean
+    repoType: RepoType
+    repoUrl: string
+    structure: {
+      type: 'flat' | 'nested'
+      directories: Record<string, string> // e.g., 'macos' -> 'macos/'
     }
-    dotfiles: {
-      enabled: boolean
-      location: string
+    trackedFiles: {
+      [osOrDistro: string]: {
+        files: TrackedFile[]
+      }
     }
   }
-  secrets: {
-    method: 'local-file' | '1password' | 'bitwarden' | 'none'
-    location?: string
-  }
-  trackedFiles: {
-    [os: string]: {
-      files: TrackedFile[]
-    }
-  }
+  secrets: SecretsConfig
+  symlinks: SymlinksConfig
+  packages: SystemPackagesConfig
+  applications: SystemApplicationsConfig
+  extensions: SystemExtensionsConfig
+  runtimes: SystemRuntimesConfig
+  settings: SystemSettingsConfig
+  metadata: MetadataConfig
 }
 ```
 
@@ -198,5 +238,10 @@ This project is under active development. See CHANGELOG.md for recent updates.
 
 ---
 
-**Last Updated**: Session 5 - 2025-01-17
-**Status**: Setup wizard complete, restore functionality coming next
+**Last Updated**: 2025-01-18
+**Status**:
+- ✅ Setup wizard complete with full multi-OS support
+- ✅ Linux-specific features: dconf export, display server detection, desktop environment detection
+- ✅ Package manager export for Homebrew, apt, cargo, gem, go, npm/pnpm/yarn, pip
+- ✅ Schema merging for multi-OS configurations
+- 🚧 Restore functionality coming next

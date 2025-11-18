@@ -9,6 +9,7 @@ import fs from 'fs'
 import path from 'path'
 import chalk from 'chalk'
 import { BackupConfig } from '../types/backup-config'
+import { mergeBackupConfig } from './schema-builder'
 
 /**
  * Sanitize config by removing sensitive information
@@ -26,6 +27,9 @@ export function sanitizeConfig(config: BackupConfig): BackupConfig {
 
 /**
  * Export schema to dotfiles repository
+ *
+ * If a schema already exists in the repo (e.g., from another OS), this will
+ * merge the new config with the existing one to preserve multi-OS support.
  */
 export async function exportSchemaToRepo(
   config: BackupConfig,
@@ -43,11 +47,42 @@ export async function exportSchemaToRepo(
     const schemaDir = path.join(repoPath, 'schema')
     await fs.promises.mkdir(schemaDir, { recursive: true })
 
+    const schemaPath = path.join(schemaDir, 'backup-config.json')
+
+    // Check if schema already exists (multi-OS support)
+    let finalConfig = config
+    try {
+      const existingSchemaContent = await fs.promises.readFile(schemaPath, 'utf-8')
+      const existingConfig = JSON.parse(existingSchemaContent) as BackupConfig
+
+      if (verbose) {
+        console.log(chalk.yellow('📋 Found existing schema - merging configurations...'))
+      }
+
+      // Merge the new config with existing to preserve other OS data
+      finalConfig = mergeBackupConfig(existingConfig, config)
+
+      if (verbose) {
+        console.log(chalk.green('✅ Configurations merged successfully'))
+        console.log(
+          chalk.gray(
+            `   Supported OSes: ${finalConfig.multiOS.supportedOS?.join(', ') || 'none'}\n`,
+          ),
+        )
+      }
+    } catch (error: any) {
+      // No existing schema or read error - use new config as-is
+      if (error.code !== 'ENOENT') {
+        console.log(chalk.yellow(`⚠️  Could not read existing schema: ${error.message}`))
+      } else if (verbose) {
+        console.log(chalk.gray('   Creating new schema file...\n'))
+      }
+    }
+
     // Sanitize the config (remove sensitive info)
-    const sanitizedConfig = sanitizeConfig(config)
+    const sanitizedConfig = sanitizeConfig(finalConfig)
 
     // Write schema file
-    const schemaPath = path.join(schemaDir, 'backup-config.json')
     await fs.promises.writeFile(
       schemaPath,
       JSON.stringify(sanitizedConfig, null, 2),

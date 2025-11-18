@@ -57,6 +57,9 @@ import {
 // Schema export
 import { exportSchemaToRepo, createSchemaReadme } from '../utils/schema-export'
 
+// Dconf export (GNOME settings/keybindings - Linux only)
+import { exportGnomeSettings } from '../utils/dconf-export'
+
 // Type definitions
 import {
   TrackedFile,
@@ -2052,6 +2055,28 @@ async function promptAndExecuteBackup(
     console.log()
   }
 
+  // Export GNOME settings (Linux only)
+  if (backupConfig.system.primary === 'linux') {
+    const gnomeSettingsDir = path.join(repoPath, osOrDistro, '.config', 'dconf')
+    const dconfResult = await exportGnomeSettings(gnomeSettingsDir, {
+      verbose: true,
+    })
+
+    if (dconfResult.success && dconfResult.exportedPaths.length > 0) {
+      console.log(
+        chalk.green(
+          `✅ Exported ${dconfResult.exportedPaths.length} GNOME settings (including keybindings)\n`,
+        ),
+      )
+    } else if (dconfResult.errors.length > 0) {
+      console.log(chalk.yellow('⚠️  Some GNOME settings failed to export:'))
+      dconfResult.errors.forEach((err) => {
+        console.log(chalk.yellow(`  - ${err.path}: ${err.error}`))
+      })
+      console.log()
+    }
+  }
+
   // Export schema to repository
   console.log(chalk.cyan('\n📋 Saving backup configuration to repository...\n'))
 
@@ -2377,12 +2402,12 @@ function displayNextSteps(config: SetupConfig) {
 
   console.log(chalk.white(`1. Review your configuration in ${configPath}`))
   console.log(
-    chalk.white('2. Run the backup script to snapshot your current setup:'),
+    chalk.white('2. Re-run setup to update your backup when files change:'),
   )
-  console.log(chalk.gray('   pnpm run script populate-backup-schema\n'))
+  console.log(chalk.gray('   pnpm run setup\n'))
 
   if (config.configFiles.versionControl) {
-    console.log(chalk.white('3. Your dotfiles will be backed up to:'))
+    console.log(chalk.white('3. Your dotfiles are backed up to:'))
     console.log(chalk.gray(`   ${config.configFiles.gitRepoUrl}\n`))
   }
 
@@ -2701,13 +2726,13 @@ export default async function setup() {
             repoOwner: '', // TODO: extract from URL
             branch: 'main',
             visibility: config.configFiles.repoVisibility || 'private',
-            cloneLocation: config.configFiles.cloneLocation,
             structure: {
               type: 'nested', // Always use nested structure with OS folders
               directories: { [osOrDistro]: `${osOrDistro}/` },
             },
             trackedFiles: {
               [osOrDistro]: {
+                cloneLocation: config.configFiles.cloneLocation,
                 files: selectedFiles,
               },
             },

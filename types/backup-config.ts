@@ -28,6 +28,9 @@ export type SystemConfig = {
   primary: OperatingSystem
   shell: Shell
   shellConfigFile: string // e.g., '.zshrc', '.bashrc'
+  // Linux-specific metadata
+  displayServer?: 'x11' | 'wayland' | 'unknown' // Linux display server protocol
+  desktopEnvironment?: string // e.g., 'gnome', 'kde', 'i3', 'sway', 'xfce'
 }
 
 export type MultiOSConfig = {
@@ -70,7 +73,6 @@ export type DotfilesConfig = {
   repoOwner?: string // e.g., 'username'
   branch: string // e.g., 'main' or 'master'
   visibility: RepoVisibility
-  cloneLocation: string // e.g., '/Users/username' or '~'
 
   // Directory structure within repo
   structure: DotfilesStructure
@@ -78,6 +80,7 @@ export type DotfilesConfig = {
   // Files tracked per OS/distro
   trackedFiles: {
     [osOrDistro: string]: {
+      cloneLocation: string // e.g., '/Users/username/dev/dotfiles' on macOS, '/home/username/dev/dotfiles' on Linux
       files: TrackedFile[]
     }
   }
@@ -399,7 +402,6 @@ export const DEFAULT_BACKUP_CONFIG: Partial<BackupConfig> = {
     repoUrl: '',
     branch: 'main',
     visibility: 'private',
-    cloneLocation: '~',
     structure: {
       type: 'flat',
       directories: {},

@@ -41,7 +41,6 @@ interface BackupConfig {
     repoOwner?: string  // e.g., 'username'
     branch: string  // e.g., 'main' or 'master'
     visibility: 'public' | 'private'
-    cloneLocation: string  // e.g., '/Users/username' or '~'
 
     // Directory structure within repo
     structure: {
@@ -58,6 +57,7 @@ interface BackupConfig {
     trackedFiles: {
       // OS or distro name as key
       [osOrDistro: string]: {
+        cloneLocation: string  // e.g., '/Users/username/dev/dotfiles' on macOS, '/home/username/dev/dotfiles' on Linux
         files: Array<{
           name: string  // e.g., '.bashrc', '.zshrc'
           sourcePath: string  // Home directory path: '~/.bashrc'
