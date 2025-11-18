@@ -25,7 +25,7 @@ export type BackupOptions = {
 }
 
 /**
- * Check if file should be excluded from backup (e.g., SSH private keys)
+ * Check if file should be excluded from backup (e.g., SSH private keys, third-party extensions)
  */
 function shouldExcludeFile(filePath: string, fileName: string): boolean {
   // Exclude SSH private keys and sensitive files
@@ -50,6 +50,29 @@ function shouldExcludeFile(filePath: string, fileName: string): boolean {
       )
     ) {
       return true
+    }
+  }
+
+  // Exclude third-party GNOME Shell extensions (keep only @custom ones)
+  // Third-party extensions are typically from GitHub/GitLab/etc with patterns like:
+  // - name@author.github.com
+  // - name@gitlab.com/author
+  // Custom extensions should use @custom suffix: name@custom
+  if (filePath.includes('gnome-shell/extensions')) {
+    // If this is a third-party extension directory (not @custom), exclude it
+    if (fileName.includes('@') && !fileName.includes('@custom')) {
+      // Common third-party extension patterns
+      const thirdPartyPatterns = [
+        '@github.com',
+        '@gitlab.com',
+        '@G-dH.github.com', // specific pattern for advanced-alt-tab
+        '@',  // Any @ that's not @custom should be excluded
+      ]
+
+      // Check if it matches any third-party pattern AND doesn't include @custom
+      if (thirdPartyPatterns.some(pattern => fileName.includes(pattern))) {
+        return true
+      }
     }
   }
 

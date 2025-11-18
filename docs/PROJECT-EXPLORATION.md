@@ -465,8 +465,8 @@ Title: "NEXT STEPS"
 
 Shows:
 1. Configuration location
-2. Command to run populate-backup-schema (future)
-3. Where dotfiles will be backed up to
+2. Instructions to re-run setup for updates
+3. Where dotfiles are backed up to
 4. Reminders about secret management if enabled
 ```
 
@@ -514,9 +514,8 @@ if (result === BACK_OPTION) {
 /home/user/dev-machine-backup-restore/
 ├── scripts/
 │   ├── index.ts              # Entry point dispatcher
-│   ├── setup.ts              # Main 1808-line setup wizard
-│   ├── init.ts               # Initialization
-│   ├── populate-backup-schema.ts  # Schema generation
+│   ├── setup.ts              # Main interactive setup wizard
+│   ├── init.ts               # Initialization (development)
 │   └── test-scripts/
 │
 ├── utils/
