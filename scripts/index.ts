@@ -19,6 +19,16 @@ const SCRIPT_METADATA: Record<string, ScriptInfo> = {
     description: 'Interactive setup wizard for backup configuration',
     emoji: '⚙️',
   },
+  'populate-backup-schema': {
+    name: 'Populate Backup Schema',
+    description: 'Scan and collect your system packages and configuration',
+    emoji: '📦',
+  },
+  restore: {
+    name: 'Restore',
+    description: 'Interactive restore wizard to restore backed-up configuration',
+    emoji: '♻️',
+  },
   init: {
     name: 'Init',
     description: 'Initialize the backup system (development)',
