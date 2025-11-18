@@ -9,16 +9,17 @@ import fs from 'fs'
 import path from 'path'
 import os from 'os'
 import chalk from 'chalk'
-import { TrackedFile } from '../types/backup-config.js'
+import { TrackedFile } from '../types/backup-config'
 
-export interface BackupResult {
+export type BackupResult = {
   success: boolean
+  backedUpCount: number
   copiedFiles: string[]
   skippedFiles: string[]
   errors: Array<{ file: string; error: string }>
 }
 
-export interface BackupOptions {
+export type BackupOptions = {
   dryRun?: boolean // If true, only simulate the backup without copying files
   verbose?: boolean // Show detailed output
 }
@@ -53,7 +54,11 @@ function shouldExcludeFile(filePath: string, fileName: string): boolean {
 
   // Check if in .ssh directory and matches key pattern
   if (filePath.includes('.ssh')) {
-    if (sshKeyPatterns.some(pattern => fileName === pattern || fileName.startsWith(pattern + '.'))) {
+    if (
+      sshKeyPatterns.some(
+        (pattern) => fileName === pattern || fileName.startsWith(pattern + '.'),
+      )
+    ) {
       return true
     }
   }
@@ -67,13 +72,15 @@ function shouldExcludeFile(filePath: string, fileName: string): boolean {
 async function copyFileOrDirectory(
   sourcePath: string,
   destPath: string,
-  isDirectory: boolean
+  isDirectory: boolean,
 ): Promise<void> {
   if (isDirectory) {
     // For directories, copy recursively
     await fs.promises.mkdir(destPath, { recursive: true })
 
-    const entries = await fs.promises.readdir(sourcePath, { withFileTypes: true })
+    const entries = await fs.promises.readdir(sourcePath, {
+      withFileTypes: true,
+    })
 
     for (const entry of entries) {
       const srcPath = path.join(sourcePath, entry.name)
@@ -81,7 +88,9 @@ async function copyFileOrDirectory(
 
       // Skip SSH private keys and sensitive files
       if (shouldExcludeFile(srcPath, entry.name)) {
-        console.log(chalk.gray(`   Skipping: ${entry.name} (SSH key/sensitive file)`))
+        console.log(
+          chalk.gray(`   Skipping: ${entry.name} (SSH key/sensitive file)`),
+        )
         continue
       }
 
@@ -105,11 +114,12 @@ export async function backupFilesToRepo(
   files: TrackedFile[],
   repoPath: string,
   osOrDistro: string,
-  options: BackupOptions = {}
+  options: BackupOptions = {},
 ): Promise<BackupResult> {
   const { dryRun = false, verbose = true } = options
   const result: BackupResult = {
     success: true,
+    backedUpCount: 0,
     copiedFiles: [],
     skippedFiles: [],
     errors: [],
@@ -129,7 +139,27 @@ export async function backupFilesToRepo(
       // Check if source file exists
       if (!fs.existsSync(sourcePath)) {
         if (verbose) {
-          console.log(chalk.yellow(`⚠️  Skipping ${file.name} - file not found at ${sourcePath}`))
+          console.log(
+            chalk.yellow(
+              `⚠️  Skipping ${file.name} - file not found at ${sourcePath}`,
+            ),
+          )
+        }
+        result.skippedFiles.push(file.sourcePath)
+        result.errors.push({
+          file: file.sourcePath,
+          error: 'File not found',
+        })
+        continue
+      }
+
+      // Check if file should be excluded (e.g., SSH private keys)
+      const fileName = path.basename(sourcePath)
+      if (shouldExcludeFile(sourcePath, fileName)) {
+        if (verbose) {
+          console.log(
+            chalk.gray(`   Skipping: ${file.name} (SSH key/sensitive file)`),
+          )
         }
         result.skippedFiles.push(file.sourcePath)
         continue
@@ -154,6 +184,7 @@ export async function backupFilesToRepo(
       }
 
       result.copiedFiles.push(file.sourcePath)
+      result.backedUpCount++
 
       if (verbose) {
         console.log(chalk.green(`    ✅ ${dryRun ? 'Would copy' : 'Copied'}\n`))
@@ -174,7 +205,9 @@ export async function backupFilesToRepo(
     console.log(chalk.cyan('─'.repeat(50)))
     console.log(chalk.green(`✅ Copied: ${result.copiedFiles.length} files`))
     if (result.skippedFiles.length > 0) {
-      console.log(chalk.yellow(`⚠️  Skipped: ${result.skippedFiles.length} files`))
+      console.log(
+        chalk.yellow(`⚠️  Skipped: ${result.skippedFiles.length} files`),
+      )
     }
     if (result.errors.length > 0) {
       console.log(chalk.red(`❌ Errors: ${result.errors.length} files`))
@@ -192,7 +225,7 @@ export function generateRepoPath(
   fileName: string,
   osOrDistro: string,
   multiOS: boolean,
-  structureType: 'flat' | 'nested' = 'flat'
+  structureType: 'flat' | 'nested' = 'flat',
 ): string {
   if (!multiOS || structureType === 'flat') {
     // Flat structure: files at root
@@ -206,10 +239,7 @@ export function generateRepoPath(
 /**
  * Preview backup operation - show what will be copied
  */
-export function previewBackup(
-  files: TrackedFile[],
-  repoPath: string
-): void {
+export function previewBackup(files: TrackedFile[], repoPath: string): void {
   console.log(chalk.cyan('\n📋 BACKUP PREVIEW\n'))
   console.log(chalk.gray(`Repository: ${repoPath}\n`))
 
@@ -220,14 +250,22 @@ export function previewBackup(
     const exists = fs.existsSync(sourcePath)
 
     console.log(chalk.white(`${index + 1}. ${file.name}`))
-    console.log(chalk.gray(`   Source: ${file.sourcePath} ${exists ? chalk.green('✓') : chalk.red('✗ NOT FOUND')}`))
+    console.log(
+      chalk.gray(
+        `   Source: ${file.sourcePath} ${exists ? chalk.green('✓') : chalk.red('✗ NOT FOUND')}`,
+      ),
+    )
     console.log(chalk.gray(`   Destination: ${file.repoPath}`))
-    console.log(chalk.gray(`   Tracked in git: ${file.tracked ? chalk.green('Yes') : chalk.red('No (secret)')}`))
+    console.log(
+      chalk.gray(
+        `   Tracked in git: ${file.tracked ? chalk.green('Yes') : chalk.red('No (secret)')}`,
+      ),
+    )
     console.log()
   })
 
-  const trackedCount = files.filter(f => f.tracked).length
-  const secretCount = files.filter(f => !f.tracked).length
+  const trackedCount = files.filter((f) => f.tracked).length
+  const secretCount = files.filter((f) => !f.tracked).length
 
   console.log(chalk.cyan('─'.repeat(50)))
   console.log(chalk.white(`Total files: ${files.length}`))
