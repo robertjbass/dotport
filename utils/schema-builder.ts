@@ -117,25 +117,18 @@ export function buildBackupConfig(options: {
   const detectedShell = shell || detectShell()
   const configFile = shellConfigFile || getShellConfigFile(detectedShell)
 
-  // Determine structure type
-  const structureType: 'flat' | 'nested' = multiOS ? 'nested' : 'flat'
-
-  // Build directory structure for nested repos
-  const directories: Record<string, string> = {}
-  if (multiOS) {
-    if (backupOS === 'macos') {
-      directories.macos = 'macos/'
-    } else if (backupOS === 'linux') {
-      // Use first supported distro or 'linux' as fallback
-      const distro = supportedDistros?.[0] || 'linux'
-      directories[distro] = `${distro}/`
-    }
-  }
+  // Always use nested structure (OS folders like macos/, debian/, etc.)
+  const structureType: 'flat' | 'nested' = 'nested'
 
   // Group tracked files by OS/distro
-  const osOrDistro = multiOS && backupOS === 'linux'
+  const osOrDistro = backupOS === 'linux'
     ? (supportedDistros?.[0] || 'linux')
     : backupOS
+
+  // Build directory structure for nested repos
+  const directories: Record<string, string> = {
+    [osOrDistro]: `${osOrDistro}/`
+  }
 
   // Build the complete config
   const config: BackupConfig = {

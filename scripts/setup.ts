@@ -360,13 +360,8 @@ async function promptConfigFileStorage(
 ): Promise<SetupConfig['configFiles'] | typeof BACK_OPTION> {
   displayStepProgress(stepNumber, 9, 'Config File Storage')
   console.log(
-    chalk.gray(
-      '\n  Config files: dotfiles like .bashrc, .zshrc, editor settings, etc.',
-    ),
-  )
-  console.log(
-    chalk.gray(
-      '  (This does NOT include secrets like SSH keys or API tokens)\n',
+    chalk.dim(
+      '\n  Config files: dotfiles like .bashrc, .zshrc, editor settings, etc.\n  This does NOT include secrets like SSH keys or API tokens.\n',
     ),
   )
 
@@ -390,6 +385,8 @@ async function promptConfigFileStorage(
       choices: vcChoices,
     },
   ])
+
+  console.log('') // Add spacing after answer
 
   if (hasVersionControl === 'back') {
     return BACK_OPTION
@@ -420,6 +417,8 @@ async function promptConfigFileStorage(
       choices: serviceChoices,
     },
   ])
+
+  console.log('') // Add spacing after answer
 
   if (service === 'back') {
     return BACK_OPTION
@@ -1282,128 +1281,158 @@ async function promptSecretStorage(
 ): Promise<SetupConfig['secrets'] | typeof BACK_OPTION> {
   displayStepProgress(stepNumber, 9, 'Secret Management')
   console.log(
-    chalk.gray(
+    chalk.dim(
       '\n  Secrets: environment variables, API keys, SSH keys, etc.\n',
     ),
   )
 
-  const secretChoices: any[] = [
-    {
-      name: 'Yes, I want to set up or configure secret management',
-      value: 'yes',
-    },
-    { name: 'No, skip secret management', value: 'no' },
-  ]
+  // State machine for navigation within secrets section
+  type SecretStep = 'manage' | 'backup' | 'category'
+  let currentStep: SecretStep = 'manage'
+  let manageSecrets = ''
+  let currentlyBackingUp = ''
+  let storageCategory = ''
 
-  if (showBack) {
-    secretChoices.push(new inquirer.Separator())
-    secretChoices.push({ name: '← Go back', value: 'back' })
-  }
+  while (true) {
+    if (currentStep === 'manage') {
+      const secretChoices: any[] = [
+        {
+          name: 'Yes, I want to set up or configure secret management',
+          value: 'yes',
+        },
+        { name: 'No, skip secret management', value: 'no' },
+      ]
 
-  const { manageSecrets } = await inquirer.prompt<{ manageSecrets: string }>([
-    {
-      type: 'list',
-      name: 'manageSecrets',
-      message:
-        `Do you currently have secret management or wish to set up secret management?\n${chalk.gray('  This includes local file(s) used for system environment variables')}`,
-      choices: secretChoices,
-    },
-  ])
+      if (showBack) {
+        secretChoices.push(new inquirer.Separator())
+        secretChoices.push({ name: '← Go back', value: 'back' })
+      }
 
-  if (manageSecrets === 'back') {
-    return BACK_OPTION
-  }
+      const result = await inquirer.prompt<{ manageSecrets: string }>([
+        {
+          type: 'list',
+          name: 'manageSecrets',
+          message:
+            `Do you currently have secret management or wish to set up secret management?\n${chalk.dim('  This includes local file(s) used for system environment variables')}`,
+          choices: secretChoices,
+        },
+      ])
 
-  if (manageSecrets === 'no') {
-    return {
-      enabled: false,
-    }
-  }
+      console.log('') // Add spacing after answer
+      manageSecrets = result.manageSecrets
 
-  const backupChoices: any[] = [
-    { name: 'Yes', value: 'yes' },
-    { name: 'No', value: 'no' },
-  ]
+      if (manageSecrets === 'back') {
+        return BACK_OPTION
+      }
 
-  if (showBack) {
-    backupChoices.push(new inquirer.Separator())
-    backupChoices.push({ name: '← Go back', value: 'back' })
-  }
+      if (manageSecrets === 'no') {
+        return {
+          enabled: false,
+        }
+      }
 
-  const { currentlyBackingUp } = await inquirer.prompt<{
-    currentlyBackingUp: string
-  }>([
-    {
-      type: 'list',
-      name: 'currentlyBackingUp',
-      message: 'Do you already use a local file and/or a cloud service for managing your secrets?',
-      choices: backupChoices,
-    },
-  ])
+      currentStep = 'backup'
+    } else if (currentStep === 'backup') {
+      const backupChoices: any[] = [
+        { name: 'Yes', value: 'yes' },
+        { name: 'No', value: 'no' },
+      ]
 
-  if (currentlyBackingUp === 'back') {
-    return BACK_OPTION
-  }
+      if (showBack) {
+        backupChoices.push(new inquirer.Separator())
+        backupChoices.push({ name: '← Go back', value: 'back' })
+      }
 
-  // Show available options
-  const storageCategoryChoices: any[] = [
-    new inquirer.Separator(chalk.cyan('── Local Storage ──')),
-    { name: 'Local file (.env, .env.sh, etc.)', value: 'local-file' },
+      const result = await inquirer.prompt<{
+        currentlyBackingUp: string
+      }>([
+        {
+          type: 'list',
+          name: 'currentlyBackingUp',
+          message: 'Do you already use a local file and/or a cloud service for managing your secrets?',
+          choices: backupChoices,
+        },
+      ])
 
-    new inquirer.Separator(chalk.cyan('\n── Version Control (Remote) ──')),
-    { name: 'Git Repository (encrypted)', value: 'git-remote' },
+      console.log('') // Add spacing after answer
+      currentlyBackingUp = result.currentlyBackingUp
 
-    new inquirer.Separator(chalk.cyan('\n── Version Control (Local) ──')),
-    { name: 'Local Git Repository (encrypted)', value: 'git-local' },
+      if (currentlyBackingUp === 'back') {
+        currentStep = 'manage'
+        continue
+      }
 
-    new inquirer.Separator(chalk.cyan('\n── Platform/Edge Providers ──')),
-    { name: 'Vercel / Cloudflare / Netlify', value: 'platform' },
+      currentStep = 'category'
+    } else if (currentStep === 'category') {
+      // Show available options
+      const storageCategoryChoices: any[] = [
+        new inquirer.Separator(chalk.cyan('── Local Storage ──')),
+        { name: 'Local file (.env, .env.sh, etc.)', value: 'local-file' },
 
-    new inquirer.Separator(chalk.cyan('\n── Cloud Secret Managers ──')),
-    { name: 'AWS / GCP / Azure Secret Manager', value: 'cloud' },
+        new inquirer.Separator(chalk.cyan('\n── Version Control (Remote) ──')),
+        { name: 'Git Repository (encrypted)', value: 'git-remote' },
 
-    new inquirer.Separator(chalk.cyan('\n── Third-Party Vaults ──')),
-    { name: 'HashiCorp Vault / Doppler / Others', value: 'vault' },
+        new inquirer.Separator(chalk.cyan('\n── Version Control (Local) ──')),
+        { name: 'Local Git Repository (encrypted)', value: 'git-local' },
 
-    new inquirer.Separator(chalk.cyan('\n── OS-Level Storage ──')),
-    { name: 'macOS Keychain / Linux Secret Service', value: 'os-storage' },
+        new inquirer.Separator(chalk.cyan('\n── Platform/Edge Providers ──')),
+        { name: 'Vercel / Cloudflare / Netlify', value: 'platform' },
 
-    new inquirer.Separator(chalk.cyan('\n── Password Manager ──')),
-    {
-      name: '1Password / LastPass / Dashlane (manual)',
-      value: 'password-manager',
-    },
+        new inquirer.Separator(chalk.cyan('\n── Cloud Secret Managers ──')),
+        { name: 'AWS / GCP / Azure Secret Manager', value: 'cloud' },
 
-    new inquirer.Separator(chalk.cyan('\n── No Secret Management ──')),
-    { name: 'Skip secret management', value: 'none' },
-  ]
+        new inquirer.Separator(chalk.cyan('\n── Third-Party Vaults ──')),
+        { name: 'HashiCorp Vault / Doppler / Others', value: 'vault' },
 
-  if (showBack) {
-    storageCategoryChoices.push(new inquirer.Separator())
-    storageCategoryChoices.push({ name: '← Go back', value: 'back' })
-  }
+        new inquirer.Separator(chalk.cyan('\n── OS-Level Storage ──')),
+        { name: 'macOS Keychain / Linux Secret Service', value: 'os-storage' },
 
-  const { storageCategory } = await inquirer.prompt<{
-    storageCategory: string
-  }>([
-    {
-      type: 'list',
-      name: 'storageCategory',
-      message:
-        currentlyBackingUp === 'yes'
-          ? 'Which approach do you currently use to manage secrets?'
-          : 'Which approach would you like to use to manage secrets?',
-      choices: storageCategoryChoices,
-    },
-  ])
+        new inquirer.Separator(chalk.cyan('\n── Password Manager ──')),
+        {
+          name: '1Password / LastPass / Dashlane (manual)',
+          value: 'password-manager',
+        },
 
-  if (storageCategory === 'back') {
-    return BACK_OPTION
-  }
+        new inquirer.Separator(chalk.cyan('\n── No Secret Management ──')),
+        { name: 'Skip secret management', value: 'none' },
+      ]
 
-  if (storageCategory === 'none') {
-    return {
-      enabled: false,
+      if (showBack) {
+        storageCategoryChoices.push(new inquirer.Separator())
+        storageCategoryChoices.push({ name: '← Go back', value: 'back' })
+      }
+
+      const result = await inquirer.prompt<{
+        storageCategory: string
+      }>([
+        {
+          type: 'list',
+          name: 'storageCategory',
+          message:
+            currentlyBackingUp === 'yes'
+              ? 'Which approach do you currently use to manage secrets?'
+              : 'Which approach would you like to use to manage secrets?',
+          choices: storageCategoryChoices,
+        },
+      ])
+
+      console.log('') // Add spacing after answer
+      storageCategory = result.storageCategory
+
+      if (storageCategory === 'back') {
+        // Go back to the backup question within the secrets flow
+        currentStep = 'backup'
+        continue
+      }
+
+      if (storageCategory === 'none') {
+        return {
+          enabled: false,
+        }
+      }
+
+      // Break out of navigation loop to handle category-specific logic
+      break
     }
   }
 
@@ -1417,11 +1446,9 @@ async function promptSecretStorage(
         name: 'localType',
         message: 'Select local file type:',
         choices: [
-          '.env file',
-          'Shell script exports (.env.sh, .secrets.sh)',
+          'Shell script with exports (e.g., .env.sh - export KEY="VALUE" per line) [recommended]',
+          'Plaintext (e.g., .env - KEY=VALUE format per line)',
           'PGP-encrypted file',
-          'Age-encrypted file',
-          'Plaintext file',
         ],
       },
     ])
@@ -2582,15 +2609,15 @@ export default async function setup() {
           osOrDistro = config.configFiles.supportedDistros?.[0] || 'linux'
         }
 
-        // When multi-OS is enabled, always use nested structure
-        const structureType: 'flat' | 'nested' = multiOS ? 'nested' : 'flat'
+        // Always use nested structure (OS folders like macos/, debian/, etc.)
+        const structureType: 'flat' | 'nested' = 'nested'
 
         selectedFiles = finalFiles.map((file) => ({
           ...file,
           repoPath: generateRepoPath(
             file.name,
             osOrDistro,
-            multiOS,
+            true, // Always use nested structure
             structureType,
           ),
         }))
@@ -2662,10 +2689,8 @@ export default async function setup() {
             visibility: config.configFiles.repoVisibility || 'private',
             cloneLocation: config.configFiles.cloneLocation,
             structure: {
-              type: config.configFiles.multiOS ? 'nested' : 'flat',
-              directories: config.configFiles.multiOS
-                ? { [osType]: `${osType}/` }
-                : {},
+              type: 'nested', // Always use nested structure with OS folders
+              directories: { [osOrDistro]: `${osOrDistro}/` },
             },
             trackedFiles: {
               [osOrDistro]: {
