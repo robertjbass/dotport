@@ -81,6 +81,12 @@ import {
   buildBackupConfig,
   convertOSType,
 } from '../utils/schema-builder'
+import {
+  checkRCFileSourcesSecret,
+  addSecretSourceToRC,
+  parseEnvFile,
+  convertEnvToEnvSh,
+} from '../utils/shell-config'
 
 /**
  * Setup Script - Interactive configuration for dev machine backup/restore
@@ -1242,6 +1248,7 @@ async function promptManualFileAddition(
 async function promptSecretStorage(
   showBack = false,
   stepNumber = 4,
+  shell?: string,
 ): Promise<SetupConfig['secrets'] | typeof BACK_OPTION> {
   displayStepProgress(stepNumber, 9, 'Secret Management')
   console.log(
@@ -1454,7 +1461,7 @@ async function promptSecretStorage(
 
       if (fileAction === 'select-different') {
         // Recursively prompt for a different file by returning to the local file type prompt
-        return await promptSecretStorage(showBack, stepNumber)
+        return await promptSecretStorage(showBack, stepNumber, shell)
       }
 
       details.secretFileExists = 'no'
@@ -1483,6 +1490,127 @@ async function promptSecretStorage(
         } catch (error: any) {
           console.log(chalk.red(`❌ Failed to create file: ${error.message}\n`))
           console.log(chalk.gray('You can create it manually later.\n'))
+        }
+      }
+    }
+
+    // Configure shell RC file to source the secret file
+    if (shell && details.secretFileExists === 'yes' && secretFileName) {
+      const secretFilePath = path.join(secretFileLocation, secretFileName)
+
+      // Check if the secret file uses export syntax
+      console.log(chalk.cyan('\n🔍 Checking secret file format...\n'))
+      const parsed = parseEnvFile(secretFilePath)
+
+      // If the file doesn't use exports and isn't already a .sh file, offer to convert
+      if (!parsed.hasExports && !secretFileName.endsWith('.sh')) {
+        console.log(
+          chalk.yellow(
+            `⚠️  Your secret file (${secretFileName}) doesn't use 'export' syntax.\n`,
+          ),
+        )
+        console.log(
+          chalk.gray(
+            '   For shell sourcing to work, variables need to be exported.\n',
+          ),
+        )
+
+        const { convertFile } = await inquirer.prompt<{ convertFile: string }>([
+          {
+            type: 'list',
+            name: 'convertFile',
+            message: 'Would you like to create a .env.sh file with proper exports?',
+            choices: [
+              { name: 'Yes, create .env.sh with exports', value: 'yes' },
+              { name: 'No, I will handle this manually', value: 'no' },
+            ],
+          },
+        ])
+
+        if (convertFile === 'yes') {
+          const envShPath = path.join(secretFileLocation, '.env.sh')
+          const convertResult = convertEnvToEnvSh(secretFilePath, envShPath)
+
+          if (convertResult.success) {
+            console.log(
+              chalk.green(
+                `\n✅ Created ${envShPath} with proper export syntax\n`,
+              ),
+            )
+            // Update the secret file name to the new .env.sh file
+            details.secretFileName = '.env.sh'
+          } else {
+            console.log(
+              chalk.red(
+                `\n❌ Failed to create .env.sh: ${convertResult.error}\n`,
+              ),
+            )
+          }
+        }
+      }
+
+      // Now configure the shell RC file
+      const finalSecretFile =
+        details.secretFileName || secretFileName
+      const finalSecretPath = path.join(secretFileLocation, finalSecretFile)
+
+      console.log(
+        chalk.cyan(
+          `\n🔧 Configuring ${shell} to source ${finalSecretPath}...\n`,
+        ),
+      )
+
+      // Check if already configured
+      if (checkRCFileSourcesSecret(shell, finalSecretPath)) {
+        console.log(
+          chalk.green(
+            `✅ Your .${shell}rc already sources ${finalSecretPath}\n`,
+          ),
+        )
+      } else {
+        const { addSource } = await inquirer.prompt<{ addSource: string }>([
+          {
+            type: 'list',
+            name: 'addSource',
+            message: `Add source command to .${shell}rc?`,
+            choices: [
+              { name: 'Yes, configure automatically', value: 'yes' },
+              { name: 'No, I will configure manually', value: 'no' },
+            ],
+          },
+        ])
+
+        if (addSource === 'yes') {
+          const addResult = addSecretSourceToRC(shell, finalSecretPath)
+
+          if (addResult.success) {
+            console.log(
+              chalk.green(
+                `\n✅ Added source command to .${shell}rc\n`,
+              ),
+            )
+            console.log(
+              chalk.gray(
+                `   Restart your shell or run: source ~/.${shell}rc\n`,
+              ),
+            )
+          } else {
+            console.log(
+              chalk.red(
+                `\n❌ Failed to update .${shell}rc: ${addResult.error}\n`,
+              ),
+            )
+            console.log(
+              chalk.gray(
+                `   You can manually add this to your .${shell}rc:\n`,
+              ),
+            )
+            console.log(
+              chalk.gray(
+                `   if [ -f ${finalSecretPath} ]; then source ${finalSecretPath}; fi\n`,
+              ),
+            )
+          }
         }
       }
     }
@@ -2139,7 +2267,7 @@ export default async function setup() {
         config.configFiles = configFiles as SetupConfig['configFiles']
         currentStep = 'secrets'
       } else if (currentStep === 'secrets') {
-        const secrets = await promptSecretStorage(true, 4)
+        const secrets = await promptSecretStorage(true, 4, config.shell)
         if (secrets === BACK_OPTION) {
           currentStep = 'config'
           continue
