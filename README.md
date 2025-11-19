@@ -8,11 +8,12 @@ A comprehensive CLI tool for backing up and restoring development machine config
 
 ### Name Ideas
 
+- [ ] **dotport** ✅ - Port your dots across machines (AVAILABLE)
+- [ ] **dotporter** ✅ - Port your dots across machines (AVAILABLE)
 - [ ] **dotshift** ✅ - Short, catchy. "Shift your dots anywhere" (AVAILABLE)
 - [ ] **devsnap** ⚠️ - Developer snapshots. Quick and memorable (unpublished, available)
 - [ ] **dotpack** ✅ - Pack up your dotfiles. Simple and clear (AVAILABLE)
 - [ ] ~~**machina**~~ ❌ - Taken (finite state machine library)
-- [ ] **dotporter** ✅ - Port your dots across machines (AVAILABLE)
 - [ ] **envclone** ✅ - Clone your development environment (AVAILABLE)
 - [ ] **setupkit** ✅ - Your development setup toolkit (AVAILABLE)
 - [ ] **dotmover** ✅ - Move dots between machines (AVAILABLE)
@@ -20,6 +21,7 @@ A comprehensive CLI tool for backing up and restoring development machine config
 - [ ] **workstation-backup** ✅ - Descriptive but longer (AVAILABLE)
 
 **Requirements:**
+
 - Must be available on npm
 - Should be descriptive or memorable
 - Ideally short (1-2 words, under 12 characters)
@@ -65,6 +67,7 @@ A comprehensive CLI tool for backing up and restoring development machine config
 ### Current Status
 
 **Setup Flow (Complete)**:
+
 1. OS Detection → Operating system and distribution
 2. Repository → GitHub/Git service selection and authentication
 3. Multi-OS → Support for multiple operating systems/distros
@@ -240,6 +243,7 @@ This project is under active development. See CHANGELOG.md for recent updates.
 
 **Last Updated**: 2025-01-18
 **Status**:
+
 - ✅ Setup wizard complete with full multi-OS support
 - ✅ Linux-specific features: dconf export, display server detection, desktop environment detection
 - ✅ Package manager export for Homebrew, apt, cargo, gem, go, npm/pnpm/yarn, pip
