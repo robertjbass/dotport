@@ -4,20 +4,19 @@ A comprehensive CLI tool for backing up and restoring development machine config
 
 ## Possible Names
 
-**Current working name:** `dev-machine-backup-restore`
+<!-- **Current working name:** `dev-machine-backup-restore` -->
+
+**Current working name:** `dotport`
 
 ### Name Ideas
 
 - [ ] **dotport** ✅ - Port your dots across machines (AVAILABLE)
 - [ ] **dotporter** ✅ - Port your dots across machines (AVAILABLE)
 - [ ] **dotshift** ✅ - Short, catchy. "Shift your dots anywhere" (AVAILABLE)
-- [ ] **devsnap** ⚠️ - Developer snapshots. Quick and memorable (unpublished, available)
 - [ ] **dotpack** ✅ - Pack up your dotfiles. Simple and clear (AVAILABLE)
-- [ ] ~~**machina**~~ ❌ - Taken (finite state machine library)
 - [ ] **envclone** ✅ - Clone your development environment (AVAILABLE)
 - [ ] **setupkit** ✅ - Your development setup toolkit (AVAILABLE)
 - [ ] **dotmover** ✅ - Move dots between machines (AVAILABLE)
-- [ ] ~~**devsync**~~ ❌ - Taken (browser sync tool)
 - [ ] **workstation-backup** ✅ - Descriptive but longer (AVAILABLE)
 
 **Requirements:**
@@ -33,7 +32,7 @@ A comprehensive CLI tool for backing up and restoring development machine config
 
 ### Completed
 
-- ✅ **Interactive Setup Wizard** - Step-by-step configuration with back navigation
+- ✅ **Interactive Backup Wizard** - Step-by-step configuration with back navigation
 - ✅ **OS Detection** - Automatic detection of macOS/Linux with distro support
 - ✅ **Multi-OS Support** - Manage configs for multiple operating systems/distros
 - ✅ **GitHub Integration** - Create/clone repos, authenticate via device flow
@@ -66,7 +65,7 @@ A comprehensive CLI tool for backing up and restoring development machine config
 
 ### Current Status
 
-**Setup Flow (Complete)**:
+**Backup Flow (Complete)**:
 
 1. OS Detection → Operating system and distribution
 2. Repository → GitHub/Git service selection and authentication
@@ -84,8 +83,8 @@ A comprehensive CLI tool for backing up and restoring development machine config
 # Install dependencies
 pnpm install
 
-# Run setup wizard
-pnpm run setup
+# Run backup wizard
+pnpm backup
 ```
 
 ## Project Structure
@@ -93,8 +92,10 @@ pnpm run setup
 ```
 dev-machine-backup-restore/
 ├── scripts/
-│   ├── setup.ts              # Main interactive setup wizard
-│   └── test-scripts/         # Test scripts
+│   ├── backup.ts             # Main interactive backup wizard
+│   ├── restore.ts            # Interactive restore wizard
+│   ├── placeholder.ts        # Example script template
+│   └── index.ts              # Script selector/runner
 ├── utils/
 │   ├── file-discovery.ts     # Automatic config file scanning
 │   ├── file-backup.ts        # File copying and backup logic
@@ -120,21 +121,33 @@ dev-machine-backup-restore/
 
 ### High Priority
 
-- [ ] **Restore Functionality**
-  - [ ] Detect existing schema in dotfiles repo
-  - [ ] Clone dotfiles repo on new machine
-  - [ ] Parse schema to understand file structure
-  - [ ] Copy files from repo to home directory
-  - [ ] Create symlinks based on schema configuration
-  - [ ] Support for multiple OS/distro restoration
-  - [ ] Handle conflicts (existing files vs. repo files)
+- [x] **Restore Functionality** ✅ COMPLETED
+  - [x] Detect existing schema in dotfiles repo
+  - [x] Auto-discover dotfiles repo location
+  - [x] Parse schema to understand file structure
+  - [x] Copy files from repo to home directory
+  - [x] Create symlinks based on user preference
+  - [x] Support for multiple OS/distro restoration
+  - [x] Handle conflicts (backup existing files before overwrite)
+  - [x] Test mode for safe restore testing
+  - [x] Backup management (view, restore, cleanup old backups)
 
-- [ ] **Package Manager Support**
-  - [ ] Homebrew Bundle export/import (macOS)
-  - [ ] apt package list export/import (Debian/Ubuntu)
-  - [ ] dnf/yum package list (Fedora/RHEL)
-  - [ ] pacman package list (Arch)
-  - [ ] Snap/Flatpak package lists
+- [ ] **Package Manager Installation**
+  - [x] Package list export (Homebrew, apt, cargo, gem, go, npm, pnpm, pip)
+  - [ ] Package installation during restore
+  - [ ] Homebrew Bundle import (macOS)
+  - [ ] apt package installation (Debian/Ubuntu)
+  - [ ] dnf/yum package installation (Fedora/RHEL)
+  - [ ] pacman package installation (Arch)
+  - [ ] Snap/Flatpak package installation
+
+- [ ] **Runtime Installation**
+  - [x] Runtime version tracking (Node.js, Python, Ruby, Go)
+  - [ ] Automatic runtime installation via version managers
+  - [ ] fnm/nvm for Node.js
+  - [ ] pyenv for Python
+  - [ ] rbenv for Ruby
+  - [ ] gvm for Go
 
 - [ ] **Application Detection & Installation**
   - [ ] Detect installed applications
@@ -184,7 +197,7 @@ dev-machine-backup-restore/
 The tool generates a comprehensive TypeScript schema stored in your dotfiles repository:
 
 ```typescript
-interface BackupConfig {
+type BackupConfig = {
   version: string
   system: {
     primary: OperatingSystem
@@ -237,6 +250,8 @@ MIT
 
 ## Contributing
 
+<!-- TODO -->
+
 This project is under active development. See CHANGELOG.md for recent updates.
 
 ---
@@ -244,8 +259,8 @@ This project is under active development. See CHANGELOG.md for recent updates.
 **Last Updated**: 2025-01-18
 **Status**:
 
-- ✅ Setup wizard complete with full multi-OS support
+- ✅ Backup wizard complete with full multi-OS support
+- ✅ Restore wizard complete with test mode
 - ✅ Linux-specific features: dconf export, display server detection, desktop environment detection
 - ✅ Package manager export for Homebrew, apt, cargo, gem, go, npm/pnpm/yarn, pip
 - ✅ Schema merging for multi-OS configurations
-- 🚧 Restore functionality coming next

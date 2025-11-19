@@ -29,7 +29,7 @@ export function displayWelcome(
     console.clear()
   }
 
-  const borderLength = Math.max(60, title.length + 4)
+  const borderLength = Math.max(20, title.length + 4)
   console.log(chalk.cyan.bold('\n' + '='.repeat(borderLength)))
   console.log(chalk.cyan.bold('  ' + title))
   console.log(chalk.cyan.bold('='.repeat(borderLength)))
@@ -52,19 +52,20 @@ export function displayStepProgress(
   stepName: string,
 ): void {
   const percentage = Math.round((currentStep / totalSteps) * 100)
-  const progressBarLength = 40
+  const progressBarLength = 20
   const filledLength = Math.round(
     (progressBarLength * currentStep) / totalSteps,
   )
   const emptyLength = Math.max(0, progressBarLength - filledLength)
   const progressBar = '█'.repeat(filledLength) + '░'.repeat(emptyLength)
 
-  console.log(chalk.cyan(`\n┌${'─'.repeat(58)}┐`))
+  const boxWidth = 38
+  console.log(chalk.cyan(`\n┌${'─'.repeat(boxWidth)}┐`))
 
   // Calculate spacing for step line, ensuring it's never negative
   const stepLineSpacing = Math.max(
     0,
-    58 - 12 - stepName.length - String(currentStep).length - String(totalSteps).length,
+    boxWidth - 12 - stepName.length - String(currentStep).length - String(totalSteps).length,
   )
   console.log(
     chalk.cyan(
@@ -75,14 +76,14 @@ export function displayStepProgress(
   // Calculate spacing for progress line, ensuring it's never negative
   const progressLineSpacing = Math.max(
     0,
-    58 - 12 - progressBarLength - String(percentage).length - 1,
+    boxWidth - 12 - progressBarLength - String(percentage).length - 1,
   )
   console.log(
     chalk.cyan(
       `│ Progress: ${progressBar} ${percentage}%${' '.repeat(progressLineSpacing)}│`,
     ),
   )
-  console.log(chalk.cyan(`└${'─'.repeat(58)}┘`))
+  console.log(chalk.cyan(`└${'─'.repeat(boxWidth)}┘`))
 }
 
 /**

@@ -7,14 +7,15 @@ The dev-machine-backup-restore tool uses a structured configuration file to mana
 ## File Location
 
 The configuration is stored at:
+
 - **macOS**: `~/.dev-machine-backup-restore/backup-config.json`
 - **Linux**: `~/.config/dev-machine-backup-restore/backup-config.json`
-- **Windows**: `%APPDATA%\dev-machine-backup-restore\backup-config.json`
+- **Windows**: `%APPDATA%\dev-machine-backup-restore\backup-config.json` (not supported)
 
 ## Complete Schema
 
 ```typescript
-interface BackupConfig {
+type BackupConfig = {
   // Schema version for migrations
   version: string
 
@@ -22,24 +23,24 @@ interface BackupConfig {
   system: {
     primary: 'macos' | 'linux' | 'windows'
     shell: 'bash' | 'zsh' | 'fish' | 'other'
-    shellConfigFile: string  // e.g., '.zshrc', '.bashrc'
+    shellConfigFile: string // e.g., '.zshrc', '.bashrc'
   }
 
   // Multi-OS support
   multiOS: {
     enabled: boolean
     supportedOS: Array<'macos' | 'linux' | 'windows'>
-    linuxDistros?: string[]  // e.g., ['debian', 'ubuntu', 'fedora']
+    linuxDistros?: string[] // e.g., ['debian', 'ubuntu', 'fedora']
   }
 
   // Dotfiles repository configuration
   dotfiles: {
     enabled: boolean
     repoType: 'github' | 'gitlab' | 'bitbucket' | 'other-git' | 'none'
-    repoName: string  // e.g., 'dotfiles'
-    repoUrl: string  // e.g., 'https://github.com/username/dotfiles'
-    repoOwner?: string  // e.g., 'username'
-    branch: string  // e.g., 'main' or 'master'
+    repoName: string // e.g., 'dotfiles'
+    repoUrl: string // e.g., 'https://github.com/username/dotfiles'
+    repoOwner?: string // e.g., 'username'
+    branch: string // e.g., 'main' or 'master'
     visibility: 'public' | 'private'
 
     // Directory structure within repo
@@ -49,7 +50,7 @@ interface BackupConfig {
 
       // For nested structure, map OS/distro to directory
       directories: {
-        [osOrDistro: string]: string  // e.g., 'macos' -> 'macos/', 'debian' -> 'linux/debian/'
+        [osOrDistro: string]: string // e.g., 'macos' -> 'macos/', 'debian' -> 'linux/debian/'
       }
     }
 
@@ -57,13 +58,13 @@ interface BackupConfig {
     trackedFiles: {
       // OS or distro name as key
       [osOrDistro: string]: {
-        cloneLocation: string  // e.g., '/Users/username/dev/dotfiles' on macOS, '/home/username/dev/dotfiles' on Linux
+        cloneLocation: string // e.g., '/Users/username/dev/dotfiles' on macOS, '/home/username/dev/dotfiles' on Linux
         files: Array<{
-          name: string  // e.g., '.bashrc', '.zshrc'
-          sourcePath: string  // Home directory path: '~/.bashrc'
-          repoPath: string  // Path in repo: 'macos/.bashrc'
-          symlinkEnabled: boolean  // Whether to create symlink
-          tracked: boolean  // Whether file is tracked in git
+          name: string // e.g., '.bashrc', '.zshrc'
+          sourcePath: string // Home directory path: '~/.bashrc'
+          repoPath: string // Path in repo: 'macos/.bashrc'
+          symlinkEnabled: boolean // Whether to create symlink
+          tracked: boolean // Whether file is tracked in git
         }>
       }
     }
@@ -75,8 +76,8 @@ interface BackupConfig {
 
     // Secret file configuration
     secretFile: {
-      name: string  // Default: '.env.sh'
-      location: string  // Default: '~'
+      name: string // Default: '.env.sh'
+      location: string // Default: '~'
       format: 'shell-export' | 'dotenv' | 'json' | 'yaml'
       // shell-export: export KEY=value
       // dotenv: KEY=value
@@ -84,23 +85,32 @@ interface BackupConfig {
 
     // How secrets are stored
     storage: {
-      type: 'git-repo' | 'cloud-service' | 'local-only' | 'password-manager' | 'os-keychain'
+      type:
+        | 'git-repo'
+        | 'cloud-service'
+        | 'local-only'
+        | 'password-manager'
+        | 'os-keychain'
 
       // If using git-repo
       repo?: {
         repoType: 'github' | 'gitlab' | 'bitbucket' | 'other-git'
-        repoName: string  // e.g., 'my-secrets'
+        repoName: string // e.g., 'my-secrets'
         repoUrl: string
         repoOwner?: string
         branch: string
-        visibility: 'private'  // Secrets should always be private
+        visibility: 'private' // Secrets should always be private
         encryption: 'none' | 'age' | 'pgp' | 'git-crypt' | 'sops'
-        encryptionKey?: string  // Path to encryption key
+        encryptionKey?: string // Path to encryption key
       }
 
       // If using cloud service
       cloud?: {
-        provider: 'aws-secrets-manager' | 'gcp-secret-manager' | 'azure-key-vault' | 'hashicorp-vault'
+        provider:
+          | 'aws-secrets-manager'
+          | 'gcp-secret-manager'
+          | 'azure-key-vault'
+          | 'hashicorp-vault'
         region?: string
         vaultUrl?: string
         configPath?: string
@@ -117,15 +127,15 @@ interface BackupConfig {
     trackedSecrets: {
       [osOrDistro: string]: {
         files: Array<{
-          name: string  // e.g., '.env.sh'
-          sourcePath: string  // e.g., '~/.env.sh'
-          repoPath?: string  // Only if using git-repo storage
+          name: string // e.g., '.env.sh'
+          sourcePath: string // e.g., '~/.env.sh'
+          repoPath?: string // Only if using git-repo storage
           encrypted: boolean
         }>
 
         // Individual secrets (if crawling)
         variables?: Array<{
-          name: string  // e.g., 'API_KEY'
+          name: string // e.g., 'API_KEY'
           description?: string
           required: boolean
         }>
@@ -141,16 +151,16 @@ interface BackupConfig {
     // stow: Use GNU Stow
     // custom: User-defined script
 
-    customScript?: string  // Path to custom symlink script
+    customScript?: string // Path to custom symlink script
 
     // Conflicts handling
     conflictResolution: 'backup' | 'overwrite' | 'skip' | 'ask'
-    backupLocation?: string  // Where to backup existing files
+    backupLocation?: string // Where to backup existing files
   }
 
   // Metadata
   metadata: {
-    createdAt: string  // ISO 8601 timestamp
+    createdAt: string // ISO 8601 timestamp
     updatedAt: string
     lastBackup?: string
     lastRestore?: string
@@ -407,6 +417,7 @@ fi
 ## Secret File Format Examples
 
 ### Shell Export Format (default: .env.sh)
+
 ```bash
 export GITHUB_TOKEN="ghp_xxxxxxxxxxxxx"
 export AWS_ACCESS_KEY_ID="AKIAXXXXXXXX"
@@ -415,6 +426,7 @@ export DATABASE_URL="postgresql://user:pass@localhost/db"
 ```
 
 ### Dotenv Format (.env)
+
 ```
 GITHUB_TOKEN=ghp_xxxxxxxxxxxxx
 AWS_ACCESS_KEY_ID=AKIAXXXXXXXX
@@ -425,6 +437,7 @@ DATABASE_URL=postgresql://user:pass@localhost/db
 ## Migration Path
 
 When updating the schema version, the tool should:
+
 1. Detect old schema version
 2. Run migration scripts
 3. Update `version` field
@@ -433,6 +446,7 @@ When updating the schema version, the tool should:
 ## Validation
 
 The configuration should be validated on load with:
+
 - JSON schema validation
 - Required fields check
 - Path existence verification
