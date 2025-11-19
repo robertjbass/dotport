@@ -1,4 +1,13 @@
 import os from 'os'
+import {
+  detectRuntime,
+  detectPackageManager,
+  detectNodeVersionManager,
+  detectRuntimeVersion,
+  type NodeVersionManager,
+  type Runtime,
+  type PackageManager,
+} from '../utils/detect-runtime'
 
 class ScriptSessionClient {
   args: string[] | null
@@ -7,6 +16,10 @@ class ScriptSessionClient {
   shell: string | null
   homeDirectory: string | null
   username: string | null
+  runtime: Runtime | null
+  runtimeVersion: string | null
+  packageManager: PackageManager | null
+  nodeVersionManager: NodeVersionManager | null
 
   constructor() {
     const args = process.argv.slice(2)
@@ -20,6 +33,11 @@ class ScriptSessionClient {
     this.shell = userInfo.shell
     this.homeDirectory = userInfo.homedir
     this.username = userInfo.username
+    this.runtime = detectRuntime()
+    this.runtimeVersion = detectRuntimeVersion()
+    this.packageManager = detectPackageManager()
+    this.nodeVersionManager =
+      this.runtime === 'node' ? detectNodeVersionManager() : null
   }
 }
 
