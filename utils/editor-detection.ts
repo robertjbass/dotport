@@ -455,7 +455,6 @@ export async function createEditorExtensions(
     enabled: true,
     configPath: paths.configPath,
     extensions,
-    exportedAt: new Date().toISOString(),
     exportPath: `.config/${editor}-extensions.json`,
     keybindingsPath: checkAndGetRepoPath(paths.keybindingsPath, osOrDistro),
     keybindingsBackedUp,
@@ -475,7 +474,6 @@ export async function exportExtensionsToFile(
 ): Promise<void> {
   const data = {
     editor: editor.editor,
-    exportedAt: editor.exportedAt,
     extensions: editor.extensions,
   }
 
