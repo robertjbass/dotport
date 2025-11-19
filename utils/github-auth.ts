@@ -7,13 +7,11 @@
 import { Octokit } from '@octokit/rest'
 import chalk from 'chalk'
 import fs from 'fs'
-import { getConfig, ensureDirectories } from './config'
-
-type GitHubAuthConfig = {
-  token: string
-  expiresAt?: string
-  username?: string
-}
+import path from 'path'
+import { GITHUB_AUTH_FILE } from '../constants/app-config'
+import { expandTilde } from './path-helpers'
+import { ensureDotPortDirectories } from './directory-manager'
+import type { GitHubAuthConfig } from '../types/user-system-config'
 
 // GitHub OAuth App credentials (you'll need to create a GitHub OAuth app)
 // For now, we'll use device flow which doesn't require a client secret
@@ -302,8 +300,7 @@ function getTokenExpirationInfo(token: string): string | undefined {
  * Load saved authentication config
  */
 function loadAuthConfig(): GitHubAuthConfig | null {
-  const config = getConfig()
-  const authPath = config.paths.githubAuth
+  const authPath = expandTilde(`~/${GITHUB_AUTH_FILE}`)
 
   try {
     if (fs.existsSync(authPath)) {
@@ -319,15 +316,29 @@ function loadAuthConfig(): GitHubAuthConfig | null {
 /**
  * Save authentication config
  */
-function saveAuthConfig(authConfig: GitHubAuthConfig): void {
-  const config = getConfig()
-  const authPath = config.paths.githubAuth
+function saveAuthConfig(authConfig: Partial<GitHubAuthConfig>): void {
+  const authPath = expandTilde(`~/${GITHUB_AUTH_FILE}`)
 
   try {
     // Ensure directories exist
-    ensureDirectories()
+    ensureDotPortDirectories()
 
-    fs.writeFileSync(authPath, JSON.stringify(authConfig, null, 2), {
+    // Add createdAt timestamp if not present
+    const fullAuthConfig: GitHubAuthConfig = {
+      token: authConfig.token || '',
+      username: authConfig.username || '',
+      scopes: authConfig.scopes || [],
+      createdAt: authConfig.createdAt || new Date().toISOString(),
+      expiresAt: authConfig.expiresAt,
+    }
+
+    // Ensure parent directory exists
+    const authDir = path.dirname(authPath)
+    if (!fs.existsSync(authDir)) {
+      fs.mkdirSync(authDir, { recursive: true, mode: 0o755 })
+    }
+
+    fs.writeFileSync(authPath, JSON.stringify(fullAuthConfig, null, 2), {
       mode: 0o600, // Only owner can read/write
     })
 
@@ -347,8 +358,7 @@ function saveAuthConfig(authConfig: GitHubAuthConfig): void {
  * Clear saved authentication
  */
 export function clearAuthConfig(): void {
-  const config = getConfig()
-  const authPath = config.paths.githubAuth
+  const authPath = expandTilde(`~/${GITHUB_AUTH_FILE}`)
 
   try {
     if (fs.existsSync(authPath)) {
