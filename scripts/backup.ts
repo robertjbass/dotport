@@ -52,6 +52,8 @@ import {
 } from '../utils/editor-detection'
 import {
   detectAllRuntimes,
+  detectAvailableNodeManagers,
+  detectNodeVersions,
 } from '../utils/runtime-detection'
 
 // Schema export
@@ -1960,7 +1962,44 @@ async function promptSystemDetection(
   console.log(chalk.gray('  Detecting runtime versions...'))
   const runtimes: RuntimeVersion[] = []
   try {
+    // Check for multiple Node.js managers and prompt user to choose
+    const availableNodeManagers = await detectAvailableNodeManagers()
+    let selectedNodeManager: string | undefined
+
+    if (availableNodeManagers.length > 1) {
+      console.log(
+        chalk.yellow(
+          `\n    ℹ Multiple Node.js version managers detected: ${availableNodeManagers.join(', ')}`,
+        ),
+      )
+
+      const { manager } = await inquirer.prompt([
+        {
+          type: 'list',
+          name: 'manager',
+          message: 'Which Node.js version manager do you use?',
+          choices: availableNodeManagers.map((m) => ({
+            name: m === 'system' ? 'System (no version manager)' : m,
+            value: m,
+          })),
+        },
+      ])
+
+      selectedNodeManager = manager
+    }
+
+    // Detect all runtimes (Node.js with preferred manager if selected)
     const detectedRuntimes = await detectAllRuntimes()
+
+    // Replace Node runtime with user-selected manager if applicable
+    const nodeRuntimeIndex = detectedRuntimes.findIndex((r) => r.type === 'node')
+    if (nodeRuntimeIndex !== -1 && selectedNodeManager) {
+      const nodeRuntime = await detectNodeVersions(selectedNodeManager)
+      if (nodeRuntime) {
+        detectedRuntimes[nodeRuntimeIndex] = nodeRuntime
+      }
+    }
+
     console.log(chalk.green(`    ✓ Found ${detectedRuntimes.length} runtime(s)`))
 
     for (const runtime of detectedRuntimes) {

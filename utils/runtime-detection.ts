@@ -23,17 +23,32 @@ async function commandExists(command: string): Promise<boolean> {
 }
 
 /**
- * Detect Node.js versions and version manager
+ * Detect all available Node.js version managers
  */
-export async function detectNodeVersions(): Promise<RuntimeVersion | null> {
+export async function detectAvailableNodeManagers(): Promise<string[]> {
+  const managers: string[] = []
+
+  if (await commandExists('fnm')) managers.push('fnm')
+  if (await commandExists('nvm')) managers.push('nvm')
+  if (await commandExists('asdf')) managers.push('asdf')
+  if (await commandExists('node')) managers.push('system')
+
+  return managers
+}
+
+/**
+ * Detect Node.js versions for a specific manager
+ */
+async function detectNodeWithManager(selectedManager: string): Promise<{
+  versions: string[]
+  defaultVersion?: string
+  installCommand?: string
+} | null> {
   const versions: string[] = []
-  let manager: string | undefined
   let defaultVersion: string | undefined
   let installCommand: string | undefined
 
-  // Check for fnm
-  if (await commandExists('fnm')) {
-    manager = 'fnm'
+  if (selectedManager === 'fnm') {
     try {
       const { stdout } = await execAsync('fnm list')
       const lines = stdout.trim().split('\n')
@@ -52,10 +67,7 @@ export async function detectNodeVersions(): Promise<RuntimeVersion | null> {
     } catch (error) {
       console.error('Error detecting fnm versions:', error)
     }
-  }
-  // Check for nvm
-  else if (await commandExists('nvm')) {
-    manager = 'nvm'
+  } else if (selectedManager === 'nvm') {
     try {
       const { stdout } = await execAsync('nvm list')
       const lines = stdout.trim().split('\n')
@@ -73,10 +85,7 @@ export async function detectNodeVersions(): Promise<RuntimeVersion | null> {
     } catch (error) {
       console.error('Error detecting nvm versions:', error)
     }
-  }
-  // Check for asdf
-  else if (await commandExists('asdf')) {
-    manager = 'asdf'
+  } else if (selectedManager === 'asdf') {
     try {
       const { stdout } = await execAsync('asdf list nodejs')
       versions.push(...stdout.trim().split('\n').map((v) => v.trim()))
@@ -91,10 +100,7 @@ export async function detectNodeVersions(): Promise<RuntimeVersion | null> {
     } catch (error) {
       console.error('Error detecting asdf nodejs versions:', error)
     }
-  }
-  // Check for system Node.js
-  else if (await commandExists('node')) {
-    manager = 'system'
+  } else if (selectedManager === 'system') {
     try {
       const { stdout } = await execAsync('node --version')
       const version = stdout.trim().replace('v', '')
@@ -107,14 +113,55 @@ export async function detectNodeVersions(): Promise<RuntimeVersion | null> {
 
   if (versions.length === 0) return null
 
-  return {
-    type: 'node',
-    manager,
-    versions,
-    defaultVersion,
-    installCommand,
-    exportedAt: new Date().toISOString(),
+  return { versions, defaultVersion, installCommand }
+}
+
+/**
+ * Detect Node.js versions and version manager
+ * If preferredManager is provided, use that. Otherwise, auto-detect in order: fnm, nvm, asdf, system
+ */
+export async function detectNodeVersions(
+  preferredManager?: string,
+): Promise<RuntimeVersion | null> {
+  // If a preferred manager is specified, use it
+  if (preferredManager) {
+    const result = await detectNodeWithManager(preferredManager)
+    if (!result || result.versions.length === 0) return null
+
+    return {
+      type: 'node',
+      manager: preferredManager,
+      versions: result.versions,
+      defaultVersion: result.defaultVersion,
+      installCommand: result.installCommand,
+      exportedAt: new Date().toISOString(),
+    }
   }
+
+  // Otherwise, auto-detect in order of preference
+  const managersToTry = ['fnm', 'nvm', 'asdf', 'system']
+
+  for (const manager of managersToTry) {
+    const hasManager = manager === 'system'
+      ? await commandExists('node')
+      : await commandExists(manager)
+
+    if (hasManager) {
+      const result = await detectNodeWithManager(manager)
+      if (result && result.versions.length > 0) {
+        return {
+          type: 'node',
+          manager,
+          versions: result.versions,
+          defaultVersion: result.defaultVersion,
+          installCommand: result.installCommand,
+          exportedAt: new Date().toISOString(),
+        }
+      }
+    }
+  }
+
+  return null
 }
 
 /**
