@@ -145,6 +145,8 @@ type SetupConfig = {
     cloneLocation?: string
     multiOS?: boolean
     supportedDistros?: string[]
+    machineDistro?: string
+    machineNickname?: string
   }
   secrets: {
     enabled: boolean
@@ -434,6 +436,8 @@ async function promptConfigFileStorage(
   let cloneLocation: string | undefined
   let multiOS: boolean | undefined
   let supportedDistros: string[] | undefined
+  let machineDistro: string | undefined
+  let machineNickname: string | undefined
 
   if (service === 'github' || service === 'other-git') {
     if (service === 'github') {
@@ -507,14 +511,20 @@ async function promptConfigFileStorage(
       repoVisibility = repoSetup.visibility
       gitRepoUrl = repoSetup.repoUrl
 
-      // Ask about multi-OS support
-      const multiOSResult = await promptMultiOSSupport(currentOS)
-      if (multiOSResult === BACK_OPTION) {
+      // Ask about machine configuration (distro and nickname)
+      const machineConfig = await promptMachineConfiguration(currentOS)
+      if (machineConfig === BACK_OPTION) {
         return BACK_OPTION
       }
 
-      multiOS = multiOSResult.multiOS
-      supportedDistros = multiOSResult.supportedDistros
+      // Store machine configuration
+      machineDistro = machineConfig.distro
+      machineNickname = machineConfig.nickname
+
+      // For backwards compatibility, store in multiOS/supportedDistros
+      // but these are now less relevant with flat structure
+      multiOS = !machineConfig.isFirstTime // Existing repos support multiple machines
+      supportedDistros = [machineDistro]
 
       // Ask where to clone
       const location = await promptCloneLocation(repoExists, repoName)
@@ -549,6 +559,8 @@ async function promptConfigFileStorage(
     cloneLocation,
     multiOS,
     supportedDistros,
+    machineDistro,
+    machineNickname,
   }
 }
 
@@ -730,63 +742,55 @@ async function handleRepositorySetup(
 /**
  * Prompt for multi-OS support
  */
-async function promptMultiOSSupport(currentOS: OperatingSystem): Promise<
+/**
+ * Prompt for machine-specific configuration
+ * Uses naming convention: <os>-<distro>-<nickname>
+ */
+async function promptMachineConfiguration(currentOS: OperatingSystem): Promise<
   | {
-      multiOS: boolean
-      supportedDistros?: string[]
+      isFirstTime: boolean
+      distro: string
+      nickname: string
     }
   | typeof BACK_OPTION
 > {
   console.log('') // Add spacing before question
 
-  const { multiOS } = await inquirer.prompt<{ multiOS: string }>([
+  // Ask if this is a first-time backup or existing
+  const { backupType } = await inquirer.prompt<{ backupType: string }>([
     {
       type: 'list',
-      name: 'multiOS',
-      message: 'Do you want to support multiple operating systems?',
+      name: 'backupType',
+      message: 'Is this a first-time backup or have you backed up before?',
       prefix: chalk.gray(
-        'You can have 1 macOS setup and several different Linux distros.\nIf you select yes, you can prep your dotfiles repo for other OS configurations to add later.\n',
+        'Your dotfiles repo can contain multiple machine configurations.\nEach machine gets its own directory at the root level.\n',
       ),
       choices: [
-        { name: 'Yes, I want to support multiple operating systems', value: 'yes' },
-        { name: `No, just ${currentOS}`, value: 'no' },
+        { name: 'First-time backup (new dotfiles repo)', value: 'first' },
+        { name: 'I have an existing dotfiles repo', value: 'existing' },
         new inquirer.Separator(),
         { name: '← Go back', value: 'back' },
       ],
     },
   ])
 
-  if (multiOS === 'back') return BACK_OPTION
+  if (backupType === 'back') return BACK_OPTION
 
-  if (multiOS === 'no') {
-    return { multiOS: false }
-  }
+  const isFirstTime = backupType === 'first'
 
-  // Only ask about Linux distributions if currently on Linux
-  if (currentOS !== 'linux') {
-    return { multiOS: true }
-  }
+  // Determine the distro
+  let distro: string
 
-  // If they want multi-OS and current OS is Linux
-  const { supportLinux } = await inquirer.prompt<{ supportLinux: string }>([
-    {
-      type: 'list',
-      name: 'supportLinux',
-      message: 'Do you want to support multiple Linux distributions?',
-      choices: [
-        { name: 'Yes, multiple Linux distros', value: 'yes' },
-        { name: 'No, just one Linux distro', value: 'no' },
-      ],
-    },
-  ])
-
-  if (supportLinux === 'no') {
-    // Ask for the single distro
-    const { singleDistro } = await inquirer.prompt<{ singleDistro: string }>([
+  if (currentOS === 'macOS') {
+    // For macOS, always use 'darwin'
+    distro = 'darwin'
+  } else if (currentOS === 'linux') {
+    // For Linux, ask for the distribution
+    const { selectedDistro } = await inquirer.prompt<{ selectedDistro: string }>([
       {
         type: 'list',
-        name: 'singleDistro',
-        message: 'Which Linux distribution?',
+        name: 'selectedDistro',
+        message: 'Which Linux distribution is this?',
         choices: [
           new inquirer.Separator('=== Common Distributions ==='),
           ...COMMON_DISTRIBUTIONS,
@@ -797,37 +801,36 @@ async function promptMultiOSSupport(currentOS: OperatingSystem): Promise<
         ],
       },
     ])
-
-    return {
-      multiOS: true,
-      supportedDistros: [singleDistro],
-    }
+    distro = selectedDistro
+  } else {
+    // Shouldn't reach here since we check for supported OS earlier
+    distro = 'unknown'
   }
 
-  // Show distribution selection for multiple distros
-  const { distros } = await inquirer.prompt<{ distros: string[] }>([
+  // Ask for machine nickname
+  const { machineNickname } = await inquirer.prompt<{ machineNickname: string }>([
     {
-      type: 'checkbox',
-      name: 'distros',
-      message: 'Select the Linux distributions you want to support:',
-      choices: [
-        new inquirer.Separator('=== Common Distributions ==='),
-        ...COMMON_DISTRIBUTIONS,
-        new inquirer.Separator('=== All Distributions ==='),
-        ...ALL_LINUX_DISTRIBUTIONS.filter(
-          (d) => !COMMON_DISTRIBUTIONS.find((c) => c.value === d.value),
-        ),
-      ],
+      type: 'input',
+      name: 'machineNickname',
+      message: 'Enter a nickname for this machine:',
+      prefix: chalk.gray(
+        `\nExamples: 'macbook-air', 'thinkpad', 'aws-linux', 'raspberry-pi'\n` +
+        `This will create a directory: ${currentOS.toLowerCase()}-${distro}-<nickname>\n`,
+      ),
       validate: (input) => {
-        if (input.length === 0) return 'Please select at least one distribution'
+        if (!input.trim()) return 'Nickname is required'
+        if (!/^[a-zA-Z0-9._-]+$/.test(input)) {
+          return 'Nickname can only contain letters, numbers, dots, hyphens, and underscores'
+        }
         return true
       },
     },
   ])
 
   return {
-    multiOS: true,
-    supportedDistros: distros,
+    isFirstTime,
+    distro,
+    nickname: machineNickname.trim(),
   }
 }
 
@@ -1820,7 +1823,7 @@ function displaySummary(config: SetupConfig, stepNumber = 5) {
  */
 async function promptSystemDetection(
   os: OperatingSystem,
-  osOrDistro: string,
+  machineId: string,
   stepNumber = 6,
 ): Promise<
   | {
@@ -1939,7 +1942,7 @@ async function promptSystemDetection(
       for (const editor of selectedEditors) {
         console.log(chalk.gray(`    Getting extensions for ${editor}...`))
         try {
-          const ext = await createEditorExtensions(editor as any, backupOsType, osOrDistro)
+          const ext = await createEditorExtensions(editor as any, backupOsType, machineId)
           editorExtensions.push(ext)
           console.log(chalk.green(`      ✓ Found ${ext.extensions.length} extension(s)`))
         } catch (error) {
@@ -1991,7 +1994,7 @@ async function promptSystemDetection(
 async function promptAndExecuteBackup(
   files: TrackedFile[],
   repoPath: string,
-  osOrDistro: string,
+  machineId: string,
   backupConfig: BackupConfig,
   stepNumber = 7,
 ): Promise<boolean | typeof BACK_OPTION> {
@@ -2034,7 +2037,7 @@ async function promptAndExecuteBackup(
   }
 
   // Execute backup
-  const backupResult = await backupFilesToRepo(files, repoPath, osOrDistro, {
+  const backupResult = await backupFilesToRepo(files, repoPath, machineId, {
     verbose: true,
   })
 
@@ -2057,7 +2060,7 @@ async function promptAndExecuteBackup(
 
   // Export GNOME settings (Linux only)
   if (backupConfig.system.primary === 'linux') {
-    const gnomeSettingsDir = path.join(repoPath, osOrDistro, '.config', 'dconf')
+    const gnomeSettingsDir = path.join(repoPath, machineId, '.config', 'dconf')
     const dconfResult = await exportGnomeSettings(gnomeSettingsDir, {
       verbose: true,
     })
@@ -2635,43 +2638,28 @@ export default async function backup() {
 
         const finalFiles = files as TrackedFile[]
 
-        // Generate repoPath for each file
-        const multiOS = config.configFiles.multiOS || false
-
-        // Determine the OS/distro folder name
-        let osOrDistro: string
-        if (config.os === 'macOS') {
-          osOrDistro = 'macos'
-        } else {
-          // For Linux, use the specific distro name (e.g., 'debian', 'popos')
-          // If supportedDistros is set, use the first one (current distro)
-          osOrDistro = config.configFiles.supportedDistros?.[0] || 'linux'
-        }
-
-        // Always use nested structure (OS folders like macos/, debian/, etc.)
-        const structureType: 'flat' | 'nested' = 'nested'
+        // Generate repoPath for each file using machine ID
+        // Build machine ID from config: <os>-<distro>-<nickname>
+        const distro = config.configFiles.machineDistro || 'unknown'
+        const nickname = config.configFiles.machineNickname || 'default'
+        const machineId = `${osType}-${distro}-${nickname}`
 
         selectedFiles = finalFiles.map((file) => ({
           ...file,
-          repoPath: generateRepoPath(
-            file.name,
-            osOrDistro,
-            true, // Always use nested structure
-            structureType,
-          ),
+          repoPath: generateRepoPath(file.name, machineId),
         }))
 
         currentStep = 'detect'
       } else if (currentStep === 'detect') {
         // Detect packages, extensions, and runtimes
         const osType = config.os === 'macOS' ? 'macos' : config.os.toLowerCase()
-        const osOrDistro = config.os === 'macOS'
-          ? 'macos'
-          : (config.configFiles.supportedDistros?.[0] || 'linux')
+        const distro = config.configFiles.machineDistro || 'unknown'
+        const nickname = config.configFiles.machineNickname || 'default'
+        const machineId = `${osType}-${distro}-${nickname}`
 
         const detectionResult = await promptSystemDetection(
           config.os,
-          osOrDistro,
+          machineId,
           7,
         )
 
@@ -2700,9 +2688,9 @@ export default async function backup() {
 
         // Build BackupConfig for schema export
         const osType = config.os === 'macOS' ? 'macos' : 'linux'
-        const osOrDistro = config.os === 'macOS'
-          ? 'macos'
-          : (config.configFiles.supportedDistros?.[0] || 'linux')
+        const distro = config.configFiles.machineDistro || 'unknown'
+        const nickname = config.configFiles.machineNickname || 'default'
+        const machineId = `${osType}-${distro}-${nickname}`
 
         const backupConfig: BackupConfig = {
           ...DEFAULT_BACKUP_CONFIG,
@@ -2727,11 +2715,11 @@ export default async function backup() {
             branch: 'main',
             visibility: config.configFiles.repoVisibility || 'private',
             structure: {
-              type: 'nested', // Always use nested structure with OS folders
-              directories: { [osOrDistro]: `${osOrDistro}/` },
+              type: 'flat', // Use flat structure with machine-specific directories
+              directories: { [machineId]: `${machineId}/` },
             },
             trackedFiles: {
-              [osOrDistro]: {
+              [machineId]: {
                 cloneLocation: config.configFiles.cloneLocation,
                 files: selectedFiles,
               },
@@ -2757,7 +2745,7 @@ export default async function backup() {
           packages: {
             enabled: (config.detectedPackages?.length || 0) > 0,
             packageManagers: {
-              [osOrDistro]: config.detectedPackages || [],
+              [machineId]: config.detectedPackages || [],
             },
           },
           applications: DEFAULT_BACKUP_CONFIG.applications || {
@@ -2767,7 +2755,7 @@ export default async function backup() {
           extensions: {
             enabled: (config.detectedExtensions?.length || 0) > 0,
             editors: {
-              [osOrDistro]: config.detectedExtensions || [],
+              [machineId]: config.detectedExtensions || [],
             },
           },
           services: DEFAULT_BACKUP_CONFIG.services || {
@@ -2781,7 +2769,7 @@ export default async function backup() {
           runtimes: {
             enabled: (config.detectedRuntimes?.length || 0) > 0,
             runtimes: {
-              [osOrDistro]: config.detectedRuntimes || [],
+              [machineId]: config.detectedRuntimes || [],
             },
           },
           metadata: {
@@ -2793,7 +2781,7 @@ export default async function backup() {
         const backupResult = await promptAndExecuteBackup(
           selectedFiles,
           config.configFiles.cloneLocation,
-          osOrDistro,
+          machineId,
           backupConfig,
           8,
         )
@@ -2806,8 +2794,8 @@ export default async function backup() {
         // Export detected packages, extensions, and runtimes to files
         if (config.configFiles.cloneLocation) {
           const repoPath = expandTilde(config.configFiles.cloneLocation)
-          const osDir = config.configFiles.multiOS ? osOrDistro : ''
-          const baseDir = osDir ? path.join(repoPath, osDir) : repoPath
+          // Always use machine-specific directory with flat structure
+          const baseDir = path.join(repoPath, machineId)
 
           // Export package manager data
           if (config.detectedPackages && config.detectedPackages.length > 0) {

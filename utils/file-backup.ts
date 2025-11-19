@@ -122,11 +122,15 @@ async function copyFileOrDirectory(
 
 /**
  * Backup files to the dotfiles repository
+ * @param files - Files to backup
+ * @param repoPath - Path to dotfiles repository
+ * @param machineId - Machine identifier (e.g., 'macos-darwin-macbook-air')
+ * @param options - Backup options
  */
 export async function backupFilesToRepo(
   files: TrackedFile[],
   repoPath: string,
-  osOrDistro: string,
+  machineId: string,
   options: BackupOptions = {},
 ): Promise<BackupResult> {
   const { dryRun = false, verbose = true } = options
@@ -232,21 +236,19 @@ export async function backupFilesToRepo(
 }
 
 /**
- * Generate repoPath based on OS/distro and file name
+ * Generate repoPath based on machine ID and file name
+ * With the new flat structure, all machines are at root level with machine-specific directories
+ * @param fileName - File name (e.g., '.zshrc')
+ * @param machineId - Machine identifier (e.g., 'macos-darwin-macbook-air')
+ * @returns Path in repo (e.g., 'macos-darwin-macbook-air/.zshrc')
  */
 export function generateRepoPath(
   fileName: string,
-  osOrDistro: string,
-  multiOS: boolean,
-  structureType: 'flat' | 'nested' = 'flat',
+  machineId: string,
 ): string {
-  if (!multiOS || structureType === 'flat') {
-    // Flat structure: files at root
-    return fileName
-  } else {
-    // Nested structure: organized by OS/distro
-    return path.join(osOrDistro, fileName)
-  }
+  // Always use flat structure with machine-specific directories
+  // e.g., 'macos-darwin-macbook-air/.zshrc'
+  return path.join(machineId, fileName)
 }
 
 /**
