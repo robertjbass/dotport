@@ -1,5 +1,5 @@
 {
-  "name": "dev-machine-backup-restore",
+  "name": "dotport",
   "version": "1.0.0",
   "description": "A lightweight tool that snapshots and restores your entire system configuration and dotfiles, making new-machine setup fast, consistent, and painless",
   "main": "index.js",
