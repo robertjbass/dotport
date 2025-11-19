@@ -2880,7 +2880,6 @@ export default async function backup() {
 
             try {
               const runtimesData = {
-                exportedAt: new Date().toISOString(),
                 runtimes: config.detectedRuntimes,
               }
               fs.writeFileSync(
