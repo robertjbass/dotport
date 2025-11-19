@@ -14,12 +14,25 @@ export const APP_NAME = 'DotPort'
 // Read version from package.json
 let appVersion = '1.0.0'
 try {
-  const packageJsonPath = join(__dirname, '..', 'package.json')
-  const packageJson = JSON.parse(readFileSync(packageJsonPath, 'utf-8'))
-  appVersion = packageJson.version
+  // Try multiple possible paths for package.json
+  const possiblePaths = [
+    join(__dirname, '..', 'package.json'),
+    join(process.cwd(), 'package.json'),
+  ]
+
+  let found = false
+  for (const packageJsonPath of possiblePaths) {
+    try {
+      const packageJson = JSON.parse(readFileSync(packageJsonPath, 'utf-8'))
+      appVersion = packageJson.version
+      found = true
+      break
+    } catch {
+      continue
+    }
+  }
 } catch (error) {
-  // Fallback to default version if package.json cannot be read
-  console.warn('Could not read version from package.json, using default')
+  // Silently use fallback version
 }
 
 export const APP_VERSION = appVersion
