@@ -215,7 +215,6 @@ export type PackageManager = {
   type: PackageManagerType
   enabled: boolean
   packages: PackageInfo[]
-  exportedAt?: string
   exportPath?: string
   command?: string
   restoreCommand?: string
@@ -286,7 +285,6 @@ export type EditorExtensions = {
   enabled: boolean
   configPath?: string
   extensions: ExtensionInfo[]
-  exportedAt?: string
   exportPath?: string
   keybindingsPath?: string
   keybindingsBackedUp: boolean
@@ -349,7 +347,6 @@ export type SystemSettings = {
   type: SettingsType
   enabled: boolean
   exportPath?: string
-  exportedAt?: string
   keys?: string[]
   command?: string
   restoreCommand?: string
@@ -384,7 +381,6 @@ export type RuntimeVersion = {
   manager?: string
   versions: string[]
   defaultVersion?: string
-  exportedAt?: string
   installCommand?: string
 }
 

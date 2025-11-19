@@ -4,6 +4,9 @@
  * Detects installed runtime environments and version managers
  */
 
+import fs from 'fs'
+import os from 'os'
+import path from 'path'
 import { exec } from 'child_process'
 import { promisify } from 'util'
 import { RuntimeType, RuntimeVersion } from '../types/backup-config'
@@ -20,6 +23,45 @@ async function commandExists(command: string): Promise<boolean> {
   } catch {
     return false
   }
+}
+
+/**
+ * Detect Node.js manager from shell RC files
+ * Checks .zshrc, .bashrc, .bash_profile, and .profile for initialization patterns
+ */
+export async function detectNodeManagerFromShell(): Promise<string | null> {
+  const homeDir = os.homedir()
+  const rcFiles = ['.zshrc', '.bashrc', '.bash_profile', '.profile']
+
+  const patterns = {
+    fnm: [/eval "\$\(fnm env\)"/, /fnm env/],
+    nvm: [/export NVM_DIR=/, /source.*nvm\.sh/, /\[ -s ".*nvm\.sh" \]/],
+    asdf: [/source.*asdf\.sh/, /\. "?\$HOME\/\.asdf\/asdf\.sh"?/],
+  }
+
+  for (const rcFile of rcFiles) {
+    const filePath = path.join(homeDir, rcFile)
+
+    try {
+      if (!fs.existsSync(filePath)) continue
+
+      const content = fs.readFileSync(filePath, 'utf-8')
+
+      // Check for each manager's initialization pattern
+      for (const [manager, regexes] of Object.entries(patterns)) {
+        for (const regex of regexes) {
+          if (regex.test(content)) {
+            return manager
+          }
+        }
+      }
+    } catch (error) {
+      // Silently continue if we can't read a file
+      continue
+    }
+  }
+
+  return null
 }
 
 /**
@@ -134,7 +176,6 @@ export async function detectNodeVersions(
       versions: result.versions,
       defaultVersion: result.defaultVersion,
       installCommand: result.installCommand,
-      exportedAt: new Date().toISOString(),
     }
   }
 
@@ -155,7 +196,6 @@ export async function detectNodeVersions(
           versions: result.versions,
           defaultVersion: result.defaultVersion,
           installCommand: result.installCommand,
-          exportedAt: new Date().toISOString(),
         }
       }
     }
@@ -236,7 +276,6 @@ export async function detectPythonVersions(): Promise<RuntimeVersion | null> {
     versions,
     defaultVersion,
     installCommand,
-    exportedAt: new Date().toISOString(),
   }
 }
 
@@ -333,7 +372,6 @@ export async function detectRubyVersions(): Promise<RuntimeVersion | null> {
     versions,
     defaultVersion,
     installCommand,
-    exportedAt: new Date().toISOString(),
   }
 }
 
@@ -353,7 +391,6 @@ export async function detectGoVersion(): Promise<RuntimeVersion | null> {
         manager: 'system',
         versions: [version],
         defaultVersion: version,
-        exportedAt: new Date().toISOString(),
       }
     }
   } catch (error) {
@@ -379,7 +416,6 @@ export async function detectRustVersion(): Promise<RuntimeVersion | null> {
         manager: 'rustup',
         versions: [version],
         defaultVersion: version,
-        exportedAt: new Date().toISOString(),
       }
     }
   } catch (error) {
@@ -464,7 +500,6 @@ export async function detectJavaVersion(): Promise<RuntimeVersion | null> {
     versions,
     defaultVersion,
     installCommand,
-    exportedAt: new Date().toISOString(),
   }
 }
 
@@ -484,7 +519,6 @@ export async function detectPhpVersion(): Promise<RuntimeVersion | null> {
         manager: 'system',
         versions: [version],
         defaultVersion: version,
-        exportedAt: new Date().toISOString(),
       }
     }
   } catch (error) {
@@ -510,7 +544,6 @@ export async function detectDenoVersion(): Promise<RuntimeVersion | null> {
         manager: 'system',
         versions: [version],
         defaultVersion: version,
-        exportedAt: new Date().toISOString(),
       }
     }
   } catch (error) {

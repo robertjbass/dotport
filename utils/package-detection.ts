@@ -582,7 +582,6 @@ export async function createPackageManager(
     type,
     enabled: true,
     packages,
-    exportedAt: new Date().toISOString(),
     ...commands,
   }
 }

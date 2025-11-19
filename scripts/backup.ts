@@ -54,6 +54,7 @@ import {
   detectAllRuntimes,
   detectAvailableNodeManagers,
   detectNodeVersions,
+  detectNodeManagerFromShell,
 } from '../utils/runtime-detection'
 
 // Schema export
@@ -1962,22 +1963,39 @@ async function promptSystemDetection(
   console.log(chalk.gray('  Detecting runtime versions...'))
   const runtimes: RuntimeVersion[] = []
   try {
+    // First, try to detect Node manager from shell RC files
+    const shellDetectedManager = await detectNodeManagerFromShell()
+
     // Check for multiple Node.js managers and prompt user to choose
     const availableNodeManagers = await detectAvailableNodeManagers()
     let selectedNodeManager: string | undefined
 
     if (availableNodeManagers.length > 1) {
+      // Determine default based on shell RC detection
+      const defaultManager = shellDetectedManager && availableNodeManagers.includes(shellDetectedManager)
+        ? shellDetectedManager
+        : availableNodeManagers[0]
+
       console.log(
         chalk.yellow(
           `\n    ℹ Multiple Node.js version managers detected: ${availableNodeManagers.join(', ')}`,
         ),
       )
 
+      if (shellDetectedManager && availableNodeManagers.includes(shellDetectedManager)) {
+        console.log(
+          chalk.gray(
+            `    Shell config indicates: ${shellDetectedManager} (from .zshrc/.bashrc)`,
+          ),
+        )
+      }
+
       const { manager } = await inquirer.prompt([
         {
           type: 'list',
           name: 'manager',
           message: 'Which Node.js version manager do you use?',
+          default: defaultManager,
           choices: availableNodeManagers.map((m) => ({
             name: m === 'system' ? 'System (no version manager)' : m,
             value: m,
@@ -1986,6 +2004,14 @@ async function promptSystemDetection(
       ])
 
       selectedNodeManager = manager
+    } else if (availableNodeManagers.length === 1 && shellDetectedManager && availableNodeManagers[0] !== shellDetectedManager) {
+      // Only one manager installed, but shell config mentions a different one
+      console.log(
+        chalk.yellow(
+          `\n    ⚠️  Shell config references ${shellDetectedManager}, but only ${availableNodeManagers[0]} is installed`,
+        ),
+      )
+      selectedNodeManager = availableNodeManagers[0]
     }
 
     // Detect all runtimes (Node.js with preferred manager if selected)
@@ -2801,7 +2827,6 @@ export default async function backup() {
                 try {
                   const packageData = {
                     type: pm.type,
-                    exportedAt: pm.exportedAt,
                     packages: pm.packages,
                     restoreCommand: pm.restoreCommand,
                   }
