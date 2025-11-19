@@ -2475,12 +2475,12 @@ function handleInquirerExit(error: any): never {
  *
  * Supports back navigation throughout the flow for easy correction of choices.
  */
-export default async function setup() {
+export default async function backup() {
   setupExitHandlers()
 
   // Display welcome banner using utility
   displayWelcome(
-    'Dev Machine Backup & Restore - Interactive Setup',
+    'Dev Machine Backup & Restore - Interactive Backup',
     'This wizard will help you configure your backup preferences.\nYour responses will determine how your dotfiles and secrets are managed.',
   )
 

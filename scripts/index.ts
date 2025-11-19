@@ -14,10 +14,10 @@ type ScriptInfo = {
 
 // Script metadata
 const SCRIPT_METADATA: Record<string, ScriptInfo> = {
-  setup: {
-    name: 'Setup',
-    description: 'Interactive setup wizard for backup configuration',
-    emoji: '⚙️',
+  backup: {
+    name: 'Backup',
+    description: 'Interactive backup wizard to save your system configuration',
+    emoji: '💾',
   },
   'populate-backup-schema': {
     name: 'Populate Backup Schema',
@@ -29,10 +29,10 @@ const SCRIPT_METADATA: Record<string, ScriptInfo> = {
     description: 'Interactive restore wizard to restore backed-up configuration',
     emoji: '♻️',
   },
-  init: {
-    name: 'Init',
-    description: 'Initialize the backup system (development)',
-    emoji: '🚀',
+  placeholder: {
+    name: 'Placeholder',
+    description: 'Example script template for creating new scripts',
+    emoji: '📝',
   },
 }
 

@@ -230,6 +230,8 @@ async function promptFileRestoreAction(
   expectedPath: string,
   backupPath: string,
   hasContent: boolean,
+  mode: RestoreMode,
+  testRoot: string,
 ): Promise<{ action: RestoreAction; customPath?: string }> {
   if (!hasContent) {
     displayWarning(
@@ -239,12 +241,20 @@ async function promptFileRestoreAction(
     return { action: 'skip' }
   }
 
-  console.log(chalk.cyan(`\n┌${'─'.repeat(70)}┐`))
-  console.log(chalk.cyan(`│ ${chalk.bold(filename)}${' '.repeat(70 - filename.length - 1)}│`))
-  console.log(chalk.cyan(`├${'─'.repeat(70)}┤`))
-  console.log(chalk.cyan(`│ ${chalk.gray('Expected path:')} ${expectedPath}${' '.repeat(Math.max(0, 70 - 16 - expectedPath.length - 1))}│`))
-  console.log(chalk.cyan(`│ ${chalk.gray('Backup path:')}   ${backupPath}${' '.repeat(Math.max(0, 70 - 16 - backupPath.length - 1))}│`))
-  console.log(chalk.cyan(`└${'─'.repeat(70)}┘\n`))
+  const boxWidth = 35
+  console.log(chalk.cyan(`\n┌${'─'.repeat(boxWidth)}┐`))
+  console.log(chalk.cyan(`│ ${chalk.bold(filename)}${' '.repeat(boxWidth - filename.length - 1)}│`))
+  console.log(chalk.cyan(`├${'─'.repeat(boxWidth)}┤`))
+  console.log(chalk.cyan(`│ ${chalk.gray('Expected:')} ${expectedPath}${' '.repeat(Math.max(0, boxWidth - 11 - expectedPath.length - 1))}│`))
+  console.log(chalk.cyan(`│ ${chalk.gray('Backup:')}  ${backupPath}${' '.repeat(Math.max(0, boxWidth - 11 - backupPath.length - 1))}│`))
+
+  if (mode === 'test') {
+    console.log(chalk.cyan(`├${'─'.repeat(boxWidth)}┤`))
+    console.log(chalk.yellow(`│ ${chalk.bold('TEST MODE')}${' '.repeat(boxWidth - 11)}│`))
+    console.log(chalk.yellow(`│ Actual: ${testRoot}${' '.repeat(Math.max(0, boxWidth - 10 - testRoot.length - 1))}│`))
+  }
+
+  console.log(chalk.cyan(`└${'─'.repeat(boxWidth)}┘\n`))
 
   const action = await selectFromList<RestoreAction>(
     `How would you like to restore ${chalk.bold(filename)}?`,
@@ -443,6 +453,8 @@ async function restoreDotfiles(
       expectedPath,
       repoFilePath,
       hasContent,
+      config.mode,
+      config.testRoot,
     )
 
     if (action === 'skip') {
@@ -948,5 +960,25 @@ export default async function restore(): Promise<void> {
       displaySuccess('Restore process complete', 'Goodbye!')
       break
     }
+  }
+}
+
+// Execute the restore function when run directly
+if (import.meta.url === `file://${process.argv[1]}`) {
+  // Handle Ctrl+C gracefully
+  process.on('SIGINT', () => {
+    console.log(chalk.yellow('\n\n👋 Restore cancelled. Goodbye!\n'))
+    process.exit(0)
+  })
+
+  try {
+    await restore()
+  } catch (error) {
+    if (error instanceof Error && error.message.includes('User force closed')) {
+      console.log(chalk.yellow('\n\n👋 Restore cancelled. Goodbye!\n'))
+      process.exit(0)
+    }
+    console.error(chalk.red('\n❌ An error occurred:'), error)
+    process.exit(1)
   }
 }
