@@ -40,6 +40,7 @@ const COMMON_FILES = {
     { path: '~/.zshrc', name: '.zshrc' },
     { path: '~/.zprofile', name: '.zprofile' },
     { path: '~/.zshenv', name: '.zshenv' },
+    { path: '~/.p10k.zsh', name: '.p10k.zsh' },
     { path: '~/.shell_common', name: '.shell_common' },
     { path: '~/.profile', name: '.profile' },
   ],

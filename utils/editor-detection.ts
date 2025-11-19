@@ -456,7 +456,7 @@ export async function createEditorExtensions(
     configPath: paths.configPath,
     extensions,
     exportedAt: new Date().toISOString(),
-    exportPath: `${osOrDistro}/.config/${editor}-extensions.json`,
+    exportPath: `.config/${editor}-extensions.json`,
     keybindingsPath: checkAndGetRepoPath(paths.keybindingsPath, osOrDistro),
     keybindingsBackedUp,
     settingsPath: checkAndGetRepoPath(paths.settingsPath, osOrDistro),
