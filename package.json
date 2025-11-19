@@ -1,5 +1,5 @@
 {
-  "name": "dev-machine-backup-restore",
+  "name": "dotport",
   "version": "1.0.0",
   "description": "A lightweight tool that snapshots and restores your entire system configuration and dotfiles, making new-machine setup fast, consistent, and painless",
   "main": "index.js",
@@ -9,6 +9,8 @@
     "script": "tsx scripts/index.ts",
     "script:init": "pnpm script init",
     "script:setup": "pnpm script setup",
+    "script:restore": "pnpm script restore",
+    "script:restore:test": "tsx scripts/restore.ts --test",
     "setup": "pnpm script setup",
     "build": "tsc --build",
     "lint": "eslint .",
