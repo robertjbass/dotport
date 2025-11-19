@@ -110,7 +110,7 @@ function findDotfilesRepo(): string | null {
   ]
 
   for (const location of commonLocations) {
-    const configPath = path.join(location, 'backup-config.json')
+    const configPath = path.join(location, 'schema', 'backup-config.json')
     if (pathExists(configPath)) {
       return location
     }
@@ -147,9 +147,9 @@ async function loadBackupData(): Promise<{ config: BackupConfig; repoPath: strin
           if (!isDirectory(expandedPath)) {
             return `Path is not a directory: ${expandedPath}`
           }
-          const configPath = path.join(expandedPath, 'backup-config.json')
+          const configPath = path.join(expandedPath, 'schema', 'backup-config.json')
           if (!pathExists(configPath)) {
-            return `backup-config.json not found in: ${expandedPath}`
+            return `schema/backup-config.json not found in: ${expandedPath}`
           }
           return true
         },
@@ -164,7 +164,7 @@ async function loadBackupData(): Promise<{ config: BackupConfig; repoPath: strin
     repoPath = expandTilde(customPath)
   }
 
-  const configPath = path.join(repoPath, 'backup-config.json')
+  const configPath = path.join(repoPath, 'schema', 'backup-config.json')
 
   try {
     const rawData = fs.readFileSync(configPath, 'utf-8')
