@@ -10,6 +10,10 @@ import {
   DEFAULT_BACKUP_CONFIG,
   TrackedFile,
   OperatingSystem as BackupOS,
+  SystemMetadata,
+  MachineConfig,
+  createDefaultMachineConfig,
+  getMachineId,
 } from '../types/backup-config'
 import { getLinuxSystemMetadata } from './linux-detection'
 
@@ -20,9 +24,6 @@ export type SetupOperatingSystem = 'macOS' | 'linux' | 'windows' | 'other'
 
 /**
  * Convert setup OS type to backup config OS type
- *
- * @param setupOS - OS type from setup wizard
- * @returns Normalized OS type for backup config
  */
 export function convertOSType(setupOS: SetupOperatingSystem): BackupOS {
   if (setupOS === 'macOS') return 'macos'
@@ -33,8 +34,6 @@ export function convertOSType(setupOS: SetupOperatingSystem): BackupOS {
 
 /**
  * Detect shell from environment or common patterns
- *
- * @returns Detected shell type
  */
 export function detectShell(): 'bash' | 'zsh' | 'fish' | 'other' {
   const shell = process.env.SHELL || ''
@@ -48,9 +47,6 @@ export function detectShell(): 'bash' | 'zsh' | 'fish' | 'other' {
 
 /**
  * Get shell config file based on detected shell
- *
- * @param shell - Shell type
- * @returns Path to shell config file
  */
 export function getShellConfigFile(
   shell: 'bash' | 'zsh' | 'fish' | 'other',
@@ -83,10 +79,6 @@ export function buildBackupConfig(
     // Distro (for Linux) or 'darwin' for macOS
     distro?: string
 
-    // Multi-OS support (deprecated - all setups now support multiple machines)
-    multiOS?: boolean
-    supportedDistros?: string[]
-
     // Repository configuration
     repoType: 'github' | 'gitlab' | 'bitbucket' | 'other-git' | 'none'
     repoName?: string
@@ -109,8 +101,6 @@ export function buildBackupConfig(
     os,
     nickname,
     distro: providedDistro,
-    multiOS,
-    supportedDistros,
     repoType,
     repoName = 'dotfiles',
     repoUrl = '',
@@ -133,122 +123,80 @@ export function buildBackupConfig(
   // Detect Linux-specific metadata if on Linux
   const linuxMetadata = backupOS === 'linux' ? getLinuxSystemMetadata() : undefined
 
-  // Always use flat structure with machine-specific directories
-  const structureType: 'flat' | 'nested' = 'flat'
-
-  // Build machine ID using naming convention: <os>-<distro>-<nickname>
-  // For macOS: macos-darwin-<nickname>
-  // For Linux: linux-<distro>-<nickname>
+  // Determine distro
   const distro = providedDistro || (backupOS === 'linux'
-    ? (supportedDistros?.[0] || 'unknown')
+    ? 'unknown'
     : 'darwin') // Always use 'darwin' for macOS
 
-  const machineId = `${backupOS}-${distro}-${nickname}`
+  // Build machine ID using naming convention: <os>-<distro>-<nickname>
+  const machineId = getMachineId(backupOS, distro, nickname)
 
-  // Build directory structure for flat repos with machine-specific directories
-  const directories: Record<string, string> = {
-    [machineId]: `${machineId}/`
+  // Create system metadata for this machine
+  const systemMetadata: SystemMetadata = {
+    os: backupOS,
+    distro,
+    nickname,
+    repoPath: machineId,
+    shell: detectedShell,
+    shellConfigFile: configFile,
+    // Add Linux-specific metadata if available
+    ...(linuxMetadata && {
+      displayServer: linuxMetadata.displayServer,
+      desktopEnvironment: linuxMetadata.desktopEnvironment,
+    }),
+  }
+
+  // Create machine-specific configuration
+  const machineConfig: MachineConfig = {
+    ...createDefaultMachineConfig(),
+    'tracked-files': {
+      cloneLocation,
+      files: trackedFiles,
+    },
+  }
+
+  // If an existing config was provided, merge with it
+  if (existingConfig) {
+    return mergeBackupConfig(existingConfig, {
+      version: '1.0.0',
+      metadata: {
+        createdAt: existingConfig.metadata?.createdAt || new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+      repo: {
+        repoType,
+        repoName,
+        repoUrl,
+        repoOwner,
+        branch,
+        visibility: repoVisibility,
+      },
+      systems: [systemMetadata],
+      dotfiles: {
+        [machineId]: machineConfig,
+      },
+    })
   }
 
   // Build the complete config
   const config: BackupConfig = {
     version: '1.0.0',
-
-    system: {
-      primary: backupOS,
-      shell: detectedShell,
-      shellConfigFile: configFile,
-      // Add Linux-specific metadata if available
-      ...(linuxMetadata && {
-        displayServer: linuxMetadata.displayServer,
-        desktopEnvironment: linuxMetadata.desktopEnvironment,
-      }),
+    metadata: {
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     },
-
-    multiOS: {
-      enabled: multiOS || false,
-      supportedOS: [backupOS],
-      linuxDistros: supportedDistros,
-    },
-
-    dotfiles: {
-      enabled: repoType !== 'none',
+    repo: {
       repoType,
       repoName,
       repoUrl,
       repoOwner,
       branch,
       visibility: repoVisibility,
-      structure: {
-        type: structureType,
-        directories,
-      },
-      trackedFiles: {
-        [machineId]: {
-          cloneLocation,
-          files: trackedFiles,
-        },
-      },
     },
-
-    secrets: DEFAULT_BACKUP_CONFIG.secrets || {
-      enabled: false,
-      secretFile: {
-        name: '.env.sh',
-        location: '~',
-        format: 'shell-export',
-      },
-      storage: {
-        type: 'local-only',
-      },
-      trackedSecrets: {},
+    systems: [systemMetadata],
+    dotfiles: {
+      [machineId]: machineConfig,
     },
-
-    symlinks: DEFAULT_BACKUP_CONFIG.symlinks || {
-      enabled: false,
-      strategy: 'direct',
-      conflictResolution: 'backup',
-    },
-
-    packages: DEFAULT_BACKUP_CONFIG.packages || {
-      enabled: false,
-      packageManagers: {},
-    },
-
-    applications: DEFAULT_BACKUP_CONFIG.applications || {
-      enabled: false,
-      applications: {},
-    },
-
-    extensions: DEFAULT_BACKUP_CONFIG.extensions || {
-      enabled: false,
-      editors: {},
-    },
-
-    services: DEFAULT_BACKUP_CONFIG.services || {
-      enabled: false,
-      services: {},
-    },
-
-    settings: DEFAULT_BACKUP_CONFIG.settings || {
-      enabled: false,
-      settings: {},
-    },
-
-    runtimes: DEFAULT_BACKUP_CONFIG.runtimes || {
-      enabled: false,
-      runtimes: {},
-    },
-
-    metadata: {
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    },
-  }
-
-  // If an existing config was provided, merge with it to preserve other OS data
-  if (existingConfig) {
-    return mergeBackupConfig(existingConfig, config)
   }
 
   return config
@@ -270,139 +218,53 @@ export function updateBackupConfig(
     ...updates,
     metadata: {
       ...existing.metadata,
+      ...updates.metadata,
       updatedAt: new Date().toISOString(),
     },
   }
 }
 
 /**
- * Merge a new BackupConfig with an existing one, preserving data from other OSes
+ * Merge a new BackupConfig with an existing one, preserving data from other machines
  *
- * This is critical for multi-OS support - when running the backup script on a
- * different OS, we need to ADD that OS's data, not REPLACE the entire config.
+ * This is critical for multi-machine support - when running the backup script on a
+ * different machine, we need to ADD that machine's data, not REPLACE the entire config.
  *
  * @param existing - Existing BackupConfig (e.g., from macOS)
  * @param newConfig - New BackupConfig (e.g., from Debian)
- * @returns Merged BackupConfig with data from both OSes
+ * @returns Merged BackupConfig with data from both machines
  */
 export function mergeBackupConfig(
   existing: BackupConfig,
   newConfig: BackupConfig,
 ): BackupConfig {
-  // Merge supportedOS arrays (deduplicate)
-  const supportedOSSet = new Set([
-    ...(existing.multiOS.supportedOS || []),
-    ...(newConfig.multiOS.supportedOS || []),
-  ])
+  // Merge systems array (deduplicate by repoPath)
+  const existingSystemsMap = new Map(
+    existing.systems.map(s => [s.repoPath, s])
+  )
+  newConfig.systems.forEach(s => {
+    existingSystemsMap.set(s.repoPath, s) // Overwrites if same machine
+  })
+  const mergedSystems = Array.from(existingSystemsMap.values())
 
-  // Merge linuxDistros arrays (deduplicate)
-  const linuxDistrosSet = new Set([
-    ...(existing.multiOS.linuxDistros || []),
-    ...(newConfig.multiOS.linuxDistros || []),
-  ])
-
-  // Merge structure directories
-  const mergedDirectories = {
-    ...existing.dotfiles.structure.directories,
-    ...newConfig.dotfiles.structure.directories,
-  }
-
-  // Merge trackedFiles for all OSes
-  const mergedTrackedFiles = {
-    ...existing.dotfiles.trackedFiles,
-    ...newConfig.dotfiles.trackedFiles,
-  }
-
-  // Merge package managers for all OSes
-  const mergedPackageManagers = {
-    ...existing.packages.packageManagers,
-    ...newConfig.packages.packageManagers,
-  }
-
-  // Merge applications for all OSes
-  const mergedApplications = {
-    ...existing.applications?.applications,
-    ...newConfig.applications?.applications,
-  }
-
-  // Merge extensions for all OSes
-  const mergedExtensions = {
-    ...existing.extensions?.editors,
-    ...newConfig.extensions?.editors,
-  }
-
-  // Merge runtimes for all OSes
-  const mergedRuntimes = {
-    ...existing.runtimes?.runtimes,
-    ...newConfig.runtimes?.runtimes,
+  // Merge dotfiles configurations
+  const mergedDotfiles = {
+    ...existing.dotfiles,
+    ...newConfig.dotfiles, // Overwrites if same machine
   }
 
   return {
-    ...existing,
     version: newConfig.version,
-
-    // Keep system info from the current run
-    system: newConfig.system,
-
-    // Merge multi-OS configuration
-    multiOS: {
-      enabled: true, // Always true when merging
-      supportedOS: Array.from(supportedOSSet),
-      linuxDistros: linuxDistrosSet.size > 0 ? Array.from(linuxDistrosSet) : undefined,
-    },
-
-    // Merge dotfiles configuration
-    dotfiles: {
-      ...existing.dotfiles,
-      ...newConfig.dotfiles,
-      structure: {
-        type: 'nested', // Always nested for multi-OS
-        directories: mergedDirectories,
-      },
-      trackedFiles: mergedTrackedFiles,
-    },
-
-    // Merge packages
-    packages: {
-      enabled: existing.packages.enabled || newConfig.packages.enabled,
-      packageManagers: mergedPackageManagers,
-    },
-
-    // Merge applications
-    applications: {
-      enabled: existing.applications?.enabled || newConfig.applications?.enabled || false,
-      applications: mergedApplications,
-    },
-
-    // Merge extensions
-    extensions: {
-      enabled: existing.extensions?.enabled || newConfig.extensions?.enabled || false,
-      editors: mergedExtensions,
-    },
-
-    // Merge runtimes
-    runtimes: {
-      enabled: existing.runtimes?.enabled || newConfig.runtimes?.enabled || false,
-      runtimes: mergedRuntimes,
-    },
-
-    // Keep secrets from existing (shouldn't change per OS)
-    secrets: existing.secrets,
-
-    // Keep symlinks from existing (can be overridden if needed)
-    symlinks: existing.symlinks,
-
-    // Keep services from existing
-    services: existing.services,
-
-    // Keep settings from existing
-    settings: existing.settings,
-
-    // Update metadata
     metadata: {
       createdAt: existing.metadata?.createdAt || newConfig.metadata?.createdAt,
       updatedAt: new Date().toISOString(),
     },
+    repo: {
+      ...existing.repo,
+      ...newConfig.repo, // Use latest repo config
+    },
+    systems: mergedSystems,
+    dotfiles: mergedDotfiles,
   }
 }
 
@@ -419,11 +281,12 @@ export function addTrackedFiles(
   machineId: string,
   files: TrackedFile[],
 ): BackupConfig {
-  const existingData = config.dotfiles.trackedFiles[machineId]
-  const existingFiles = existingData?.files || []
-  const existingCloneLocation = existingData?.cloneLocation || '~'
+  const machineConfig = config.dotfiles[machineId]
+  if (!machineConfig) {
+    throw new Error(`Machine ${machineId} not found in config`)
+  }
 
-  // Merge files, avoiding duplicates based on sourcePath
+  const existingFiles = machineConfig['tracked-files'].files
   const existingPaths = new Set(existingFiles.map((f) => f.sourcePath))
   const newFiles = files.filter((f) => !existingPaths.has(f.sourcePath))
 
@@ -431,10 +294,10 @@ export function addTrackedFiles(
     ...config,
     dotfiles: {
       ...config.dotfiles,
-      trackedFiles: {
-        ...config.dotfiles.trackedFiles,
-        [machineId]: {
-          cloneLocation: existingCloneLocation,
+      [machineId]: {
+        ...machineConfig,
+        'tracked-files': {
+          ...machineConfig['tracked-files'],
           files: [...existingFiles, ...newFiles],
         },
       },
@@ -459,12 +322,13 @@ export function removeTrackedFiles(
   machineId: string,
   filePaths: string[],
 ): BackupConfig {
-  const existingData = config.dotfiles.trackedFiles[machineId]
-  const existingFiles = existingData?.files || []
-  const existingCloneLocation = existingData?.cloneLocation || '~'
-  const pathsToRemove = new Set(filePaths)
+  const machineConfig = config.dotfiles[machineId]
+  if (!machineConfig) {
+    throw new Error(`Machine ${machineId} not found in config`)
+  }
 
-  const updatedFiles = existingFiles.filter(
+  const pathsToRemove = new Set(filePaths)
+  const updatedFiles = machineConfig['tracked-files'].files.filter(
     (f) => !pathsToRemove.has(f.sourcePath),
   )
 
@@ -472,10 +336,10 @@ export function removeTrackedFiles(
     ...config,
     dotfiles: {
       ...config.dotfiles,
-      trackedFiles: {
-        ...config.dotfiles.trackedFiles,
-        [machineId]: {
-          cloneLocation: existingCloneLocation,
+      [machineId]: {
+        ...machineConfig,
+        'tracked-files': {
+          ...machineConfig['tracked-files'],
           files: updatedFiles,
         },
       },
@@ -485,21 +349,4 @@ export function removeTrackedFiles(
       updatedAt: new Date().toISOString(),
     },
   }
-}
-
-/**
- * Get the machine identifier for file organization
- * Uses naming convention: <os>-<distro>-<nickname>
- *
- * @param os - Operating system type
- * @param distro - Distribution name (darwin for macOS, distro name for Linux)
- * @param nickname - Machine nickname (e.g., 'macbook-air', 'thinkpad')
- * @returns Machine identifier string (e.g., 'macos-darwin-macbook-air')
- */
-export function getMachineId(
-  os: BackupOS,
-  distro: string,
-  nickname: string,
-): string {
-  return `${os}-${distro}-${nickname}`
 }

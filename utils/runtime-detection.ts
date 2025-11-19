@@ -4,6 +4,9 @@
  * Detects installed runtime environments and version managers
  */
 
+import fs from 'fs'
+import os from 'os'
+import path from 'path'
 import { exec } from 'child_process'
 import { promisify } from 'util'
 import { RuntimeType, RuntimeVersion } from '../types/backup-config'
@@ -23,17 +26,71 @@ async function commandExists(command: string): Promise<boolean> {
 }
 
 /**
- * Detect Node.js versions and version manager
+ * Detect Node.js manager from shell RC files
+ * Checks .zshrc, .bashrc, .bash_profile, and .profile for initialization patterns
  */
-export async function detectNodeVersions(): Promise<RuntimeVersion | null> {
+export async function detectNodeManagerFromShell(): Promise<string | null> {
+  const homeDir = os.homedir()
+  const rcFiles = ['.zshrc', '.bashrc', '.bash_profile', '.profile']
+
+  const patterns = {
+    fnm: [/eval "\$\(fnm env\)"/, /fnm env/],
+    nvm: [/export NVM_DIR=/, /source.*nvm\.sh/, /\[ -s ".*nvm\.sh" \]/],
+    asdf: [/source.*asdf\.sh/, /\. "?\$HOME\/\.asdf\/asdf\.sh"?/],
+  }
+
+  for (const rcFile of rcFiles) {
+    const filePath = path.join(homeDir, rcFile)
+
+    try {
+      if (!fs.existsSync(filePath)) continue
+
+      const content = fs.readFileSync(filePath, 'utf-8')
+
+      // Check for each manager's initialization pattern
+      for (const [manager, regexes] of Object.entries(patterns)) {
+        for (const regex of regexes) {
+          if (regex.test(content)) {
+            return manager
+          }
+        }
+      }
+    } catch (error) {
+      // Silently continue if we can't read a file
+      continue
+    }
+  }
+
+  return null
+}
+
+/**
+ * Detect all available Node.js version managers
+ */
+export async function detectAvailableNodeManagers(): Promise<string[]> {
+  const managers: string[] = []
+
+  if (await commandExists('fnm')) managers.push('fnm')
+  if (await commandExists('nvm')) managers.push('nvm')
+  if (await commandExists('asdf')) managers.push('asdf')
+  if (await commandExists('node')) managers.push('system')
+
+  return managers
+}
+
+/**
+ * Detect Node.js versions for a specific manager
+ */
+async function detectNodeWithManager(selectedManager: string): Promise<{
+  versions: string[]
+  defaultVersion?: string
+  installCommand?: string
+} | null> {
   const versions: string[] = []
-  let manager: string | undefined
   let defaultVersion: string | undefined
   let installCommand: string | undefined
 
-  // Check for fnm
-  if (await commandExists('fnm')) {
-    manager = 'fnm'
+  if (selectedManager === 'fnm') {
     try {
       const { stdout } = await execAsync('fnm list')
       const lines = stdout.trim().split('\n')
@@ -52,10 +109,7 @@ export async function detectNodeVersions(): Promise<RuntimeVersion | null> {
     } catch (error) {
       console.error('Error detecting fnm versions:', error)
     }
-  }
-  // Check for nvm
-  else if (await commandExists('nvm')) {
-    manager = 'nvm'
+  } else if (selectedManager === 'nvm') {
     try {
       const { stdout } = await execAsync('nvm list')
       const lines = stdout.trim().split('\n')
@@ -73,10 +127,7 @@ export async function detectNodeVersions(): Promise<RuntimeVersion | null> {
     } catch (error) {
       console.error('Error detecting nvm versions:', error)
     }
-  }
-  // Check for asdf
-  else if (await commandExists('asdf')) {
-    manager = 'asdf'
+  } else if (selectedManager === 'asdf') {
     try {
       const { stdout } = await execAsync('asdf list nodejs')
       versions.push(...stdout.trim().split('\n').map((v) => v.trim()))
@@ -91,10 +142,7 @@ export async function detectNodeVersions(): Promise<RuntimeVersion | null> {
     } catch (error) {
       console.error('Error detecting asdf nodejs versions:', error)
     }
-  }
-  // Check for system Node.js
-  else if (await commandExists('node')) {
-    manager = 'system'
+  } else if (selectedManager === 'system') {
     try {
       const { stdout } = await execAsync('node --version')
       const version = stdout.trim().replace('v', '')
@@ -107,14 +155,53 @@ export async function detectNodeVersions(): Promise<RuntimeVersion | null> {
 
   if (versions.length === 0) return null
 
-  return {
-    type: 'node',
-    manager,
-    versions,
-    defaultVersion,
-    installCommand,
-    exportedAt: new Date().toISOString(),
+  return { versions, defaultVersion, installCommand }
+}
+
+/**
+ * Detect Node.js versions and version manager
+ * If preferredManager is provided, use that. Otherwise, auto-detect in order: fnm, nvm, asdf, system
+ */
+export async function detectNodeVersions(
+  preferredManager?: string,
+): Promise<RuntimeVersion | null> {
+  // If a preferred manager is specified, use it
+  if (preferredManager) {
+    const result = await detectNodeWithManager(preferredManager)
+    if (!result || result.versions.length === 0) return null
+
+    return {
+      type: 'node',
+      manager: preferredManager,
+      versions: result.versions,
+      defaultVersion: result.defaultVersion,
+      installCommand: result.installCommand,
+    }
   }
+
+  // Otherwise, auto-detect in order of preference
+  const managersToTry = ['fnm', 'nvm', 'asdf', 'system']
+
+  for (const manager of managersToTry) {
+    const hasManager = manager === 'system'
+      ? await commandExists('node')
+      : await commandExists(manager)
+
+    if (hasManager) {
+      const result = await detectNodeWithManager(manager)
+      if (result && result.versions.length > 0) {
+        return {
+          type: 'node',
+          manager,
+          versions: result.versions,
+          defaultVersion: result.defaultVersion,
+          installCommand: result.installCommand,
+        }
+      }
+    }
+  }
+
+  return null
 }
 
 /**
@@ -189,7 +276,6 @@ export async function detectPythonVersions(): Promise<RuntimeVersion | null> {
     versions,
     defaultVersion,
     installCommand,
-    exportedAt: new Date().toISOString(),
   }
 }
 
@@ -286,7 +372,6 @@ export async function detectRubyVersions(): Promise<RuntimeVersion | null> {
     versions,
     defaultVersion,
     installCommand,
-    exportedAt: new Date().toISOString(),
   }
 }
 
@@ -306,7 +391,6 @@ export async function detectGoVersion(): Promise<RuntimeVersion | null> {
         manager: 'system',
         versions: [version],
         defaultVersion: version,
-        exportedAt: new Date().toISOString(),
       }
     }
   } catch (error) {
@@ -332,7 +416,6 @@ export async function detectRustVersion(): Promise<RuntimeVersion | null> {
         manager: 'rustup',
         versions: [version],
         defaultVersion: version,
-        exportedAt: new Date().toISOString(),
       }
     }
   } catch (error) {
@@ -417,7 +500,6 @@ export async function detectJavaVersion(): Promise<RuntimeVersion | null> {
     versions,
     defaultVersion,
     installCommand,
-    exportedAt: new Date().toISOString(),
   }
 }
 
@@ -437,7 +519,6 @@ export async function detectPhpVersion(): Promise<RuntimeVersion | null> {
         manager: 'system',
         versions: [version],
         defaultVersion: version,
-        exportedAt: new Date().toISOString(),
       }
     }
   } catch (error) {
@@ -463,7 +544,6 @@ export async function detectDenoVersion(): Promise<RuntimeVersion | null> {
         manager: 'system',
         versions: [version],
         defaultVersion: version,
-        exportedAt: new Date().toISOString(),
       }
     }
   } catch (error) {

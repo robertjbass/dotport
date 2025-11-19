@@ -52,6 +52,9 @@ import {
 } from '../utils/editor-detection'
 import {
   detectAllRuntimes,
+  detectAvailableNodeManagers,
+  detectNodeVersions,
+  detectNodeManagerFromShell,
 } from '../utils/runtime-detection'
 
 // Schema export
@@ -1960,7 +1963,69 @@ async function promptSystemDetection(
   console.log(chalk.gray('  Detecting runtime versions...'))
   const runtimes: RuntimeVersion[] = []
   try {
+    // First, try to detect Node manager from shell RC files
+    const shellDetectedManager = await detectNodeManagerFromShell()
+
+    // Check for multiple Node.js managers and prompt user to choose
+    const availableNodeManagers = await detectAvailableNodeManagers()
+    let selectedNodeManager: string | undefined
+
+    if (availableNodeManagers.length > 1) {
+      // Determine default based on shell RC detection
+      const defaultManager = shellDetectedManager && availableNodeManagers.includes(shellDetectedManager)
+        ? shellDetectedManager
+        : availableNodeManagers[0]
+
+      console.log(
+        chalk.yellow(
+          `\n    ℹ Multiple Node.js version managers detected: ${availableNodeManagers.join(', ')}`,
+        ),
+      )
+
+      if (shellDetectedManager && availableNodeManagers.includes(shellDetectedManager)) {
+        console.log(
+          chalk.gray(
+            `    Shell config indicates: ${shellDetectedManager} (from .zshrc/.bashrc)`,
+          ),
+        )
+      }
+
+      const { manager } = await inquirer.prompt([
+        {
+          type: 'list',
+          name: 'manager',
+          message: 'Which Node.js version manager do you use?',
+          default: defaultManager,
+          choices: availableNodeManagers.map((m) => ({
+            name: m === 'system' ? 'System (no version manager)' : m,
+            value: m,
+          })),
+        },
+      ])
+
+      selectedNodeManager = manager
+    } else if (availableNodeManagers.length === 1 && shellDetectedManager && availableNodeManagers[0] !== shellDetectedManager) {
+      // Only one manager installed, but shell config mentions a different one
+      console.log(
+        chalk.yellow(
+          `\n    ⚠️  Shell config references ${shellDetectedManager}, but only ${availableNodeManagers[0]} is installed`,
+        ),
+      )
+      selectedNodeManager = availableNodeManagers[0]
+    }
+
+    // Detect all runtimes (Node.js with preferred manager if selected)
     const detectedRuntimes = await detectAllRuntimes()
+
+    // Replace Node runtime with user-selected manager if applicable
+    const nodeRuntimeIndex = detectedRuntimes.findIndex((r) => r.type === 'node')
+    if (nodeRuntimeIndex !== -1 && selectedNodeManager) {
+      const nodeRuntime = await detectNodeVersions(selectedNodeManager)
+      if (nodeRuntime) {
+        detectedRuntimes[nodeRuntimeIndex] = nodeRuntime
+      }
+    }
+
     console.log(chalk.green(`    ✓ Found ${detectedRuntimes.length} runtime(s)`))
 
     for (const runtime of detectedRuntimes) {
@@ -2059,7 +2124,8 @@ async function promptAndExecuteBackup(
   }
 
   // Export GNOME settings (Linux only)
-  if (backupConfig.system.primary === 'linux') {
+  const currentSystem = backupConfig.systems.find(s => s.repoPath === machineId)
+  if (currentSystem?.os === 'linux') {
     const gnomeSettingsDir = path.join(repoPath, machineId, '.config', 'dconf')
     const dconfResult = await exportGnomeSettings(gnomeSettingsDir, {
       verbose: true,
@@ -2692,90 +2758,37 @@ export default async function backup() {
         const nickname = config.configFiles.machineNickname || 'default'
         const machineId = `${osType}-${distro}-${nickname}`
 
-        const backupConfig: BackupConfig = {
-          ...DEFAULT_BACKUP_CONFIG,
-          version: '1.0.0',
-          system: {
-            primary: osType as any,
-            shell: 'zsh', // TODO: detect shell
-            shellConfigFile: '.zshrc', // TODO: detect shell config
-          },
-          multiOS: {
-            enabled: config.configFiles.multiOS || false,
-            supportedOS: [osType as any],
-            linuxDistros: config.configFiles.supportedDistros,
-          },
-          dotfiles: {
-            enabled: true,
-            repoType:
-              config.configFiles.service === 'github' ? 'github' : 'other-git',
-            repoName: config.configFiles.repoName || 'dotfiles',
-            repoUrl: config.configFiles.gitRepoUrl || '',
-            repoOwner: '', // TODO: extract from URL
-            branch: 'main',
-            visibility: config.configFiles.repoVisibility || 'private',
-            structure: {
-              type: 'flat', // Use flat structure with machine-specific directories
-              directories: { [machineId]: `${machineId}/` },
-            },
-            trackedFiles: {
-              [machineId]: {
-                cloneLocation: config.configFiles.cloneLocation,
-                files: selectedFiles,
-              },
-            },
-          },
-          secrets: DEFAULT_BACKUP_CONFIG.secrets || {
-            enabled: false,
-            secretFile: {
-              name: '.env.sh',
-              location: '~',
-              format: 'shell-export' as const,
-            },
-            storage: {
-              type: 'local-only' as const,
-            },
-            trackedSecrets: {},
-          },
-          symlinks: DEFAULT_BACKUP_CONFIG.symlinks || {
-            enabled: false,
-            strategy: 'direct',
-            conflictResolution: 'backup',
-          },
-          packages: {
+        // Use the schema builder utility instead of manual construction
+        const backupConfig: BackupConfig = buildBackupConfig({
+          os: config.os,
+          nickname,
+          distro,
+          repoType: config.configFiles.service === 'github' ? 'github' : 'other-git',
+          repoName: config.configFiles.repoName || 'dotfiles',
+          repoUrl: config.configFiles.gitRepoUrl || '',
+          repoOwner: '', // TODO: extract from URL
+          repoVisibility: config.configFiles.repoVisibility || 'private',
+          cloneLocation: config.configFiles.cloneLocation,
+          branch: 'main',
+          trackedFiles: selectedFiles,
+        })
+
+        // Update machine-specific configs with detected packages, extensions, and runtimes
+        if (backupConfig.dotfiles[machineId]) {
+          backupConfig.dotfiles[machineId].packages = {
             enabled: (config.detectedPackages?.length || 0) > 0,
-            packageManagers: {
-              [machineId]: config.detectedPackages || [],
-            },
-          },
-          applications: DEFAULT_BACKUP_CONFIG.applications || {
-            enabled: false,
-            applications: {},
-          },
-          extensions: {
+            packageManagers: config.detectedPackages || [],
+          }
+
+          backupConfig.dotfiles[machineId].extensions = {
             enabled: (config.detectedExtensions?.length || 0) > 0,
-            editors: {
-              [machineId]: config.detectedExtensions || [],
-            },
-          },
-          services: DEFAULT_BACKUP_CONFIG.services || {
-            enabled: false,
-            services: {},
-          },
-          settings: DEFAULT_BACKUP_CONFIG.settings || {
-            enabled: false,
-            settings: {},
-          },
-          runtimes: {
+            editors: config.detectedExtensions || [],
+          }
+
+          backupConfig.dotfiles[machineId].runtimes = {
             enabled: (config.detectedRuntimes?.length || 0) > 0,
-            runtimes: {
-              [machineId]: config.detectedRuntimes || [],
-            },
-          },
-          metadata: {
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-          },
+            runtimes: config.detectedRuntimes || [],
+          }
         }
 
         const backupResult = await promptAndExecuteBackup(
@@ -2814,7 +2827,6 @@ export default async function backup() {
                 try {
                   const packageData = {
                     type: pm.type,
-                    exportedAt: pm.exportedAt,
                     packages: pm.packages,
                     restoreCommand: pm.restoreCommand,
                   }

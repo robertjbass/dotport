@@ -144,11 +144,16 @@ describe('Dry Run - Full Backup Flow', () => {
   it('should export schema to repository', async () => {
     const backupConfig: Partial<BackupConfig> = {
       version: '1.0.0',
-      system: {
-        primary: 'macos',
-        shell: 'zsh',
-        shellConfigFile: '.zshrc',
-      },
+      systems: [
+        {
+          os: 'macos',
+          distro: 'darwin',
+          nickname: 'test-machine',
+          repoPath: 'macos-darwin-test-machine',
+          shell: 'zsh',
+          shellConfigFile: '.zshrc',
+        },
+      ],
       metadata: {
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
@@ -163,7 +168,7 @@ describe('Dry Run - Full Backup Flow', () => {
 
     assert.strictEqual(result.success, true, 'Schema export should succeed')
 
-    const schemaPath = path.join(repoDir, 'schema', 'backup-config.json')
+    const schemaPath = path.join(repoDir, 'schema.json')
     assert.ok(fs.existsSync(schemaPath), 'Schema file should exist')
 
     // Verify schema content

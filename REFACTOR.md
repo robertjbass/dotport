@@ -1,6 +1,8 @@
 # TODO
 
-- [ ] Update Schema Structure to massively simplify it
+- [x] Update Schema Structure to massively simplify it ✅ (Completed)
+- [x] Detect Node.js manager from shell RC files (.zshrc/.bashrc) ✅ (Completed)
+- [x] Remove exportedAt timestamps from packages/runtimes/extensions to prevent unnecessary schema changes ✅ (Completed)
 
 New Intended Structure (not exact, use for motivation):
 
