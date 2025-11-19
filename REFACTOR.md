@@ -10168,3 +10168,5 @@ The generated schema gets saved in the dotfiles repo which is a separate repo, b
 The schema should be saved in the dotfiles repo in the as `schema.json` in the root directory instead of `schema/backup-config.json`
 
 The backup and restore scripts must also be updated to use the new schema structure and location accordingly
+
+The utility that merges the schema files must also be updated to use the new schema structure, this new structure should be MUCH easier to support
