@@ -69,7 +69,7 @@ export function getShellConfigFile(
  * Build a complete BackupConfig from setup wizard data
  *
  * @param options - Configuration options from setup wizard
- * @param existingConfig - Optional existing config to merge with (for multi-OS support)
+ * @param existingConfig - Optional existing config to merge with (for multi-machine support)
  * @returns Complete BackupConfig object
  */
 export function buildBackupConfig(
@@ -77,8 +77,14 @@ export function buildBackupConfig(
     // Operating system
     os: SetupOperatingSystem
 
-    // Multi-OS support
-    multiOS: boolean
+    // Machine nickname (e.g., 'macbook-air', 'thinkpad', 'aws-linux')
+    nickname: string
+
+    // Distro (for Linux) or 'darwin' for macOS
+    distro?: string
+
+    // Multi-OS support (deprecated - all setups now support multiple machines)
+    multiOS?: boolean
     supportedDistros?: string[]
 
     // Repository configuration
@@ -101,6 +107,8 @@ export function buildBackupConfig(
 ): BackupConfig {
   const {
     os,
+    nickname,
+    distro: providedDistro,
     multiOS,
     supportedDistros,
     repoType,
@@ -125,17 +133,21 @@ export function buildBackupConfig(
   // Detect Linux-specific metadata if on Linux
   const linuxMetadata = backupOS === 'linux' ? getLinuxSystemMetadata() : undefined
 
-  // Always use nested structure (OS folders like macos/, debian/, etc.)
-  const structureType: 'flat' | 'nested' = 'nested'
+  // Always use flat structure with machine-specific directories
+  const structureType: 'flat' | 'nested' = 'flat'
 
-  // Group tracked files by OS/distro
-  const osOrDistro = backupOS === 'linux'
-    ? (supportedDistros?.[0] || 'linux')
-    : backupOS
+  // Build machine ID using naming convention: <os>-<distro>-<nickname>
+  // For macOS: macos-darwin-<nickname>
+  // For Linux: linux-<distro>-<nickname>
+  const distro = providedDistro || (backupOS === 'linux'
+    ? (supportedDistros?.[0] || 'unknown')
+    : 'darwin') // Always use 'darwin' for macOS
 
-  // Build directory structure for nested repos
+  const machineId = `${backupOS}-${distro}-${nickname}`
+
+  // Build directory structure for flat repos with machine-specific directories
   const directories: Record<string, string> = {
-    [osOrDistro]: `${osOrDistro}/`
+    [machineId]: `${machineId}/`
   }
 
   // Build the complete config
@@ -154,7 +166,7 @@ export function buildBackupConfig(
     },
 
     multiOS: {
-      enabled: multiOS,
+      enabled: multiOS || false,
       supportedOS: [backupOS],
       linuxDistros: supportedDistros,
     },
@@ -172,7 +184,7 @@ export function buildBackupConfig(
         directories,
       },
       trackedFiles: {
-        [osOrDistro]: {
+        [machineId]: {
           cloneLocation,
           files: trackedFiles,
         },
@@ -395,19 +407,19 @@ export function mergeBackupConfig(
 }
 
 /**
- * Add tracked files to a specific OS/distro in the config
+ * Add tracked files to a specific machine in the config
  *
  * @param config - Existing BackupConfig
- * @param osOrDistro - OS or distro identifier
+ * @param machineId - Machine identifier (e.g., 'macos-darwin-macbook-air')
  * @param files - Files to add
  * @returns Updated BackupConfig
  */
 export function addTrackedFiles(
   config: BackupConfig,
-  osOrDistro: string,
+  machineId: string,
   files: TrackedFile[],
 ): BackupConfig {
-  const existingData = config.dotfiles.trackedFiles[osOrDistro]
+  const existingData = config.dotfiles.trackedFiles[machineId]
   const existingFiles = existingData?.files || []
   const existingCloneLocation = existingData?.cloneLocation || '~'
 
@@ -421,7 +433,7 @@ export function addTrackedFiles(
       ...config.dotfiles,
       trackedFiles: {
         ...config.dotfiles.trackedFiles,
-        [osOrDistro]: {
+        [machineId]: {
           cloneLocation: existingCloneLocation,
           files: [...existingFiles, ...newFiles],
         },
@@ -435,19 +447,19 @@ export function addTrackedFiles(
 }
 
 /**
- * Remove tracked files from a specific OS/distro in the config
+ * Remove tracked files from a specific machine in the config
  *
  * @param config - Existing BackupConfig
- * @param osOrDistro - OS or distro identifier
+ * @param machineId - Machine identifier (e.g., 'macos-darwin-macbook-air')
  * @param filePaths - Source paths of files to remove
  * @returns Updated BackupConfig
  */
 export function removeTrackedFiles(
   config: BackupConfig,
-  osOrDistro: string,
+  machineId: string,
   filePaths: string[],
 ): BackupConfig {
-  const existingData = config.dotfiles.trackedFiles[osOrDistro]
+  const existingData = config.dotfiles.trackedFiles[machineId]
   const existingFiles = existingData?.files || []
   const existingCloneLocation = existingData?.cloneLocation || '~'
   const pathsToRemove = new Set(filePaths)
@@ -462,7 +474,7 @@ export function removeTrackedFiles(
       ...config.dotfiles,
       trackedFiles: {
         ...config.dotfiles.trackedFiles,
-        [osOrDistro]: {
+        [machineId]: {
           cloneLocation: existingCloneLocation,
           files: updatedFiles,
         },
@@ -476,18 +488,18 @@ export function removeTrackedFiles(
 }
 
 /**
- * Get the OS/distro identifier for file organization
+ * Get the machine identifier for file organization
+ * Uses naming convention: <os>-<distro>-<nickname>
  *
  * @param os - Operating system type
- * @param distro - Linux distribution (if applicable)
- * @returns Identifier string for organizing files
+ * @param distro - Distribution name (darwin for macOS, distro name for Linux)
+ * @param nickname - Machine nickname (e.g., 'macbook-air', 'thinkpad')
+ * @returns Machine identifier string (e.g., 'macos-darwin-macbook-air')
  */
-export function getOSDistroIdentifier(
+export function getMachineId(
   os: BackupOS,
-  distro?: string,
+  distro: string,
+  nickname: string,
 ): string {
-  if (os === 'macos') return 'macos'
-  if (os === 'linux' && distro) return distro
-  if (os === 'linux') return 'linux'
-  return 'windows'
+  return `${os}-${distro}-${nickname}`
 }

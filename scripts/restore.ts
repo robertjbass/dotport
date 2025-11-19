@@ -750,18 +750,30 @@ async function manageBackupsMenu(): Promise<void> {
 }
 
 /**
- * Get the OS/distro key for the current platform
+ * Get the machine ID key for the current platform
+ * With the new flat structure, machine IDs follow the pattern: <os>-<distro>-<nickname>
+ * This function will prompt the user to select which machine configuration to restore from
  */
-function getOSKey(platform: 'darwin' | 'linux', config: BackupConfig): string {
-  if (platform === 'darwin') {
-    return 'macos'
+function getMachineIdKey(platform: 'darwin' | 'linux', config: BackupConfig): string {
+  const trackedFilesKeys = Object.keys(config.dotfiles.trackedFiles)
+
+  // Filter keys that match the current platform
+  const platformPrefix = platform === 'darwin' ? 'macos-' : 'linux-'
+  const matchingKeys = trackedFilesKeys.filter((key) => key.startsWith(platformPrefix))
+
+  if (matchingKeys.length === 0) {
+    // No matching configurations found
+    return ''
   }
 
-  // For Linux, we need to determine the distro
-  // For now, we'll use the first available Linux entry in trackedFiles
-  const trackedFilesKeys = Object.keys(config.dotfiles.trackedFiles)
-  const linuxKey = trackedFilesKeys.find((key) => key !== 'macos')
-  return linuxKey || 'linux'
+  // If there's only one match, return it
+  if (matchingKeys.length === 1) {
+    return matchingKeys[0]
+  }
+
+  // Multiple matches - for now return the first one
+  // TODO: Prompt user to select which machine configuration to restore
+  return matchingKeys[0]
 }
 
 /**
@@ -774,20 +786,20 @@ async function showRestoreMenu(
     return 'exit'
   }
 
-  const osKey = getOSKey(config.platform, config.data)
+  const machineId = getMachineIdKey(config.platform, config.data)
 
   const choices: Array<{ name: string; value: 'dotfiles' | 'packages' | 'runtimes' | 'all' | 'backups' | 'exit' }> = []
 
   // Count available items
-  const dotfilesData = config.data.dotfiles.trackedFiles[osKey]
+  const dotfilesData = config.data.dotfiles.trackedFiles[machineId]
   const dotfilesCount = dotfilesData?.files?.filter((f) => f.tracked).length || 0
 
   // Count packages
-  const packagesData = config.data.packages.packageManagers[osKey]
+  const packagesData = config.data.packages.packageManagers[machineId]
   const packagesCount = packagesData?.length || 0
 
   // Count runtimes
-  const runtimesData = config.data.runtimes.runtimes[osKey]
+  const runtimesData = config.data.runtimes.runtimes[machineId]
   const runtimesCount = runtimesData?.length || 0
 
   if (dotfilesCount > 0) {
@@ -895,13 +907,13 @@ export default async function restore(): Promise<void> {
     dotfilesRepoPath: repoPath,
   }
 
-  const osKey = getOSKey(platform, backupConfig)
+  const machineId = getMachineIdKey(platform, backupConfig)
 
-  // Check if there's data for this OS
-  const dotfilesData = backupConfig.dotfiles.trackedFiles[osKey]
+  // Check if there's data for this machine
+  const dotfilesData = backupConfig.dotfiles.trackedFiles[machineId]
   if (!dotfilesData) {
     displayError(
-      `No backup data found for ${osKey}`,
+      `No backup data found for ${machineId}`,
       'Please run the setup script on this platform first.',
     )
     process.exit(1)
@@ -922,21 +934,21 @@ export default async function restore(): Promise<void> {
     }
 
     if (selection === 'dotfiles' || selection === 'all') {
-      const trackedFiles = backupConfig.dotfiles.trackedFiles[osKey]?.files
+      const trackedFiles = backupConfig.dotfiles.trackedFiles[machineId]?.files
       if (trackedFiles && trackedFiles.length > 0) {
         await restoreDotfiles(trackedFiles, config)
       }
     }
 
     if (selection === 'packages' || selection === 'all') {
-      const packageManagers = backupConfig.packages.packageManagers[osKey]
+      const packageManagers = backupConfig.packages.packageManagers[machineId]
       if (packageManagers && packageManagers.length > 0) {
         await restorePackages(packageManagers, config)
       }
     }
 
     if (selection === 'runtimes' || selection === 'all') {
-      const runtimes = backupConfig.runtimes.runtimes[osKey]
+      const runtimes = backupConfig.runtimes.runtimes[machineId]
       if (runtimes && runtimes.length > 0) {
         await restoreRuntimes(runtimes, config)
       }

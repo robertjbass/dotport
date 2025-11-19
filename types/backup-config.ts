@@ -59,9 +59,11 @@ export type TrackedFile = {
 
 export type DotfilesStructure = {
   type: StructureType
-  // For nested structure, map OS/distro to directory
+  // Machine-specific directories using naming convention: <os>-<distro>-<nickname>
+  // e.g., 'macos-darwin-macbook-air' -> 'macos-darwin-macbook-air/'
+  // e.g., 'linux-debian-thinkpad' -> 'linux-debian-thinkpad/'
   directories: {
-    [osOrDistro: string]: string // e.g., 'macos' -> 'macos/', 'debian' -> 'linux/debian/'
+    [machineId: string]: string
   }
 }
 
@@ -77,9 +79,10 @@ export type DotfilesConfig = {
   // Directory structure within repo
   structure: DotfilesStructure
 
-  // Files tracked per OS/distro
+  // Files tracked per machine (using machine ID: <os>-<distro>-<nickname>)
+  // e.g., 'macos-darwin-macbook-air', 'linux-debian-thinkpad'
   trackedFiles: {
-    [osOrDistro: string]: {
+    [machineId: string]: {
       cloneLocation: string // e.g., '/Users/username/dev/dotfiles' on macOS, '/home/username/dev/dotfiles' on Linux
       files: TrackedFile[]
     }
@@ -140,9 +143,9 @@ export type SecretsConfig = {
   secretFile: SecretFile
   storage: SecretStorage
 
-  // Secret files per OS/distro
+  // Secret files per machine (using machine ID: <os>-<distro>-<nickname>)
   trackedSecrets: {
-    [osOrDistro: string]: {
+    [machineId: string]: {
       files: TrackedSecret[]
       // Individual secrets (if crawling)
       variables?: SecretVariable[]
@@ -324,46 +327,47 @@ export type RuntimeVersion = {
 
 /**
  * System Configuration (aggregates packages, apps, extensions, etc.)
+ * All configs use machine ID: <os>-<distro>-<nickname>
  */
 export type SystemPackagesConfig = {
   enabled: boolean
   packageManagers: {
-    [osOrDistro: string]: PackageManager[]
+    [machineId: string]: PackageManager[]
   }
 }
 
 export type SystemApplicationsConfig = {
   enabled: boolean
   applications: {
-    [osOrDistro: string]: ApplicationInfo[]
+    [machineId: string]: ApplicationInfo[]
   }
 }
 
 export type SystemExtensionsConfig = {
   enabled: boolean
   editors: {
-    [osOrDistro: string]: EditorExtensions[]
+    [machineId: string]: EditorExtensions[]
   }
 }
 
 export type SystemServicesConfig = {
   enabled: boolean
   services: {
-    [osOrDistro: string]: SystemService[]
+    [machineId: string]: SystemService[]
   }
 }
 
 export type SystemSettingsConfig = {
   enabled: boolean
   settings: {
-    [osOrDistro: string]: SystemSettings[]
+    [machineId: string]: SystemSettings[]
   }
 }
 
 export type SystemRuntimesConfig = {
   enabled: boolean
   runtimes: {
-    [osOrDistro: string]: RuntimeVersion[]
+    [machineId: string]: RuntimeVersion[]
   }
 }
 
@@ -454,10 +458,14 @@ export const DEFAULT_BACKUP_CONFIG: Partial<BackupConfig> = {
 
 /**
  * Helper function to create a default tracked file
+ * @param name - File name (e.g., '.zshrc')
+ * @param machineId - Machine identifier (e.g., 'macos-darwin-macbook-air')
+ * @param repoPath - Path in repo (e.g., 'macos-darwin-macbook-air/.zshrc')
+ * @param options - Optional overrides
  */
 export function createTrackedFile(
   name: string,
-  osOrDistro: string,
+  machineId: string,
   repoPath: string,
   options: Partial<TrackedFile> = {},
 ): TrackedFile {
