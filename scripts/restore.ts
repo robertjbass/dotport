@@ -122,21 +122,46 @@ function findDotfilesRepo(): string | null {
 /**
  * Load the backup configuration from the dotfiles repository
  */
-function loadBackupData(): { config: BackupConfig; repoPath: string } | null {
-  const repoPath = findDotfilesRepo()
+async function loadBackupData(): Promise<{ config: BackupConfig; repoPath: string } | null> {
+  let repoPath = findDotfilesRepo()
 
   if (!repoPath) {
-    displayError(
-      'Dotfiles repository not found',
-      'Could not locate your dotfiles repository.\n' +
-      'Please ensure it is cloned to one of the following locations:\n' +
-      '  ~/dotfiles\n' +
-      '  ~/.dotfiles\n' +
-      '  ~/dev/dotfiles\n' +
-      '  ~/Developer/dotfiles\n' +
-      '  ~/projects/dotfiles',
+    displayWarning(
+      'Dotfiles repository not found automatically',
+      'Searched common locations:\n' +
+      '  ~/dotfiles, ~/.dotfiles, ~/dev/dotfiles\n' +
+      '  ~/Developer/dotfiles, ~/projects/dotfiles',
     )
-    return null
+
+    const customPath = await promptInput(
+      'Enter the path to your dotfiles repository (or press Ctrl+C to exit):',
+      {
+        validate: (input: string) => {
+          if (!input || input.trim().length === 0) {
+            return 'Please enter a valid path'
+          }
+          const expandedPath = expandTilde(input)
+          if (!pathExists(expandedPath)) {
+            return `Path does not exist: ${expandedPath}`
+          }
+          if (!isDirectory(expandedPath)) {
+            return `Path is not a directory: ${expandedPath}`
+          }
+          const configPath = path.join(expandedPath, 'backup-config.json')
+          if (!pathExists(configPath)) {
+            return `backup-config.json not found in: ${expandedPath}`
+          }
+          return true
+        },
+      },
+    )
+
+    if (!customPath) {
+      displayError('No repository path provided', 'Cannot continue without a dotfiles repository.')
+      return null
+    }
+
+    repoPath = expandTilde(customPath)
   }
 
   const configPath = path.join(repoPath, 'backup-config.json')
@@ -843,7 +868,7 @@ export default async function restore(): Promise<void> {
   }
 
   // Load backup data
-  const result = loadBackupData()
+  const result = await loadBackupData()
   if (!result) {
     process.exit(1)
   }
