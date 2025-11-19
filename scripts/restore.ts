@@ -755,11 +755,11 @@ async function manageBackupsMenu(): Promise<void> {
  * This function will prompt the user to select which machine configuration to restore from
  */
 function getMachineIdKey(platform: 'darwin' | 'linux', config: BackupConfig): string {
-  const trackedFilesKeys = Object.keys(config.dotfiles.trackedFiles)
+  const machineIds = Object.keys(config.dotfiles)
 
   // Filter keys that match the current platform
   const platformPrefix = platform === 'darwin' ? 'macos-' : 'linux-'
-  const matchingKeys = trackedFilesKeys.filter((key) => key.startsWith(platformPrefix))
+  const matchingKeys = machineIds.filter((key) => key.startsWith(platformPrefix))
 
   if (matchingKeys.length === 0) {
     // No matching configurations found
@@ -791,16 +791,14 @@ async function showRestoreMenu(
   const choices: Array<{ name: string; value: 'dotfiles' | 'packages' | 'runtimes' | 'all' | 'backups' | 'exit' }> = []
 
   // Count available items
-  const dotfilesData = config.data.dotfiles.trackedFiles[machineId]
-  const dotfilesCount = dotfilesData?.files?.filter((f) => f.tracked).length || 0
+  const machineConfig = config.data.dotfiles[machineId]
+  const dotfilesCount = machineConfig?.['tracked-files']?.files?.filter((f) => f.tracked).length || 0
 
   // Count packages
-  const packagesData = config.data.packages.packageManagers[machineId]
-  const packagesCount = packagesData?.length || 0
+  const packagesCount = machineConfig?.packages?.packageManagers?.length || 0
 
   // Count runtimes
-  const runtimesData = config.data.runtimes.runtimes[machineId]
-  const runtimesCount = runtimesData?.length || 0
+  const runtimesCount = machineConfig?.runtimes?.runtimes?.length || 0
 
   if (dotfilesCount > 0) {
     choices.push({
@@ -910,8 +908,8 @@ export default async function restore(): Promise<void> {
   const machineId = getMachineIdKey(platform, backupConfig)
 
   // Check if there's data for this machine
-  const dotfilesData = backupConfig.dotfiles.trackedFiles[machineId]
-  if (!dotfilesData) {
+  const machineConfig = backupConfig.dotfiles[machineId]
+  if (!machineConfig) {
     displayError(
       `No backup data found for ${machineId}`,
       'Please run the setup script on this platform first.',
@@ -934,21 +932,21 @@ export default async function restore(): Promise<void> {
     }
 
     if (selection === 'dotfiles' || selection === 'all') {
-      const trackedFiles = backupConfig.dotfiles.trackedFiles[machineId]?.files
+      const trackedFiles = backupConfig.dotfiles[machineId]?.['tracked-files']?.files
       if (trackedFiles && trackedFiles.length > 0) {
         await restoreDotfiles(trackedFiles, config)
       }
     }
 
     if (selection === 'packages' || selection === 'all') {
-      const packageManagers = backupConfig.packages.packageManagers[machineId]
+      const packageManagers = backupConfig.dotfiles[machineId]?.packages?.packageManagers
       if (packageManagers && packageManagers.length > 0) {
         await restorePackages(packageManagers, config)
       }
     }
 
     if (selection === 'runtimes' || selection === 'all') {
-      const runtimes = backupConfig.runtimes.runtimes[machineId]
+      const runtimes = backupConfig.dotfiles[machineId]?.runtimes?.runtimes
       if (runtimes && runtimes.length > 0) {
         await restoreRuntimes(runtimes, config)
       }

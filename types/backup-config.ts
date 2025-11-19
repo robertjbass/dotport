@@ -1,12 +1,12 @@
 /**
  * Type definitions for backup configuration schema
+ * Refactored structure with machine-specific organization
  */
 
 export type OperatingSystem = 'macos' | 'linux' | 'windows'
 export type Shell = 'bash' | 'zsh' | 'fish' | 'other'
 export type RepoType = 'github' | 'gitlab' | 'bitbucket' | 'other-git' | 'none'
 export type RepoVisibility = 'public' | 'private'
-export type StructureType = 'flat' | 'nested'
 export type SecretFileFormat = 'shell-export' | 'dotenv' | 'json' | 'yaml'
 export type SecretStorageType =
   | 'git-repo'
@@ -24,25 +24,42 @@ export type PasswordManager = '1password' | 'lastpass' | 'bitwarden' | 'pass'
 export type SymlinkStrategy = 'direct' | 'stow' | 'custom'
 export type ConflictResolution = 'backup' | 'overwrite' | 'skip' | 'ask'
 
-export type SystemConfig = {
-  primary: OperatingSystem
+/**
+ * Repository metadata (extracted from dotfiles config)
+ */
+export type RepoMetadata = {
+  repoType: RepoType
+  repoName: string
+  repoUrl: string
+  repoOwner: string
+  branch: string
+  visibility: RepoVisibility
+}
+
+/**
+ * System metadata for each machine
+ * Replaces the old SystemConfig and MultiOSConfig
+ */
+export type SystemMetadata = {
+  os: OperatingSystem
+  distro: string // e.g., 'darwin' for macOS, 'debian'/'ubuntu' for Linux
+  nickname: string // e.g., 'macbook-air-m2', 'lenovo-thinkpad'
+  repoPath: string // Machine ID: <os>-<distro>-<nickname>
   shell: Shell
   shellConfigFile: string // e.g., '.zshrc', '.bashrc'
-  // Linux-specific metadata
-  displayServer?: 'x11' | 'wayland' | 'unknown' // Linux display server protocol
-  desktopEnvironment?: string // e.g., 'gnome', 'kde', 'i3', 'sway', 'xfce'
+
+  // Optional Linux-specific metadata
+  displayServer?: 'x11' | 'wayland' | 'unknown'
+  desktopEnvironment?: string // e.g., 'gnome', 'kde', 'i3', 'sway'
 }
 
-export type MultiOSConfig = {
-  enabled: boolean
-  supportedOS: OperatingSystem[]
-  linuxDistros?: string[] // e.g., ['debian', 'ubuntu', 'fedora']
-}
-
+/**
+ * Tracked file configuration
+ */
 export type TrackedFile = {
   name: string // e.g., '.bashrc', '.zshrc'
   sourcePath: string // Home directory path: '~/.bashrc'
-  repoPath: string // Path in repo: 'macos/.bashrc'
+  repoPath: string // Path in repo: 'macos-darwin-macbook/.bashrc'
   symlinkEnabled: boolean // Whether to create symlink
   tracked: boolean // Whether file is tracked in git
 
@@ -57,47 +74,29 @@ export type TrackedFile = {
   secretsScannedAt?: string // When file was last scanned for secrets
 }
 
-export type DotfilesStructure = {
-  type: StructureType
-  // Machine-specific directories using naming convention: <os>-<distro>-<nickname>
-  // e.g., 'macos-darwin-macbook-air' -> 'macos-darwin-macbook-air/'
-  // e.g., 'linux-debian-thinkpad' -> 'linux-debian-thinkpad/'
-  directories: {
-    [machineId: string]: string
-  }
+/**
+ * Tracked files configuration for a machine
+ */
+export type MachineTrackedFilesConfig = {
+  cloneLocation: string // e.g., '/Users/bob/dev/dotfiles'
+  files: TrackedFile[]
 }
 
-export type DotfilesConfig = {
-  enabled: boolean
-  repoType: RepoType
-  repoName: string // e.g., 'dotfiles'
-  repoUrl: string // e.g., 'https://github.com/username/dotfiles'
-  repoOwner?: string // e.g., 'username'
-  branch: string // e.g., 'main' or 'master'
-  visibility: RepoVisibility
-
-  // Directory structure within repo
-  structure: DotfilesStructure
-
-  // Files tracked per machine (using machine ID: <os>-<distro>-<nickname>)
-  // e.g., 'macos-darwin-macbook-air', 'linux-debian-thinkpad'
-  trackedFiles: {
-    [machineId: string]: {
-      cloneLocation: string // e.g., '/Users/username/dev/dotfiles' on macOS, '/home/username/dev/dotfiles' on Linux
-      files: TrackedFile[]
-    }
-  }
-}
-
+/**
+ * Secret file configuration
+ */
 export type SecretFile = {
   name: string // Default: '.env.sh'
   location: string // Default: '~'
   format: SecretFileFormat
 }
 
+/**
+ * Git repository storage for secrets
+ */
 export type GitRepoStorage = {
   repoType: RepoType
-  repoName: string // e.g., 'my-secrets'
+  repoName: string
   repoUrl: string
   repoOwner?: string
   branch: string
@@ -106,6 +105,9 @@ export type GitRepoStorage = {
   encryptionKey?: string // Path to encryption key
 }
 
+/**
+ * Cloud storage for secrets
+ */
 export type CloudStorage = {
   provider: CloudProvider
   region?: string
@@ -113,11 +115,17 @@ export type CloudStorage = {
   configPath?: string
 }
 
+/**
+ * Password manager storage for secrets
+ */
 export type PasswordManagerStorage = {
   type: PasswordManager
   cliPath?: string
 }
 
+/**
+ * Secret storage configuration
+ */
 export type SecretStorage = {
   type: SecretStorageType
   repo?: GitRepoStorage
@@ -125,47 +133,47 @@ export type SecretStorage = {
   passwordManager?: PasswordManagerStorage
 }
 
+/**
+ * Tracked secret file
+ */
 export type TrackedSecret = {
-  name: string // e.g., '.env.sh'
-  sourcePath: string // e.g., '~/.env.sh'
+  name: string
+  sourcePath: string
   repoPath?: string // Only if using git-repo storage
   encrypted: boolean
 }
 
+/**
+ * Secret variable definition
+ */
 export type SecretVariable = {
-  name: string // e.g., 'API_KEY'
+  name: string
   description?: string
   required: boolean
 }
 
-export type SecretsConfig = {
+/**
+ * Secrets configuration for a machine
+ */
+export type MachineSecretsConfig = {
   enabled: boolean
   secretFile: SecretFile
   storage: SecretStorage
-
-  // Secret files per machine (using machine ID: <os>-<distro>-<nickname>)
   trackedSecrets: {
-    [machineId: string]: {
-      files: TrackedSecret[]
-      // Individual secrets (if crawling)
-      variables?: SecretVariable[]
-    }
+    files?: TrackedSecret[]
+    variables?: SecretVariable[]
   }
 }
 
+/**
+ * Symlinks configuration
+ */
 export type SymlinksConfig = {
   enabled: boolean
   strategy: SymlinkStrategy
-  customScript?: string // Path to custom symlink script
+  customScript?: string
   conflictResolution: ConflictResolution
-  backupLocation?: string // Where to backup existing files
-}
-
-export type MetadataConfig = {
-  createdAt: string // ISO 8601 timestamp
-  updatedAt: string
-  lastBackup?: string
-  lastRestore?: string
+  backupLocation?: string
 }
 
 /**
@@ -190,37 +198,59 @@ export type PackageManagerType =
   | 'gem' // Ruby packages
   | 'go' // Go packages
 
+/**
+ * Package information
+ */
 export type PackageInfo = {
   name: string
   version?: string
   description?: string
-  installedAt?: string // ISO 8601 timestamp
+  installedAt?: string
 }
 
+/**
+ * Package manager configuration
+ */
 export type PackageManager = {
   type: PackageManagerType
   enabled: boolean
   packages: PackageInfo[]
-  exportedAt?: string // When package list was last exported
-  exportPath?: string // Path to exported package list file in dotfiles (e.g., 'macos/Brewfile')
-  command?: string // Command to export packages (e.g., 'brew bundle dump')
-  restoreCommand?: string // Command to restore packages (e.g., 'brew bundle install')
+  exportedAt?: string
+  exportPath?: string
+  command?: string
+  restoreCommand?: string
 }
 
 /**
- * Application Types
+ * Packages configuration for a machine
+ */
+export type MachinePackagesConfig = {
+  enabled: boolean
+  packageManagers: PackageManager[]
+}
+
+/**
+ * Application information
  */
 export type ApplicationInfo = {
   name: string
   version?: string
-  path?: string // Install path
-  bundleId?: string // macOS bundle identifier
+  path?: string
+  bundleId?: string
   installedVia?: PackageManagerType | 'manual' | 'app-store'
-  category?: string // e.g., 'development', 'productivity', 'utilities'
+  category?: string
 }
 
 /**
- * Editor/IDE Extension Types
+ * Applications configuration for a machine
+ */
+export type MachineApplicationsConfig = {
+  enabled: boolean
+  applications: ApplicationInfo[]
+}
+
+/**
+ * Editor/IDE types
  */
 export type EditorType =
   | 'vscode'
@@ -229,60 +259,79 @@ export type EditorType =
   | 'windsurf'
   | 'vim'
   | 'neovim'
-  | 'jetbrains-idea' // IntelliJ IDEA
-  | 'jetbrains-pycharm' // PyCharm
-  | 'jetbrains-webstorm' // WebStorm
-  | 'jetbrains-other' // Other JetBrains IDEs
+  | 'jetbrains-idea'
+  | 'jetbrains-pycharm'
+  | 'jetbrains-webstorm'
+  | 'jetbrains-other'
   | 'sublime'
   | 'emacs'
   | 'zed'
 
+/**
+ * Extension information
+ */
 export type ExtensionInfo = {
-  id: string // Extension identifier (e.g., 'ms-python.python')
+  id: string
   name?: string
   version?: string
   publisher?: string
   enabled: boolean
 }
 
+/**
+ * Editor extensions configuration
+ */
 export type EditorExtensions = {
   editor: EditorType
   enabled: boolean
-  configPath?: string // Path to editor config directory
+  configPath?: string
   extensions: ExtensionInfo[]
   exportedAt?: string
-  exportPath?: string // Path to exported extensions list in dotfiles
-
-  // Keybindings
-  keybindingsPath?: string // Path to keybindings file in dotfiles
+  exportPath?: string
+  keybindingsPath?: string
   keybindingsBackedUp: boolean
-
-  // Settings
-  settingsPath?: string // Path to settings file in dotfiles
+  settingsPath?: string
   settingsBackedUp: boolean
-
-  // Snippets
-  snippetsPath?: string // Path to snippets directory in dotfiles
+  snippetsPath?: string
   snippetsBackedUp: boolean
 }
 
 /**
- * System Service Types (Linux systemd, macOS launchd)
+ * Extensions configuration for a machine
+ */
+export type MachineExtensionsConfig = {
+  enabled: boolean
+  editors: EditorExtensions[]
+}
+
+/**
+ * Service types
  */
 export type ServiceType = 'systemd' | 'launchd'
 
+/**
+ * System service configuration
+ */
 export type SystemService = {
   name: string
   type: ServiceType
   enabled: boolean
   state?: 'running' | 'stopped' | 'failed' | 'unknown'
   description?: string
-  configPath?: string // Path to service file
-  backupPath?: string // Path in dotfiles where service is backed up
+  configPath?: string
+  backupPath?: string
 }
 
 /**
- * System Settings Types
+ * Services configuration for a machine
+ */
+export type MachineServicesConfig = {
+  enabled: boolean
+  services: SystemService[]
+}
+
+/**
+ * Settings types
  */
 export type SettingsType =
   | 'gnome-gsettings'
@@ -293,18 +342,29 @@ export type SettingsType =
   | 'kde-plasma'
   | 'xfce'
 
+/**
+ * System settings configuration
+ */
 export type SystemSettings = {
   type: SettingsType
   enabled: boolean
-  exportPath?: string // Path to exported settings file in dotfiles
+  exportPath?: string
   exportedAt?: string
-  keys?: string[] // Specific keys/paths to track
-  command?: string // Command to export settings
-  restoreCommand?: string // Command to restore settings
+  keys?: string[]
+  command?: string
+  restoreCommand?: string
 }
 
 /**
- * Runtime Version Types (Node, Python, Ruby, etc.)
+ * Settings configuration for a machine
+ */
+export type MachineSettingsConfig = {
+  enabled: boolean
+  settings: SystemSettings[]
+}
+
+/**
+ * Runtime types
  */
 export type RuntimeType =
   | 'node'
@@ -316,78 +376,64 @@ export type RuntimeType =
   | 'php'
   | 'deno'
 
+/**
+ * Runtime version configuration
+ */
 export type RuntimeVersion = {
   type: RuntimeType
-  manager?: string // e.g., 'fnm', 'nvm', 'pyenv', 'rbenv', 'asdf', 'sdkman'
-  versions: string[] // Installed versions
-  defaultVersion?: string // Default/active version
+  manager?: string
+  versions: string[]
+  defaultVersion?: string
   exportedAt?: string
-  installCommand?: string // Command to install runtime (e.g., 'fnm install 24')
+  installCommand?: string
 }
 
 /**
- * System Configuration (aggregates packages, apps, extensions, etc.)
- * All configs use machine ID: <os>-<distro>-<nickname>
+ * Runtimes configuration for a machine
  */
-export type SystemPackagesConfig = {
+export type MachineRuntimesConfig = {
   enabled: boolean
-  packageManagers: {
-    [machineId: string]: PackageManager[]
-  }
+  runtimes: RuntimeVersion[]
 }
 
-export type SystemApplicationsConfig = {
-  enabled: boolean
-  applications: {
-    [machineId: string]: ApplicationInfo[]
-  }
+/**
+ * Complete configuration for a single machine
+ * All machine-specific settings are grouped here
+ */
+export type MachineConfig = {
+  'tracked-files': MachineTrackedFilesConfig
+  secrets: MachineSecretsConfig
+  symlinks: SymlinksConfig
+  packages: MachinePackagesConfig
+  applications: MachineApplicationsConfig
+  extensions: MachineExtensionsConfig
+  services: MachineServicesConfig
+  settings: MachineSettingsConfig
+  runtimes: MachineRuntimesConfig
 }
 
-export type SystemExtensionsConfig = {
-  enabled: boolean
-  editors: {
-    [machineId: string]: EditorExtensions[]
-  }
-}
-
-export type SystemServicesConfig = {
-  enabled: boolean
-  services: {
-    [machineId: string]: SystemService[]
-  }
-}
-
-export type SystemSettingsConfig = {
-  enabled: boolean
-  settings: {
-    [machineId: string]: SystemSettings[]
-  }
-}
-
-export type SystemRuntimesConfig = {
-  enabled: boolean
-  runtimes: {
-    [machineId: string]: RuntimeVersion[]
-  }
+/**
+ * Metadata configuration
+ */
+export type MetadataConfig = {
+  createdAt: string // ISO 8601 timestamp
+  updatedAt: string
+  lastBackup?: string
+  lastRestore?: string
 }
 
 /**
  * Complete backup configuration schema
+ * New refactored structure with machine-specific organization
  */
 export type BackupConfig = {
   version: string
-  system: SystemConfig
-  multiOS: MultiOSConfig
-  dotfiles: DotfilesConfig
-  secrets: SecretsConfig
-  symlinks: SymlinksConfig
-  packages: SystemPackagesConfig
-  applications: SystemApplicationsConfig
-  extensions: SystemExtensionsConfig
-  services: SystemServicesConfig
-  settings: SystemSettingsConfig
-  runtimes: SystemRuntimesConfig
   metadata: MetadataConfig
+  repo: RepoMetadata
+  systems: SystemMetadata[]
+  dotfiles: {
+    [machineId: string]: MachineConfig
+  }
 }
 
 /**
@@ -395,84 +441,88 @@ export type BackupConfig = {
  */
 export const DEFAULT_BACKUP_CONFIG: Partial<BackupConfig> = {
   version: '1.0.0',
-  multiOS: {
-    enabled: false,
-    supportedOS: [],
+  metadata: {
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
   },
-  dotfiles: {
-    enabled: false,
+  repo: {
     repoType: 'none',
     repoName: 'dotfiles',
     repoUrl: '',
+    repoOwner: '',
     branch: 'main',
     visibility: 'private',
-    structure: {
-      type: 'flat',
-      directories: {},
+  },
+  systems: [],
+  dotfiles: {},
+}
+
+/**
+ * Helper function to create default machine config
+ */
+export function createDefaultMachineConfig(): MachineConfig {
+  return {
+    'tracked-files': {
+      cloneLocation: '~',
+      files: [],
     },
-    trackedFiles: {},
-  },
-  secrets: {
-    enabled: false,
-    secretFile: {
-      name: '.env.sh',
-      location: '~',
-      format: 'shell-export',
+    secrets: {
+      enabled: false,
+      secretFile: {
+        name: '.env.sh',
+        location: '~',
+        format: 'shell-export',
+      },
+      storage: {
+        type: 'local-only',
+      },
+      trackedSecrets: {},
     },
-    storage: {
-      type: 'local-only',
+    symlinks: {
+      enabled: true,
+      strategy: 'direct',
+      conflictResolution: 'ask',
+      backupLocation: '~/.dotfiles-backup',
     },
-    trackedSecrets: {},
-  },
-  symlinks: {
-    enabled: true,
-    strategy: 'direct',
-    conflictResolution: 'ask',
-    backupLocation: '~/.dotfiles-backup',
-  },
-  packages: {
-    enabled: false,
-    packageManagers: {},
-  },
-  applications: {
-    enabled: false,
-    applications: {},
-  },
-  extensions: {
-    enabled: false,
-    editors: {},
-  },
-  services: {
-    enabled: false,
-    services: {},
-  },
-  settings: {
-    enabled: false,
-    settings: {},
-  },
-  runtimes: {
-    enabled: false,
-    runtimes: {},
-  },
+    packages: {
+      enabled: false,
+      packageManagers: [],
+    },
+    applications: {
+      enabled: false,
+      applications: [],
+    },
+    extensions: {
+      enabled: false,
+      editors: [],
+    },
+    services: {
+      enabled: false,
+      services: [],
+    },
+    settings: {
+      enabled: false,
+      settings: [],
+    },
+    runtimes: {
+      enabled: false,
+      runtimes: [],
+    },
+  }
 }
 
 /**
  * Helper function to create a default tracked file
- * @param name - File name (e.g., '.zshrc')
- * @param machineId - Machine identifier (e.g., 'macos-darwin-macbook-air')
- * @param repoPath - Path in repo (e.g., 'macos-darwin-macbook-air/.zshrc')
- * @param options - Optional overrides
  */
 export function createTrackedFile(
   name: string,
   machineId: string,
-  repoPath: string,
   options: Partial<TrackedFile> = {},
 ): TrackedFile {
   return {
     name,
     sourcePath: `~/${name}`,
-    repoPath,
+    repoPath: `${machineId}/${name}`,
     symlinkEnabled: true,
     tracked: true,
     ...options,
@@ -492,4 +542,16 @@ export function createTrackedSecret(
     encrypted: false,
     ...options,
   }
+}
+
+/**
+ * Get the machine identifier for file organization
+ * Uses naming convention: <os>-<distro>-<nickname>
+ */
+export function getMachineId(
+  os: OperatingSystem,
+  distro: string,
+  nickname: string,
+): string {
+  return `${os}-${distro}-${nickname}`
 }
