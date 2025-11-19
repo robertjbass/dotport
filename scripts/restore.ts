@@ -8,7 +8,12 @@ import os from 'os'
 import ScriptSession from '../clients/script-session'
 
 // Type definitions
-import type { BackupSchema, DotfileConfig } from '../types/backup-schema'
+import type {
+  BackupConfig,
+  TrackedFile,
+  PackageManager,
+  RuntimeVersion,
+} from '../types/backup-config'
 
 // Utilities
 import {
@@ -67,8 +72,9 @@ type RestoreAction =
 type RestoreConfig = {
   mode: RestoreMode
   testRoot: string
-  data: BackupSchema | null
+  data: BackupConfig | null
   platform: 'darwin' | 'linux'
+  dotfilesRepoPath: string // Path to the cloned dotfiles repository
 }
 
 /**
@@ -90,26 +96,64 @@ function getRestoreRoot(mode: RestoreMode): string {
 }
 
 /**
- * Load the backup data from data.json
+ * Find the dotfiles repository location
+ * Searches common locations where the dotfiles repo might be cloned
  */
-function loadBackupData(): BackupSchema | null {
-  const dataPath = path.join(process.cwd(), 'data.json')
+function findDotfilesRepo(): string | null {
+  const homeDir = os.homedir()
+  const commonLocations = [
+    path.join(homeDir, 'dotfiles'),
+    path.join(homeDir, '.dotfiles'),
+    path.join(homeDir, 'dev', 'dotfiles'),
+    path.join(homeDir, 'Developer', 'dotfiles'),
+    path.join(homeDir, 'projects', 'dotfiles'),
+  ]
 
-  if (!pathExists(dataPath)) {
+  for (const location of commonLocations) {
+    const configPath = path.join(location, 'backup-config.json')
+    if (pathExists(configPath)) {
+      return location
+    }
+  }
+
+  return null
+}
+
+/**
+ * Load the backup configuration from the dotfiles repository
+ */
+function loadBackupData(): { config: BackupConfig; repoPath: string } | null {
+  const repoPath = findDotfilesRepo()
+
+  if (!repoPath) {
     displayError(
-      'Backup data not found',
-      'Please run the setup script first to create data.json',
+      'Dotfiles repository not found',
+      'Could not locate your dotfiles repository.\n' +
+      'Please ensure it is cloned to one of the following locations:\n' +
+      '  ~/dotfiles\n' +
+      '  ~/.dotfiles\n' +
+      '  ~/dev/dotfiles\n' +
+      '  ~/Developer/dotfiles\n' +
+      '  ~/projects/dotfiles',
     )
     return null
   }
 
+  const configPath = path.join(repoPath, 'backup-config.json')
+
   try {
-    const rawData = fs.readFileSync(dataPath, 'utf-8')
-    const data = JSON.parse(rawData) as BackupSchema
-    return data
+    const rawData = fs.readFileSync(configPath, 'utf-8')
+    const config = JSON.parse(rawData) as BackupConfig
+
+    displaySuccess(
+      'Loaded backup configuration',
+      `Repository: ${repoPath}\nVersion: ${config.version}`,
+    )
+
+    return { config, repoPath }
   } catch (error) {
     displayError(
-      'Failed to load backup data',
+      'Failed to load backup configuration',
       error instanceof Error ? error.message : 'Unknown error',
     )
     return null
@@ -320,58 +364,74 @@ function restoreFile(
  * Restore dotfiles from the backup
  */
 async function restoreDotfiles(
-  dotfiles: Record<string, DotfileConfig | undefined>,
+  trackedFiles: TrackedFile[],
   config: RestoreConfig,
 ): Promise<void> {
-  const fileEntries = Object.entries(dotfiles)
-
-  if (fileEntries.length === 0) {
+  if (trackedFiles.length === 0) {
     displayWarning('No dotfiles to restore', 'The backup contains no dotfiles.')
     return
   }
 
   displayInfo(
-    `Found ${fileEntries.length} dotfile(s) to restore`,
+    `Found ${trackedFiles.length} dotfile(s) to restore`,
     'You can choose how to restore each file.',
   )
 
   let restoredCount = 0
   let skippedCount = 0
 
-  for (let i = 0; i < fileEntries.length; i++) {
-    const [filename, dotfile] = fileEntries[i]
+  for (let i = 0; i < trackedFiles.length; i++) {
+    const file = trackedFiles[i]
 
-    if (!dotfile) {
+    // Skip files that are not tracked
+    if (!file.tracked) {
       continue
     }
 
-    displayStepProgress(i + 1, fileEntries.length, `Restoring ${filename}`)
+    displayStepProgress(i + 1, trackedFiles.length, `Restoring ${file.name}`)
 
     const expectedPath = resolveTargetPath(
-      dotfile.path,
+      file.sourcePath,
       config.testRoot,
       config.mode,
     )
 
+    // Read file content from the dotfiles repository
+    const repoFilePath = path.join(config.dotfilesRepoPath, file.repoPath)
+    let fileContent = ''
+    let hasContent = false
+
+    if (pathExists(repoFilePath)) {
+      try {
+        fileContent = fs.readFileSync(repoFilePath, 'utf-8')
+        hasContent = true
+      } catch (error) {
+        displayWarning(
+          `Could not read ${file.name} from repository`,
+          error instanceof Error ? error.message : 'Unknown error',
+        )
+      }
+    }
+
     const { action, customPath } = await promptFileRestoreAction(
-      filename,
+      file.name,
       expectedPath,
-      dotfile.backupPath,
-      dotfile.content !== null,
+      repoFilePath,
+      hasContent,
     )
 
     if (action === 'skip') {
       skippedCount++
-      displayInfo(`Skipped ${filename}`)
+      displayInfo(`Skipped ${file.name}`)
       continue
     }
 
     const targetPath = customPath || expectedPath
     const success = restoreFile(
-      dotfile.content || '',
+      fileContent,
       targetPath,
       action,
-      dotfile.backupPath,
+      repoFilePath,
       config.mode,
       config.testRoot,
     )
@@ -394,7 +454,7 @@ async function restoreDotfiles(
  * Restore packages (with test mode logging)
  */
 async function restorePackages(
-  packages: any,
+  packageManagers: PackageManager[],
   config: RestoreConfig,
 ): Promise<void> {
   console.log(chalk.cyan.bold('\n📦 Package Restoration\n'))
@@ -403,76 +463,59 @@ async function restorePackages(
     displayWarning('Test Mode', 'Package installation is skipped in test mode.')
   }
 
-  // Homebrew formulae
-  if (packages.homebrew?.formulae?.length > 0) {
+  for (const manager of packageManagers) {
+    if (!manager.enabled || manager.packages.length === 0) {
+      continue
+    }
+
+    const packageList = manager.packages
+      .slice(0, 5)
+      .map((p) => p.name)
+      .join(', ')
+    const moreText = manager.packages.length > 5 ? '...' : ''
+
     const shouldInstall = await confirmAction(
-      `Restore ${packages.homebrew.formulae.length} Homebrew formulae?`,
+      `Restore ${manager.packages.length} ${manager.type} package(s)?`,
       true,
     )
 
     if (shouldInstall && shouldInstall !== BACK_OPTION) {
       if (config.mode === 'test') {
         displayInfo(
-          'Test Mode - Not Installing Homebrew Formulae',
-          `Would install: ${packages.homebrew.formulae.slice(0, 5).join(', ')}${packages.homebrew.formulae.length > 5 ? '...' : ''}`,
+          `Test Mode - Not Installing ${manager.type} Packages`,
+          `Would install: ${packageList}${moreText}`,
         )
+        if (manager.restoreCommand) {
+          displayInfo(
+            'Restore command',
+            manager.restoreCommand,
+          )
+        }
       } else {
         displayInfo(
-          'Installing Homebrew formulae',
+          `Installing ${manager.type} packages`,
           'This may take several minutes...',
         )
-        // In normal mode, we would run: brew install <packages>
-        displaySuccess('Homebrew formulae would be installed here')
+        if (manager.restoreCommand) {
+          displayInfo('Would run', manager.restoreCommand)
+          // In a real implementation, we would execute the restore command here
+          displaySuccess(`${manager.type} packages would be installed here`)
+        } else {
+          displayWarning(
+            `No restore command available for ${manager.type}`,
+            'Manual installation may be required',
+          )
+        }
       }
     }
   }
-
-  // Homebrew casks
-  if (packages.homebrew?.casks?.length > 0) {
-    const shouldInstall = await confirmAction(
-      `Restore ${packages.homebrew.casks.length} Homebrew casks?`,
-      true,
-    )
-
-    if (shouldInstall && shouldInstall !== BACK_OPTION) {
-      if (config.mode === 'test') {
-        displayInfo(
-          'Test Mode - Not Installing Homebrew Casks',
-          `Would install: ${packages.homebrew.casks.slice(0, 5).join(', ')}${packages.homebrew.casks.length > 5 ? '...' : ''}`,
-        )
-      } else {
-        displaySuccess('Homebrew casks would be installed here')
-      }
-    }
-  }
-
-  // npm global packages
-  if (packages.npm?.global?.length > 0) {
-    const shouldInstall = await confirmAction(
-      `Restore ${packages.npm.global.length} npm global package(s)?`,
-      true,
-    )
-
-    if (shouldInstall && shouldInstall !== BACK_OPTION) {
-      if (config.mode === 'test') {
-        displayInfo(
-          'Test Mode - Not Installing npm Packages',
-          `Would install: ${packages.npm.global.join(', ')}`,
-        )
-      } else {
-        displaySuccess('npm global packages would be installed here')
-      }
-    }
-  }
-
-  // Add more package managers as needed (pnpm, yarn, pip, etc.)
 }
 
 /**
  * Restore runtimes (with test mode logging)
  */
 async function restoreRuntimes(
-  runtimes: any,
+  runtimes: RuntimeVersion[],
   config: RestoreConfig,
 ): Promise<void> {
   console.log(chalk.cyan.bold('\n🔧 Runtime Restoration\n'))
@@ -481,32 +524,52 @@ async function restoreRuntimes(
     displayWarning('Test Mode', 'Runtime installation is skipped in test mode.')
   }
 
-  // Node.js versions
-  if (runtimes.node?.installedVersions?.length > 0) {
+  for (const runtime of runtimes) {
+    if (runtime.versions.length === 0) {
+      continue
+    }
+
+    const versionList = runtime.versions.join(', ')
+    const managerInfo = runtime.manager ? ` via ${runtime.manager}` : ''
+
     const shouldInstall = await confirmAction(
-      `Restore Node.js versions (${runtimes.node.installedVersions.join(', ')})?`,
+      `Restore ${runtime.type} versions (${versionList})${managerInfo}?`,
       true,
     )
 
     if (shouldInstall && shouldInstall !== BACK_OPTION) {
       if (config.mode === 'test') {
         displayInfo(
-          'Test Mode - Not Installing Node.js',
-          `Would install versions: ${runtimes.node.installedVersions.join(', ')}`,
+          `Test Mode - Not Installing ${runtime.type}`,
+          `Would install versions: ${versionList}${managerInfo}`,
         )
-        if (runtimes.node.defaultVersion) {
+        if (runtime.defaultVersion) {
           displayInfo(
             'Test Mode - Not Setting Default Version',
-            `Would set default: ${runtimes.node.defaultVersion}`,
+            `Would set default: ${runtime.defaultVersion}`,
           )
         }
+        if (runtime.installCommand) {
+          displayInfo('Install command', runtime.installCommand)
+        }
       } else {
-        displaySuccess('Node.js versions would be installed here')
+        displayInfo(
+          `Installing ${runtime.type} versions`,
+          'This may take several minutes...',
+        )
+        if (runtime.installCommand) {
+          displayInfo('Would run', runtime.installCommand)
+          // In a real implementation, we would execute the install command here
+          displaySuccess(`${runtime.type} versions would be installed here`)
+        } else {
+          displayWarning(
+            `No install command available for ${runtime.type}`,
+            'Manual installation may be required',
+          )
+        }
       }
     }
   }
-
-  // Add more runtimes as needed (Python, Ruby, Go, etc.)
 }
 
 /**
@@ -650,21 +713,45 @@ async function manageBackupsMenu(): Promise<void> {
 }
 
 /**
+ * Get the OS/distro key for the current platform
+ */
+function getOSKey(platform: 'darwin' | 'linux', config: BackupConfig): string {
+  if (platform === 'darwin') {
+    return 'macos'
+  }
+
+  // For Linux, we need to determine the distro
+  // For now, we'll use the first available Linux entry in trackedFiles
+  const trackedFilesKeys = Object.keys(config.dotfiles.trackedFiles)
+  const linuxKey = trackedFilesKeys.find((key) => key !== 'macos')
+  return linuxKey || 'linux'
+}
+
+/**
  * Main restore menu
  */
 async function showRestoreMenu(
   config: RestoreConfig,
 ): Promise<'dotfiles' | 'packages' | 'runtimes' | 'all' | 'backups' | 'exit'> {
-  const platformData = config.platform === 'darwin' ? config.data?.darwin : config.data?.linux
+  if (!config.data) {
+    return 'exit'
+  }
+
+  const osKey = getOSKey(config.platform, config.data)
 
   const choices: Array<{ name: string; value: 'dotfiles' | 'packages' | 'runtimes' | 'all' | 'backups' | 'exit' }> = []
 
   // Count available items
-  const dotfilesCount = platformData?.dotfiles
-    ? Object.keys(platformData.dotfiles).length
-    : 0
-  const packagesCount = platformData?.packages ? 1 : 0 // Simplified count
-  const runtimesCount = platformData?.runtimes ? 1 : 0 // Simplified count
+  const dotfilesData = config.data.dotfiles.trackedFiles[osKey]
+  const dotfilesCount = dotfilesData?.files?.filter((f) => f.tracked).length || 0
+
+  // Count packages
+  const packagesData = config.data.packages.packageManagers[osKey]
+  const packagesCount = packagesData?.length || 0
+
+  // Count runtimes
+  const runtimesData = config.data.runtimes.runtimes[osKey]
+  const runtimesCount = runtimesData?.length || 0
 
   if (dotfilesCount > 0) {
     choices.push({
@@ -675,22 +762,24 @@ async function showRestoreMenu(
 
   if (packagesCount > 0) {
     choices.push({
-      name: '📦 Restore Packages',
+      name: `📦 Restore Packages (${packagesCount} manager${packagesCount !== 1 ? 's' : ''})`,
       value: 'packages',
     })
   }
 
   if (runtimesCount > 0) {
     choices.push({
-      name: '🔧 Restore Runtimes',
+      name: `🔧 Restore Runtimes (${runtimesCount} runtime${runtimesCount !== 1 ? 's' : ''})`,
       value: 'runtimes',
     })
   }
 
-  choices.push({
-    name: '🚀 Restore Everything',
-    value: 'all',
-  })
+  if (dotfilesCount > 0 || packagesCount > 0 || runtimesCount > 0) {
+    choices.push({
+      name: '🚀 Restore Everything',
+      value: 'all',
+    })
+  }
 
   // Get backup summary to show count
   const backupSummary = getBackupSummary()
@@ -754,23 +843,28 @@ export default async function restore(): Promise<void> {
   }
 
   // Load backup data
-  const data = loadBackupData()
-  if (!data) {
+  const result = loadBackupData()
+  if (!result) {
     process.exit(1)
   }
+
+  const { config: backupConfig, repoPath } = result
 
   const config: RestoreConfig = {
     mode,
     testRoot,
-    data,
+    data: backupConfig,
     platform,
+    dotfilesRepoPath: repoPath,
   }
 
-  const platformData = platform === 'darwin' ? data.darwin : data.linux
+  const osKey = getOSKey(platform, backupConfig)
 
-  if (!platformData) {
+  // Check if there's data for this OS
+  const dotfilesData = backupConfig.dotfiles.trackedFiles[osKey]
+  if (!dotfilesData) {
     displayError(
-      `No backup data found for ${platform}`,
+      `No backup data found for ${osKey}`,
       'Please run the setup script on this platform first.',
     )
     process.exit(1)
@@ -791,20 +885,23 @@ export default async function restore(): Promise<void> {
     }
 
     if (selection === 'dotfiles' || selection === 'all') {
-      if (platformData.dotfiles) {
-        await restoreDotfiles(platformData.dotfiles, config)
+      const trackedFiles = backupConfig.dotfiles.trackedFiles[osKey]?.files
+      if (trackedFiles && trackedFiles.length > 0) {
+        await restoreDotfiles(trackedFiles, config)
       }
     }
 
     if (selection === 'packages' || selection === 'all') {
-      if (platformData.packages) {
-        await restorePackages(platformData.packages, config)
+      const packageManagers = backupConfig.packages.packageManagers[osKey]
+      if (packageManagers && packageManagers.length > 0) {
+        await restorePackages(packageManagers, config)
       }
     }
 
     if (selection === 'runtimes' || selection === 'all') {
-      if (platformData.runtimes) {
-        await restoreRuntimes(platformData.runtimes, config)
+      const runtimes = backupConfig.runtimes.runtimes[osKey]
+      if (runtimes && runtimes.length > 0) {
+        await restoreRuntimes(runtimes, config)
       }
     }
 
