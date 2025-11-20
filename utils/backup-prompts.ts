@@ -19,6 +19,7 @@ import {
   detectAllSystemInfo,
   generateDefaultNickname,
   validateNickname,
+  normalizeNickname,
   getOSDisplayName,
   getDistroDisplayName,
 } from './system-detection'
@@ -196,10 +197,11 @@ export async function promptStep1SystemDetection(): Promise<Step1Result> {
         message: 'Is this information correct?',
         choices: [
           { name: 'Yes, continue', value: 'yes' },
-          { name: 'Update Operating System', value: 'os' },
-          { name: 'Update Distribution', value: 'distro' },
-          { name: 'Update Shell', value: 'shell' },
-          { name: 'Update Runtime Information', value: 'runtime' },
+          new inquirer.Separator(),
+          { name: '✏️  Update Operating System', value: 'os' },
+          { name: '✏️  Update Distribution', value: 'distro' },
+          { name: '✏️  Update Shell', value: 'shell' },
+          { name: '✏️  Update Runtime Information', value: 'runtime' },
         ],
       },
     ])
@@ -300,24 +302,27 @@ export async function promptStep1SystemDetection(): Promise<Step1Result> {
     {
       type: 'input',
       name: 'nickname',
-      message: 'Enter a nickname for this machine:',
+      message: chalk.white('Enter a nickname for this machine:') +
+               chalk.gray(' (lowercase alphanumeric, dashes ok)'),
       default: defaultNickname,
       prefix: chalk.gray(
         `\nExamples: 'macbook-air', 'thinkpad', 'aws-linux', 'raspberry-pi'\n` +
         `This will create a directory: ${systemInfo.os}-${systemInfo.distro}-<nickname>\n`
       ),
       validate: (input) => {
-        if (!validateNickname(input)) {
-          return 'Nickname can only contain letters, numbers, dots, hyphens, and underscores'
+        const normalized = normalizeNickname(input)
+        if (!validateNickname(normalized)) {
+          return 'Nickname must contain at least one character (lowercase alphanumeric, dots, or dashes)'
         }
         return true
       },
+      filter: (input) => normalizeNickname(input),
     },
   ])
 
   return {
     systemInfo,
-    nickname: nickname.trim(),
+    nickname: nickname,
   }
 }
 

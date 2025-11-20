@@ -200,16 +200,28 @@ export function generateDefaultNickname(os: OperatingSystem): string {
 }
 
 /**
+ * Normalize machine nickname
+ * Converts to lowercase, replaces spaces with dashes, removes invalid characters
+ */
+export function normalizeNickname(nickname: string): string {
+  return nickname
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, '-') // Replace spaces with dashes
+    .replace(/[^a-z0-9.-]/g, '') // Remove invalid characters (only allow lowercase alphanumeric, dots, dashes)
+}
+
+/**
  * Validate machine nickname
- * Nicknames can only contain letters, numbers, dots, hyphens, and underscores
+ * Nicknames can only contain lowercase letters, numbers, dots, and hyphens
  */
 export function validateNickname(nickname: string): boolean {
   if (!nickname || nickname.trim().length === 0) {
     return false
   }
 
-  // Check for valid characters only
-  return /^[a-zA-Z0-9._-]+$/.test(nickname)
+  // Check for valid characters only (lowercase alphanumeric, dots, hyphens)
+  return /^[a-z0-9.-]+$/.test(nickname)
 }
 
 /**
