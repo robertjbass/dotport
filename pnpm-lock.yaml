@@ -34,6 +34,9 @@ importers:
       simple-git:
         specifier: ^3.30.0
         version: 3.30.0
+      tsx:
+        specifier: ^4.20.6
+        version: 4.20.6
     devDependencies:
       '@eslint/js':
         specifier: ^9.39.1
@@ -62,9 +65,6 @@ importers:
       prettier:
         specifier: ^3.6.2
         version: 3.6.2
-      tsx:
-        specifier: ^4.20.6
-        version: 4.20.6
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
