@@ -52,11 +52,16 @@ export async function exportSchemaToRepo(
     // Check if schema already exists (multi-machine support)
     let finalConfig = config
     try {
-      const existingSchemaContent = await fs.promises.readFile(schemaPath, 'utf-8')
+      const existingSchemaContent = await fs.promises.readFile(
+        schemaPath,
+        'utf-8',
+      )
       const existingConfig = JSON.parse(existingSchemaContent) as BackupConfig
 
       if (verbose) {
-        console.log(chalk.yellow('📋 Found existing schema - merging configurations...'))
+        console.log(
+          chalk.yellow('📋 Found existing schema - merging configurations...'),
+        )
       }
 
       // Merge the new config with existing to preserve other machine data
@@ -65,17 +70,19 @@ export async function exportSchemaToRepo(
       if (verbose) {
         console.log(chalk.green('✅ Configurations merged successfully'))
         const machineCount = finalConfig.systems.length
-        const machineList = finalConfig.systems.map(s => s.repoPath).join(', ')
+        const machineList = finalConfig.systems
+          .map((s) => s.repoPath)
+          .join(', ')
         console.log(
-          chalk.gray(
-            `   Machines: ${machineCount} (${machineList})\n`,
-          ),
+          chalk.gray(`   Machines: ${machineCount} (${machineList})\n`),
         )
       }
     } catch (error: any) {
       // No existing schema or read error - use new config as-is
       if (error.code !== 'ENOENT') {
-        console.log(chalk.yellow(`⚠️  Could not read existing schema: ${error.message}`))
+        console.log(
+          chalk.yellow(`⚠️  Could not read existing schema: ${error.message}`),
+        )
       } else if (verbose) {
         console.log(chalk.gray('   Creating new schema file...\n'))
       }
@@ -93,11 +100,7 @@ export async function exportSchemaToRepo(
 
     if (verbose) {
       console.log(chalk.green('✅ Schema exported successfully'))
-      console.log(
-        chalk.gray(
-          `   Location: schema.json\n`,
-        ),
-      )
+      console.log(chalk.gray(`   Location: schema.json\n`))
     }
 
     return { success: true }
@@ -224,9 +227,7 @@ After editing, run the backup tool to sync the changes.
 
     if (verbose) {
       console.log(chalk.green('✅ Schema documentation created'))
-      console.log(
-        chalk.gray(`   Location: SCHEMA.md\n`),
-      )
+      console.log(chalk.gray(`   Location: SCHEMA.md\n`))
     }
 
     return { success: true }

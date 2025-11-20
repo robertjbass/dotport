@@ -7,7 +7,11 @@
 import fs from 'fs'
 import { OperatingSystem } from '../types/backup-config'
 import { expandTilde, getRelativePath } from './path-helpers'
-import { COMMON_FILES, MACOS_FILES, LINUX_FILES } from '../constants/discoverable-files'
+import {
+  COMMON_FILES,
+  MACOS_FILES,
+  LINUX_FILES,
+} from '../constants/discoverable-files'
 
 export type DiscoveredFile = {
   name: string // Display name (e.g., '.zshrc', 'Ghostty config')

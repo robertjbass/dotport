@@ -66,11 +66,11 @@ function shouldExcludeFile(filePath: string, fileName: string): boolean {
         '@github.com',
         '@gitlab.com',
         '@G-dH.github.com', // specific pattern for advanced-alt-tab
-        '@',  // Any @ that's not @custom should be excluded
+        '@', // Any @ that's not @custom should be excluded
       ]
 
       // Check if it matches any third-party pattern AND doesn't include @custom
-      if (thirdPartyPatterns.some(pattern => fileName.includes(pattern))) {
+      if (thirdPartyPatterns.some((pattern) => fileName.includes(pattern))) {
         return true
       }
     }
@@ -242,10 +242,7 @@ export async function backupFilesToRepo(
  * @param machineId - Machine identifier (e.g., 'macos-darwin-macbook-air')
  * @returns Path in repo (e.g., 'macos-darwin-macbook-air/.zshrc')
  */
-export function generateRepoPath(
-  fileName: string,
-  machineId: string,
-): string {
+export function generateRepoPath(fileName: string, machineId: string): string {
   // Always use flat structure with machine-specific directories
   // e.g., 'macos-darwin-macbook-air/.zshrc'
   return path.join(machineId, fileName)

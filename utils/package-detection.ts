@@ -159,7 +159,7 @@ async function getAptPackages(): Promise<PackageInfo[]> {
     for (const pkgName of manualPackages) {
       try {
         const { stdout: versionInfo } = await execAsync(
-          `dpkg-query -W -f='\${Version}' ${pkgName} 2>/dev/null`
+          `dpkg-query -W -f='\${Version}' ${pkgName} 2>/dev/null`,
         )
         packages.push({
           name: pkgName,
@@ -248,7 +248,9 @@ async function getSnapPackages(): Promise<PackageInfo[]> {
  */
 async function getFlatpakPackages(): Promise<PackageInfo[]> {
   try {
-    const { stdout } = await execAsync('flatpak list --app --columns=name,version')
+    const { stdout } = await execAsync(
+      'flatpak list --app --columns=name,version',
+    )
     return stdout
       .trim()
       .split('\n')

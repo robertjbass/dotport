@@ -54,9 +54,10 @@ export function writeUserSystemConfig(config: UserSystemConfig): void {
  * Merges the provided partial config with existing config
  */
 export function updateUserSystemConfig(
-  partialConfig: Partial<UserSystemConfig>
+  partialConfig: Partial<UserSystemConfig>,
 ): UserSystemConfig {
-  const existingConfig = readUserSystemConfig() || createDefaultUserSystemConfig()
+  const existingConfig =
+    readUserSystemConfig() || createDefaultUserSystemConfig()
 
   const updatedConfig: UserSystemConfig = {
     ...existingConfig,

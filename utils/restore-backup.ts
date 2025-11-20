@@ -141,7 +141,9 @@ function getFileSize(filePath: string): number | undefined {
  * @param filePath - Absolute path to the file to backup
  * @returns The backup entry that was created, or null if backup failed
  */
-export function backupFileBeforeOverwrite(filePath: string): BackupEntry | null {
+export function backupFileBeforeOverwrite(
+  filePath: string,
+): BackupEntry | null {
   const absolutePath = expandTilde(filePath)
 
   // Check if file exists

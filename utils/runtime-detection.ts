@@ -130,7 +130,12 @@ async function detectNodeWithManager(selectedManager: string): Promise<{
   } else if (selectedManager === 'asdf') {
     try {
       const { stdout } = await execAsync('asdf list nodejs')
-      versions.push(...stdout.trim().split('\n').map((v) => v.trim()))
+      versions.push(
+        ...stdout
+          .trim()
+          .split('\n')
+          .map((v) => v.trim()),
+      )
 
       const { stdout: currentOut } = await execAsync('asdf current nodejs')
       const match = currentOut.match(/([\d.]+)/)
@@ -183,9 +188,10 @@ export async function detectNodeVersions(
   const managersToTry = ['fnm', 'nvm', 'asdf', 'system']
 
   for (const manager of managersToTry) {
-    const hasManager = manager === 'system'
-      ? await commandExists('node')
-      : await commandExists(manager)
+    const hasManager =
+      manager === 'system'
+        ? await commandExists('node')
+        : await commandExists(manager)
 
     if (hasManager) {
       const result = await detectNodeWithManager(manager)
@@ -239,7 +245,12 @@ export async function detectPythonVersions(): Promise<RuntimeVersion | null> {
     manager = 'asdf'
     try {
       const { stdout } = await execAsync('asdf list python')
-      versions.push(...stdout.trim().split('\n').map((v) => v.trim()))
+      versions.push(
+        ...stdout
+          .trim()
+          .split('\n')
+          .map((v) => v.trim()),
+      )
 
       const { stdout: currentOut } = await execAsync('asdf current python')
       const match = currentOut.match(/([\d.]+)/)
@@ -335,7 +346,12 @@ export async function detectRubyVersions(): Promise<RuntimeVersion | null> {
     manager = 'asdf'
     try {
       const { stdout } = await execAsync('asdf list ruby')
-      versions.push(...stdout.trim().split('\n').map((v) => v.trim()))
+      versions.push(
+        ...stdout
+          .trim()
+          .split('\n')
+          .map((v) => v.trim()),
+      )
 
       const { stdout: currentOut } = await execAsync('asdf current ruby')
       const match = currentOut.match(/([\d.]+)/)
@@ -463,7 +479,12 @@ export async function detectJavaVersion(): Promise<RuntimeVersion | null> {
     manager = 'asdf'
     try {
       const { stdout } = await execAsync('asdf list java')
-      versions.push(...stdout.trim().split('\n').map((v) => v.trim()))
+      versions.push(
+        ...stdout
+          .trim()
+          .split('\n')
+          .map((v) => v.trim()),
+      )
 
       const { stdout: currentOut } = await execAsync('asdf current java')
       const match = currentOut.match(/([\d.]+)/)

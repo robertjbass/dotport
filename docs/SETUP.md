@@ -32,7 +32,7 @@ This guide provides detailed setup instructions for Dotport, including system re
   - Debian 11+ / Ubuntu 20.04+
   - Arch Linux
   - Fedora 35+
-  - Pop!_OS 21.04+
+  - Pop!\_OS 21.04+
   - Other systemd-based distributions
 
 ### Optional Dependencies
@@ -74,6 +74,7 @@ npx dotport backup
 ## GitHub Authentication Setup
 
 GitHub authentication allows Dotport to:
+
 - Create and manage your private dotfiles repository
 - Commit and push changes automatically
 - Sync configurations across multiple machines
@@ -83,12 +84,14 @@ GitHub authentication allows Dotport to:
 Dotport requires a GitHub Personal Access Token (PAT) with the **repo** scope.
 
 **Why we need ALL repo permissions:**
+
 - To create private repositories for your dotfiles
 - To read from and write to your private repositories
 - To check repository status and manage files
 - To commit and push changes
 
 The **repo** scope grants:
+
 - Full control of private repositories
 - Access to repository contents
 - Ability to create, read, update, and delete files
@@ -153,6 +156,7 @@ Your GitHub token is stored securely at:
 ```
 
 **Security Notes:**
+
 - File permissions are set to `0600` (only you can read/write)
 - The token is NEVER committed to your dotfiles repository
 - The token is only stored on your local machine
@@ -163,11 +167,13 @@ Your GitHub token is stored securely at:
 To use a different GitHub account or update your token:
 
 1. **Remove the existing token:**
+
    ```bash
    rm ~/.dotport/config/github-auth.json
    ```
 
 2. **Run backup again:**
+
    ```bash
    pnpm backup
    ```
@@ -188,27 +194,32 @@ pnpm backup
 You'll go through 6 steps:
 
 #### **Step 1: System Detection**
+
 - Dotport auto-detects your OS, shell, and runtime
 - Confirm the detected information or update if needed
 - Enter a nickname for this machine (e.g., "macbook-air-m2")
 
 #### **Step 2: GitHub Authentication**
+
 - Choose whether to use GitHub for remote backup
 - If yes, you'll authenticate with your Personal Access Token
 - If no, you can still create a local backup
 
 #### **Step 3: Repository Setup**
+
 - Dotport will check if you have an existing dotfiles repository
 - **First time:** Create a new repository (public or private recommended)
 - **Returning user:** Connect to your existing repository
 - Choose where to store the repository locally (default: `~/dev/dotfiles`)
 
 #### **Step 4: Secret Management**
+
 - Configure how you want to handle secret files (.env, .env.sh, etc.)
 - Secrets are NEVER committed to your dotfiles repository
 - They're stored separately and automatically excluded via .gitignore
 
 #### **Step 5: File Selection & System Detection**
+
 - Dotport scans your system for common config files
 - Review and select files to back up using the checkbox interface
 - Add any custom files not in the automatic scan
@@ -218,6 +229,7 @@ You'll go through 6 steps:
   - Runtime versions (Node.js, Python, Ruby, Go)
 
 #### **Step 6: Backup Execution**
+
 - Review a preview of what will be backed up
 - Confirm to execute the backup
 - Files are copied to your dotfiles repository
@@ -277,6 +289,7 @@ Each machine gets a unique directory with the format:
 ```
 
 Examples:
+
 - `macos-darwin-macbook-air-m2/`
 - `linux-ubuntu-thinkpad/`
 - `linux-arch-desktop/`
@@ -326,6 +339,7 @@ The `schema.json` file contains metadata about your backups:
 ### What Gets Backed Up
 
 **Always Backed Up:**
+
 - Config files you selected
 - Package manager lists (Homebrew, apt, npm, etc.)
 - Editor extension lists
@@ -333,6 +347,7 @@ The `schema.json` file contains metadata about your backups:
 - Backup metadata (schema.json)
 
 **Never Backed Up (Automatically Excluded):**
+
 - SSH private keys (id_rsa, id_ed25519, etc.)
 - GitHub Personal Access Tokens
 - Secret files (.env, .secrets, etc.)
@@ -419,6 +434,7 @@ You can manually edit configuration files if needed:
 Symlinks allow you to edit files in your dotfiles repository and have changes immediately reflected in their normal locations.
 
 **Example:**
+
 ```bash
 # Without symlinks:
 ~/.zshrc                                    # Actual file in home directory
@@ -430,12 +446,14 @@ Symlinks allow you to edit files in your dotfiles repository and have changes im
 ```
 
 **Benefits:**
+
 - Edit files in one place (the repository)
 - Changes immediately take effect
 - Easy to commit and push updates
 - Version control for all edits
 
 **When NOT to use symlinks:**
+
 - Files that applications might delete and recreate
 - Files that need different content per machine
 - Temporary or frequently-changing files
@@ -451,6 +469,7 @@ Symlinks allow you to edit files in your dotfiles repository and have changes im
 **Problem:** Token is invalid, expired, or missing permissions.
 
 **Solution:**
+
 1. Verify token hasn't expired: [https://github.com/settings/tokens](https://github.com/settings/tokens)
 2. Check token has `repo` scope selected
 3. Create a new token if needed
@@ -462,6 +481,7 @@ Symlinks allow you to edit files in your dotfiles repository and have changes im
 **Problem:** Trying to create a repository that already exists.
 
 **Solution:**
+
 - Choose "Use existing repository" when prompted
 - Or rename your new repository to something different
 
@@ -470,6 +490,7 @@ Symlinks allow you to edit files in your dotfiles repository and have changes im
 **Problem:** Dotport can't write to config directory.
 
 **Solution:**
+
 ```bash
 # Fix permissions
 chmod 700 ~/.dotport
@@ -482,6 +503,7 @@ chmod 600 ~/.dotport/config/*.json
 **Problem:** File exists in schema but not in repository.
 
 **Solution:**
+
 - The file may have been deleted
 - Check your dotfiles repository for the file
 - Choose "Skip" for missing files during restore
@@ -491,6 +513,7 @@ chmod 600 ~/.dotport/config/*.json
 **Problem:** Private SSH keys accidentally included.
 
 **Solution:**
+
 ```bash
 # Remove private keys from repository
 cd ~/dev/dotfiles

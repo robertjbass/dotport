@@ -29,8 +29,9 @@ export function parseEnvToShellExports(envContent: string): string[] {
     if (match) {
       const [, key, value] = match
       // Check if value is already quoted
-      const isQuoted = (value.startsWith('"') && value.endsWith('"')) ||
-                       (value.startsWith("'") && value.endsWith("'"))
+      const isQuoted =
+        (value.startsWith('"') && value.endsWith('"')) ||
+        (value.startsWith("'") && value.endsWith("'"))
 
       if (isQuoted) {
         exports.push(`export ${key}=${value}`)
@@ -64,7 +65,11 @@ export function parseJsonToShellExports(jsonContent: string): string[] {
           // Escape double quotes in value
           const escapedValue = value.replace(/"/g, '\\"')
           exports.push(`export ${envKey}="${escapedValue}"`)
-        } else if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+        } else if (
+          typeof value === 'object' &&
+          value !== null &&
+          !Array.isArray(value)
+        ) {
           // Recursively process nested objects
           processObject(value, fullKey)
         }
@@ -74,7 +79,9 @@ export function parseJsonToShellExports(jsonContent: string): string[] {
 
     processObject(data)
   } catch (error) {
-    throw new Error(`Failed to parse JSON: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    throw new Error(
+      `Failed to parse JSON: ${error instanceof Error ? error.message : 'Unknown error'}`,
+    )
   }
 
   return exports
@@ -83,7 +90,11 @@ export function parseJsonToShellExports(jsonContent: string): string[] {
 /**
  * Create or update a .env.sh file with the given export statements
  */
-export function createOrUpdateEnvShFile(filePath: string, exports: string[], append: boolean = false): void {
+export function createOrUpdateEnvShFile(
+  filePath: string,
+  exports: string[],
+  append: boolean = false,
+): void {
   const expandedPath = expandTilde(filePath)
 
   const header = `# Secret environment variables
@@ -106,7 +117,10 @@ export function createOrUpdateEnvShFile(filePath: string, exports: string[], app
 /**
  * Check if a file path is already in .gitignore
  */
-export function isInGitignore(gitignorePath: string, filePattern: string): boolean {
+export function isInGitignore(
+  gitignorePath: string,
+  filePattern: string,
+): boolean {
   try {
     const expandedPath = expandTilde(gitignorePath)
 
@@ -115,13 +129,12 @@ export function isInGitignore(gitignorePath: string, filePattern: string): boole
     }
 
     const content = fs.readFileSync(expandedPath, 'utf-8')
-    const lines = content.split('\n').map(l => l.trim())
+    const lines = content.split('\n').map((l) => l.trim())
 
     // Check if the exact pattern exists (ignoring comments and empty lines)
-    return lines.some(line =>
-      line === filePattern &&
-      !line.startsWith('#') &&
-      line.length > 0
+    return lines.some(
+      (line) =>
+        line === filePattern && !line.startsWith('#') && line.length > 0,
     )
   } catch (error) {
     return false
@@ -131,12 +144,17 @@ export function isInGitignore(gitignorePath: string, filePattern: string): boole
 /**
  * Add file patterns to .gitignore (creates file if it doesn't exist)
  */
-export function addToGitignore(gitignorePath: string, patterns: string | string[]): void {
+export function addToGitignore(
+  gitignorePath: string,
+  patterns: string | string[],
+): void {
   const expandedPath = expandTilde(gitignorePath)
   const patternsArray = Array.isArray(patterns) ? patterns : [patterns]
 
   // Filter out patterns that are already in .gitignore
-  const newPatterns = patternsArray.filter(pattern => !isInGitignore(gitignorePath, pattern))
+  const newPatterns = patternsArray.filter(
+    (pattern) => !isInGitignore(gitignorePath, pattern),
+  )
 
   if (newPatterns.length === 0) {
     return // All patterns already exist
@@ -148,12 +166,13 @@ export function addToGitignore(gitignorePath: string, patterns: string | string[
   if (fs.existsSync(expandedPath)) {
     // Check if file ends with newline
     const existingContent = fs.readFileSync(expandedPath, 'utf-8')
-    const needsNewline = existingContent.length > 0 && !existingContent.endsWith('\n')
+    const needsNewline =
+      existingContent.length > 0 && !existingContent.endsWith('\n')
 
     fs.appendFileSync(
       expandedPath,
       (needsNewline ? '\n' : '') + '\n' + header + content,
-      'utf-8'
+      'utf-8',
     )
   } else {
     // Create new .gitignore
@@ -164,7 +183,10 @@ export function addToGitignore(gitignorePath: string, patterns: string | string[
 /**
  * Check if a shell RC file sources a secret file
  */
-export function isSourcedInRcFile(rcFilePath: string, secretFilePath: string): boolean {
+export function isSourcedInRcFile(
+  rcFilePath: string,
+  secretFilePath: string,
+): boolean {
   try {
     const expandedRcPath = expandTilde(rcFilePath)
 
@@ -182,10 +204,10 @@ export function isSourcedInRcFile(rcFilePath: string, secretFilePath: string): b
     // [[ -f ~/.env.sh ]] && source ~/.env.sh
     const sourcePattern = new RegExp(
       `(source|\\.)\\s+${secretFilePath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`,
-      'i'
+      'i',
     )
 
-    return lines.some(line => {
+    return lines.some((line) => {
       const trimmed = line.trim()
       return !trimmed.startsWith('#') && sourcePattern.test(trimmed)
     })
@@ -197,7 +219,10 @@ export function isSourcedInRcFile(rcFilePath: string, secretFilePath: string): b
 /**
  * Add source statement to shell RC file
  */
-export function addSourceToRcFile(rcFilePath: string, secretFilePath: string): void {
+export function addSourceToRcFile(
+  rcFilePath: string,
+  secretFilePath: string,
+): void {
   const expandedRcPath = expandTilde(rcFilePath)
 
   if (!fs.existsSync(expandedRcPath)) {
@@ -215,7 +240,9 @@ export function addSourceToRcFile(rcFilePath: string, secretFilePath: string): v
 /**
  * Get the appropriate RC file path based on shell type
  */
-export function getRcFilePath(shell: 'bash' | 'zsh' | 'fish' | 'other'): string {
+export function getRcFilePath(
+  shell: 'bash' | 'zsh' | 'fish' | 'other',
+): string {
   switch (shell) {
     case 'zsh':
       return '~/.zshrc'
