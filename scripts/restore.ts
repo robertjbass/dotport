@@ -8,6 +8,8 @@ import os from 'os'
 import ScriptSession from '../clients/script-session'
 import { detectPackageManager } from '../utils/detect-runtime'
 import { getPackagesForManager } from '../utils/package-detection'
+import { refreshFontCache } from '../utils/font-detection'
+
 
 // Type definitions
 import type {
@@ -15,6 +17,7 @@ import type {
   TrackedFile,
   PackageManager,
   RuntimeVersion,
+  MachineFontsConfig,
 } from '../types/backup-config'
 
 // Utilities
@@ -923,6 +926,143 @@ async function restoreRuntimes(
 }
 
 /**
+ * Restore fonts (with test mode logging)
+ */
+async function restoreFonts(
+  fontsConfig: MachineFontsConfig,
+  config: RestoreConfig,
+  machineId: string,
+): Promise<void> {
+  console.log(chalk.cyan.bold('\n🔤 Font Restoration\n'))
+
+  if (config.mode === 'test') {
+    displayWarning('Test Mode', 'Font installation is simulated in test mode.')
+  }
+
+  const enabledLocations = fontsConfig.locations.filter((loc) => loc.enabled)
+
+  if (enabledLocations.length === 0) {
+    displayInfo('No fonts enabled', 'No font locations are enabled for restoration.')
+    return
+  }
+
+  for (const location of enabledLocations) {
+    if (location.fonts.length === 0) {
+      continue
+    }
+
+    const fontList = location.fonts
+      .slice(0, 5)
+      .map((f) => f.name)
+      .join(', ')
+    const remaining = location.fonts.length > 5 ? ` and ${location.fonts.length - 5} more` : ''
+
+    const shouldRestore = await confirmAction(
+      `Restore ${location.fonts.length} fonts from ${location.type} location (${location.path})?`,
+      true,
+    )
+
+    if (shouldRestore && shouldRestore !== BACK_OPTION) {
+      if (config.mode === 'test') {
+        const testPath = path.join(config.testRoot, '.fonts', location.type)
+        displayInfo(
+          `Test Mode - Simulating Font Restore`,
+          `Would restore ${location.fonts.length} fonts to: ${testPath}\nSample fonts: ${fontList}${remaining}`,
+        )
+
+        // In test mode, just create the directory structure
+        try {
+          await ensureDirectory(testPath)
+          displaySuccess(
+            'Test directory created',
+            `Font restoration would copy files to ${testPath}`,
+          )
+        } catch (error: any) {
+          displayError(
+            'Test directory creation failed',
+            error.message,
+          )
+        }
+      } else {
+        displayInfo(
+          `Restoring ${location.type} fonts`,
+          `${location.fonts.length} fonts will be copied to ${location.path}`,
+        )
+
+        try {
+          // Ensure target directory exists
+          await ensureDirectory(location.path)
+
+          // Get the source path in the repo
+          const sourcePath = path.join(
+            config.data?.dotfiles[machineId]?.['tracked-files']?.cloneLocation || '~',
+            machineId,
+            '.fonts',
+            location.type,
+          )
+          const expandedSourcePath = expandTilde(sourcePath)
+
+          // Check if source directory exists
+          if (!fs.existsSync(expandedSourcePath)) {
+            displayWarning(
+              `Font backup not found`,
+              `Source directory does not exist: ${sourcePath}`,
+            )
+            continue
+          }
+
+          // Copy fonts recursively
+          let copiedCount = 0
+          let errorCount = 0
+
+          for (const font of location.fonts) {
+            try {
+              const relativePath = path.relative(location.path, font.path)
+              const sourceFile = path.join(expandedSourcePath, relativePath)
+              const destFile = font.path
+
+              // Ensure parent directory exists
+              await ensureDirectory(path.dirname(destFile))
+
+              // Copy the font file
+              fs.copyFileSync(sourceFile, destFile)
+              copiedCount++
+            } catch (error: any) {
+              console.log(chalk.yellow(`  ⚠️  Could not restore ${font.name}: ${error.message}`))
+              errorCount++
+            }
+          }
+
+          if (copiedCount > 0) {
+            displaySuccess(
+              'Fonts restored',
+              `${copiedCount} font${copiedCount !== 1 ? 's' : ''} restored successfully${errorCount > 0 ? ` (${errorCount} failed)` : ''}`,
+            )
+
+            // Refresh font cache on Linux
+            if (config.platform === 'linux') {
+              console.log(chalk.gray('\nRefreshing font cache...'))
+              await refreshFontCache()
+              console.log(chalk.green('✓ Font cache refreshed\n'))
+            }
+          } else {
+            displayError(
+              'Font restoration failed',
+              `No fonts could be restored (${errorCount} errors)`,
+            )
+          }
+        } catch (error: any) {
+          displayError(
+            'Font restoration error',
+            error.message,
+          )
+        }
+      }
+    }
+  }
+}
+
+/**
  * Manage backups menu - view, restore, and manage backed up files
  */
 async function manageBackupsMenu(): Promise<void> {
@@ -1094,14 +1234,14 @@ function getMachineIdKey(platform: 'darwin' | 'linux', config: BackupConfig): st
  */
 async function showRestoreMenu(
   config: RestoreConfig,
-): Promise<'dotfiles' | 'packages' | 'runtimes' | 'all' | 'backups' | 'exit'> {
+): Promise<'dotfiles' | 'packages' | 'runtimes' | 'fonts' | 'all' | 'backups' | 'exit'> {
   if (!config.data) {
     return 'exit'
   }
 
   const machineId = getMachineIdKey(config.platform, config.data)
 
-  const choices: Array<{ name: string; value: 'dotfiles' | 'packages' | 'runtimes' | 'all' | 'backups' | 'exit' }> = []
+  const choices: Array<{ name: string; value: 'dotfiles' | 'packages' | 'runtimes' | 'fonts' | 'all' | 'backups' | 'exit' }> = []
 
   // Count available items
   const machineConfig = config.data.dotfiles[machineId]
@@ -1113,8 +1253,14 @@ async function showRestoreMenu(
   // Count runtimes
   const runtimesCount = machineConfig?.runtimes?.runtimes?.length || 0
 
+  // Count fonts
+  const fontsCount = machineConfig?.fonts?.locations?.reduce(
+    (total, loc) => total + (loc.enabled ? loc.fonts.length : 0),
+    0,
+  ) || 0
+
   // Add "Restore Everything" first if there's anything to restore
-  if (dotfilesCount > 0 || packagesCount > 0 || runtimesCount > 0) {
+  if (dotfilesCount > 0 || packagesCount > 0 || runtimesCount > 0 || fontsCount > 0) {
     choices.push({
       name: '🚀 Restore Everything',
       value: 'all',
@@ -1142,6 +1288,15 @@ async function showRestoreMenu(
     })
   }
 
+
+  if (fontsCount > 0) {
+    choices.push({
+      name: `🔤 Restore Fonts (${fontsCount} font${fontsCount !== 1 ? 's' : ''})`,
+      value: 'fonts',
+    })
+  }
+
+
   // Get backup summary to show count
   const backupSummary = getBackupSummary()
   const backupLabel = backupSummary.totalBackups > 0
@@ -1159,7 +1314,7 @@ async function showRestoreMenu(
   })
 
   const selection = await selectFromList<
-    'dotfiles' | 'packages' | 'runtimes' | 'all' | 'backups' | 'exit'
+    'dotfiles' | 'packages' | 'runtimes' | 'fonts' | 'all' | 'backups' | 'exit'
   >('What would you like to restore?', choices)
 
   if (selection === BACK_OPTION) {
@@ -1263,6 +1418,13 @@ export default async function restore(): Promise<void> {
       const runtimes = backupConfig.dotfiles[machineId]?.runtimes?.runtimes
       if (runtimes && runtimes.length > 0) {
         await restoreRuntimes(runtimes, config)
+      }
+    }
+
+    if (selection === 'fonts' || selection === 'all') {
+      const fontsConfig = backupConfig.dotfiles[machineId]?.fonts
+      if (fontsConfig && fontsConfig.enabled) {
+        await restoreFonts(fontsConfig, config, machineId)
       }
     }
 
