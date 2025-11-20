@@ -45,6 +45,7 @@ export type DarwinConfig = {
   dotfiles: DotfilesConfig
   systemSettings?: DarwinSystemSettings
   applications?: DarwinApplications
+  fonts?: FontsConfig
 }
 
 export type LinuxConfig = {
@@ -55,6 +56,7 @@ export type LinuxConfig = {
   dotfiles: DotfilesConfig
   systemSettings?: LinuxSystemSettings
   applications?: LinuxApplications
+  fonts?: FontsConfig
 }
 
 export type SharedConfig = {
@@ -249,5 +251,24 @@ export type GitConfig = {
     path: string
     backupPath: string
     content: string | null
+  }
+}
+
+// ============================================================================
+// Fonts
+// ============================================================================
+
+export type FontsConfig = {
+  user: {
+    path: string
+    fonts: string[]
+  }
+  system?: {
+    path: string
+    fonts: string[]
+  }
+  local?: {
+    path: string
+    fonts: string[]
   }
 }
