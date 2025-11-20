@@ -10,6 +10,7 @@ import { detectPackageManager } from '../utils/detect-runtime'
 import { getPackagesForManager } from '../utils/package-detection'
 import { refreshFontCache } from '../utils/font-detection'
 
+
 // Type definitions
 import type {
   BackupConfig,
@@ -1287,12 +1288,14 @@ async function showRestoreMenu(
     })
   }
 
+
   if (fontsCount > 0) {
     choices.push({
       name: `🔤 Restore Fonts (${fontsCount} font${fontsCount !== 1 ? 's' : ''})`,
       value: 'fonts',
     })
   }
+
 
   // Get backup summary to show count
   const backupSummary = getBackupSummary()
