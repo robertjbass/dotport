@@ -6,6 +6,8 @@ import fs from 'fs'
 import path from 'path'
 import os from 'os'
 import ScriptSession from '../clients/script-session'
+import { detectPackageManager } from '../utils/detect-runtime'
+import { getPackagesForManager } from '../utils/package-detection'
 
 // Type definitions
 import type {
@@ -110,13 +112,43 @@ function findDotfilesRepo(): string | null {
   ]
 
   for (const location of commonLocations) {
-    const configPath = path.join(location, 'schema', 'backup-config.json')
+    const configPath = path.join(location, 'schema.json')
     if (pathExists(configPath)) {
       return location
     }
   }
 
   return null
+}
+
+/**
+ * Filter out already-installed packages and return summary statistics
+ */
+async function filterInstalledPackages(
+  manager: PackageManager,
+): Promise<{
+  packagesToInstall: typeof manager.packages
+  totalBackedUp: number
+  alreadyInstalled: number
+  newToInstall: number
+}> {
+  const totalBackedUp = manager.packages.length
+
+  // Get currently installed packages
+  const installedPackages = await getPackagesForManager(manager.type)
+  const installedPackageNames = new Set(installedPackages.map((p) => p.name))
+
+  // Filter out already-installed packages
+  const packagesToInstall = manager.packages.filter(
+    (pkg) => !installedPackageNames.has(pkg.name),
+  )
+
+  return {
+    packagesToInstall,
+    totalBackedUp,
+    alreadyInstalled: totalBackedUp - packagesToInstall.length,
+    newToInstall: packagesToInstall.length,
+  }
 }
 
 /**
@@ -147,9 +179,9 @@ async function loadBackupData(): Promise<{ config: BackupConfig; repoPath: strin
           if (!isDirectory(expandedPath)) {
             return `Path is not a directory: ${expandedPath}`
           }
-          const configPath = path.join(expandedPath, 'schema', 'backup-config.json')
+          const configPath = path.join(expandedPath, 'schema.json')
           if (!pathExists(configPath)) {
-            return `schema/backup-config.json not found in: ${expandedPath}`
+            return `schema.json not found in: ${expandedPath}`
           }
           return true
         },
@@ -164,7 +196,7 @@ async function loadBackupData(): Promise<{ config: BackupConfig; repoPath: strin
     repoPath = expandTilde(customPath)
   }
 
-  const configPath = path.join(repoPath, 'schema', 'backup-config.json')
+  const configPath = path.join(repoPath, 'schema.json')
 
   try {
     const rawData = fs.readFileSync(configPath, 'utf-8')
@@ -223,7 +255,7 @@ function resolveTargetPath(
 }
 
 /**
- * Prompt user for restore action for a single file
+ * Prompt user for restore action for a single file or directory
  */
 async function promptFileRestoreAction(
   filename: string,
@@ -232,6 +264,7 @@ async function promptFileRestoreAction(
   hasContent: boolean,
   mode: RestoreMode,
   testRoot: string,
+  isDirectory: boolean = false,
 ): Promise<{ action: RestoreAction; customPath?: string }> {
   if (!hasContent) {
     displayWarning(
@@ -241,30 +274,40 @@ async function promptFileRestoreAction(
     return { action: 'skip' }
   }
 
-  const boxWidth = 35
+  // Calculate dynamic box width based on content
+  const minBoxWidth = 35
+  const maxLineLength = Math.max(
+    filename.length,
+    11 + expectedPath.length, // "Expected: " + path
+    11 + backupPath.length,   // "Backup:  " + path
+    mode === 'test' ? 10 + testRoot.length : 0, // "Actual: " + path
+  )
+  const boxWidth = Math.max(minBoxWidth, maxLineLength + 2) // +2 for padding
+
   console.log(chalk.cyan(`\n┌${'─'.repeat(boxWidth)}┐`))
   console.log(chalk.cyan(`│ ${chalk.bold(filename)}${' '.repeat(boxWidth - filename.length - 1)}│`))
   console.log(chalk.cyan(`├${'─'.repeat(boxWidth)}┤`))
-  console.log(chalk.cyan(`│ ${chalk.gray('Expected:')} ${expectedPath}${' '.repeat(Math.max(0, boxWidth - 11 - expectedPath.length - 1))}│`))
-  console.log(chalk.cyan(`│ ${chalk.gray('Backup:')}  ${backupPath}${' '.repeat(Math.max(0, boxWidth - 11 - backupPath.length - 1))}│`))
+  console.log(chalk.cyan(`│ ${chalk.gray('Expected:')} ${expectedPath}${' '.repeat(boxWidth - 11 - expectedPath.length - 1)}│`))
+  console.log(chalk.cyan(`│ ${chalk.gray('Backup:')}  ${backupPath}${' '.repeat(boxWidth - 11 - backupPath.length - 1)}│`))
 
   if (mode === 'test') {
     console.log(chalk.cyan(`├${'─'.repeat(boxWidth)}┤`))
     console.log(chalk.yellow(`│ ${chalk.bold('TEST MODE')}${' '.repeat(boxWidth - 11)}│`))
-    console.log(chalk.yellow(`│ Actual: ${testRoot}${' '.repeat(Math.max(0, boxWidth - 10 - testRoot.length - 1))}│`))
+    console.log(chalk.yellow(`│ Actual: ${testRoot}${' '.repeat(boxWidth - 10 - testRoot.length - 1)}│`))
   }
 
   console.log(chalk.cyan(`└${'─'.repeat(boxWidth)}┘\n`))
 
+  const itemType = isDirectory ? 'directory' : 'file'
   const action = await selectFromList<RestoreAction>(
     `How would you like to restore ${chalk.bold(filename)}?`,
     [
       {
-        name: `📋 Copy file to ${chalk.cyan(expectedPath)}`,
+        name: `📋 Restore ${itemType} to ${chalk.cyan(expectedPath)}`,
         value: 'copy-expected',
       },
       {
-        name: '📝 Copy file to different path (enter manually)',
+        name: `📝 Restore ${itemType} to different path (enter manually)`,
         value: 'copy-custom',
       },
       {
@@ -276,7 +319,7 @@ async function promptFileRestoreAction(
         value: 'symlink-custom',
       },
       {
-        name: '⏭️  Skip this file',
+        name: `⏭️  Skip this ${itemType}`,
         value: 'skip',
       },
     ],
@@ -311,7 +354,27 @@ async function promptFileRestoreAction(
 }
 
 /**
- * Copy or symlink a file to the target location
+ * Recursively copy a directory
+ */
+function copyDirectoryRecursive(sourcePath: string, targetPath: string): void {
+  ensureDirectory(targetPath)
+
+  const entries = fs.readdirSync(sourcePath, { withFileTypes: true })
+
+  for (const entry of entries) {
+    const sourceEntry = path.join(sourcePath, entry.name)
+    const targetEntry = path.join(targetPath, entry.name)
+
+    if (entry.isDirectory()) {
+      copyDirectoryRecursive(sourceEntry, targetEntry)
+    } else {
+      fs.copyFileSync(sourceEntry, targetEntry)
+    }
+  }
+}
+
+/**
+ * Copy or symlink a file/directory to the target location
  */
 function restoreFile(
   content: string,
@@ -320,6 +383,7 @@ function restoreFile(
   backupPath: string,
   mode: RestoreMode,
   testRoot: string,
+  isDir: boolean = false,
 ): boolean {
   try {
     const absoluteTarget = expandTilde(targetPath)
@@ -346,37 +410,52 @@ function restoreFile(
     }
 
     if (action === 'copy-expected' || action === 'copy-custom') {
-      // Copy the file
-      fs.writeFileSync(absoluteTarget, content, 'utf-8')
-      displaySuccess(`Copied to: ${targetPath}`)
+      if (isDir) {
+        // Copy the entire directory recursively
+        copyDirectoryRecursive(backupPath, absoluteTarget)
+        displaySuccess(`Copied directory to: ${targetPath}`)
+      } else {
+        // Copy the file
+        fs.writeFileSync(absoluteTarget, content, 'utf-8')
+        displaySuccess(`Copied to: ${targetPath}`)
+      }
       return true
     } else if (action === 'symlink-expected' || action === 'symlink-custom') {
       // Create symlink
-      // For symlink, we need the source to exist
-      // In normal mode, the backup is in the repo
-      // In test mode, we'll create a temp file with the content first
-
       let sourcePath: string
 
-      if (mode === 'test') {
-        // In test mode, create the source file in a .backup subdirectory
-        const backupDir = path.join(testRoot, '.backup-files')
-        ensureDirectory(backupDir)
-        sourcePath = path.join(backupDir, path.basename(targetPath))
-        fs.writeFileSync(sourcePath, content, 'utf-8')
+      if (isDir) {
+        // For directories, symlink directly to the backup directory
+        sourcePath = backupPath
       } else {
-        // In normal mode, use the backup path from the repo
-        // This assumes the backup repo is in the current directory or a known location
-        // For now, we'll create a temp location
-        const backupDir = expandTilde('~/.dev-machine-backup-files')
-        ensureDirectory(backupDir)
-        sourcePath = path.join(backupDir, path.basename(targetPath))
-        fs.writeFileSync(sourcePath, content, 'utf-8')
+        // For files, we need the source to exist
+        // In normal mode, the backup is in the repo
+        // In test mode, we'll create a temp file with the content first
+
+        if (mode === 'test') {
+          // In test mode, create the source file in a .backup subdirectory
+          const backupDir = path.join(testRoot, '.backup-files')
+          ensureDirectory(backupDir)
+          sourcePath = path.join(backupDir, path.basename(targetPath))
+          fs.writeFileSync(sourcePath, content, 'utf-8')
+        } else {
+          // In normal mode, use the backup path from the repo
+          // This assumes the backup repo is in the current directory or a known location
+          // For now, we'll create a temp location
+          const backupDir = expandTilde('~/.dev-machine-backup-files')
+          ensureDirectory(backupDir)
+          sourcePath = path.join(backupDir, path.basename(targetPath))
+          fs.writeFileSync(sourcePath, content, 'utf-8')
+        }
       }
 
       // Remove existing file/symlink if present
       if (pathExists(absoluteTarget)) {
-        fs.unlinkSync(absoluteTarget)
+        if (isDirectory(absoluteTarget)) {
+          fs.rmSync(absoluteTarget, { recursive: true, force: true })
+        } else {
+          fs.unlinkSync(absoluteTarget)
+        }
       }
 
       // Create symlink
@@ -388,7 +467,7 @@ function restoreFile(
     return false
   } catch (error) {
     displayError(
-      `Failed to restore file to ${targetPath}`,
+      `Failed to restore to ${targetPath}`,
       error instanceof Error ? error.message : 'Unknown error',
     )
     return false
@@ -435,11 +514,18 @@ async function restoreDotfiles(
     const repoFilePath = path.join(config.dotfilesRepoPath, file.repoPath)
     let fileContent = ''
     let hasContent = false
+    let isDir = false
 
     if (pathExists(repoFilePath)) {
       try {
-        fileContent = fs.readFileSync(repoFilePath, 'utf-8')
-        hasContent = true
+        // Check if it's a directory
+        if (isDirectory(repoFilePath)) {
+          isDir = true
+          hasContent = true
+        } else {
+          fileContent = fs.readFileSync(repoFilePath, 'utf-8')
+          hasContent = true
+        }
       } catch (error) {
         displayWarning(
           `Could not read ${file.name} from repository`,
@@ -455,6 +541,7 @@ async function restoreDotfiles(
       hasContent,
       config.mode,
       config.testRoot,
+      isDir,
     )
 
     if (action === 'skip') {
@@ -471,6 +558,7 @@ async function restoreDotfiles(
       repoFilePath,
       config.mode,
       config.testRoot,
+      isDir,
     )
 
     if (success) {
@@ -500,32 +588,257 @@ async function restorePackages(
     displayWarning('Test Mode', 'Package installation is skipped in test mode.')
   }
 
+  // Detect system's default package manager
+  const systemDefaultPackageManager = detectPackageManager()
+
+  // Check if there are multiple Node.js package managers with global packages
+  const nodePackageManagers = packageManagers.filter(
+    (m) => ['npm', 'pnpm', 'yarn'].includes(m.type) && m.enabled && m.packages.length > 0,
+  )
+
+  // If there are multiple Node.js package managers, ask user for preference
+  if (nodePackageManagers.length > 1) {
+    // Calculate total packages
+    const totalNodePackages = nodePackageManagers.reduce((sum, m) => sum + m.packages.length, 0)
+
+    // Build summary of packages by manager
+    const packageSummary = nodePackageManagers
+      .map((m) => `${m.packages.length} global ${m.type} package${m.packages.length !== 1 ? 's' : ''} backed up`)
+      .join('\n')
+
+    displayInfo(
+      'Multiple Node.js Package Managers Detected',
+      packageSummary,
+    )
+
+    // Determine if system default is one of the backed-up managers
+    const systemDefaultInList = nodePackageManagers.some((m) => m.type === systemDefaultPackageManager)
+    const defaultManagerText = systemDefaultInList
+      ? ` (${systemDefaultPackageManager} - your system default)`
+      : ''
+
+    const installChoice = await selectFromList<'default' | 'respective' | 'skip'>(
+      'How would you like to install global Node.js packages?',
+      [
+        {
+          name: `🔄 Install all ${totalNodePackages} packages with one package manager${defaultManagerText}`,
+          value: 'default',
+        },
+        {
+          name: `📦 Install each package manager's packages separately (${nodePackageManagers.map(m => m.packages.length).join(', ')})`,
+          value: 'respective',
+        },
+        {
+          name: '⏭️  Skip all Node.js packages',
+          value: 'skip',
+        },
+      ],
+    )
+
+    if (installChoice === BACK_OPTION || installChoice === 'skip') {
+      // Skip all Node.js packages
+      // Mark all as skipped so they won't be prompted for installation
+      for (const manager of packageManagers) {
+        if (['npm', 'pnpm', 'yarn'].includes(manager.type)) {
+          manager.enabled = false
+        }
+      }
+    } else if (installChoice === 'respective') {
+      // User wants to install each manager's packages separately - nothing to do here
+      // The loop below will handle each manager individually
+    } else {
+      // User chose to consolidate - determine which package manager to use
+      let defaultPackageManagerChoice: 'npm' | 'pnpm' | 'yarn' | null = null
+
+      // If system default is in the list, use it automatically
+      if (systemDefaultInList) {
+        defaultPackageManagerChoice = systemDefaultPackageManager as 'npm' | 'pnpm' | 'yarn'
+        displayInfo(
+          `Using ${systemDefaultPackageManager} (system default)`,
+          'Installing all global Node.js packages with your system default package manager',
+        )
+      } else {
+        // System default not available, ask user to choose
+        const choices = nodePackageManagers.map((m) => ({
+          name: `${m.type} - ${m.packages.length} package${m.packages.length !== 1 ? 's' : ''}`,
+          value: m.type as 'npm' | 'pnpm' | 'yarn',
+        }))
+
+        const managerChoice = await selectFromList<'npm' | 'pnpm' | 'yarn'>(
+          'Which package manager would you like to use for all global packages?',
+          choices,
+        )
+
+        if (managerChoice === BACK_OPTION) {
+          defaultPackageManagerChoice = null
+        } else {
+          defaultPackageManagerChoice = managerChoice
+        }
+      }
+
+      // If we chose a package manager, install all Node packages now
+      if (defaultPackageManagerChoice) {
+        const allNodePackages = nodePackageManagers.flatMap((m) => m.packages)
+        const uniquePackages = Array.from(
+          new Map(allNodePackages.map((p) => [p.name, p])).values(),
+        )
+
+        // Filter out already-installed packages
+        const installedPackages = await getPackagesForManager(defaultPackageManagerChoice)
+        const installedPackageNames = new Set(installedPackages.map((p) => p.name))
+        const packagesToInstall = uniquePackages.filter(
+          (pkg) => !installedPackageNames.has(pkg.name),
+        )
+
+        const totalBackedUp = uniquePackages.length
+        const alreadyInstalled = totalBackedUp - packagesToInstall.length
+        const newToInstall = packagesToInstall.length
+
+        // Show summary
+        if (alreadyInstalled > 0) {
+          displayInfo(
+            `${defaultPackageManagerChoice} package summary`,
+            `${totalBackedUp} backed up, ${alreadyInstalled} already installed, ${newToInstall} new to install`,
+          )
+        }
+
+        // If all packages are already installed, skip
+        if (newToInstall === 0) {
+          displaySuccess(
+            `All Node.js packages already installed`,
+            'Skipping package installation',
+          )
+          // Mark all Node package managers as disabled
+          for (const manager of packageManagers) {
+            if (['npm', 'pnpm', 'yarn'].includes(manager.type)) {
+              manager.enabled = false
+            }
+          }
+          return
+        }
+
+        const packageNames = packagesToInstall.map((p) => p.name).join(' ')
+        const installCommand = `${defaultPackageManagerChoice} add --global ${packageNames}`
+
+        displayInfo(
+          `Installing all global Node.js packages with ${defaultPackageManagerChoice}`,
+          `Total: ${newToInstall} package(s)`,
+        )
+
+        if (config.mode === 'test') {
+          displayInfo(
+            `Test Mode - Not Installing ${defaultPackageManagerChoice} Packages`,
+            `Would install: ${packagesToInstall.slice(0, 5).map((p) => p.name).join(', ')}${packagesToInstall.length > 5 ? '...' : ''}`,
+          )
+          displayInfo('Restore command', installCommand)
+        } else {
+          displayInfo(
+            `Installing ${defaultPackageManagerChoice} packages`,
+            'This may take several minutes...',
+          )
+          displayInfo('Would run', installCommand)
+          displaySuccess(`${defaultPackageManagerChoice} packages would be installed here`)
+        }
+
+        // Mark all Node package managers as disabled so we don't prompt for them again
+        for (const manager of packageManagers) {
+          if (['npm', 'pnpm', 'yarn'].includes(manager.type)) {
+            manager.enabled = false
+          }
+        }
+      }
+    }
+  }
+
+  // Process remaining package managers (non-Node or if user chose "respective")
   for (const manager of packageManagers) {
     if (!manager.enabled || manager.packages.length === 0) {
       continue
     }
 
-    const packageList = manager.packages
-      .slice(0, 5)
-      .map((p) => p.name)
-      .join(', ')
-    const moreText = manager.packages.length > 5 ? '...' : ''
+    // Filter out already-installed packages
+    const {
+      packagesToInstall,
+      totalBackedUp,
+      alreadyInstalled,
+      newToInstall,
+    } = await filterInstalledPackages(manager)
 
-    const shouldInstall = await confirmAction(
-      `Restore ${manager.packages.length} ${manager.type} package(s)?`,
-      true,
+    // Show summary
+    if (alreadyInstalled > 0) {
+      displayInfo(
+        `${manager.type} package summary`,
+        `${totalBackedUp} backed up, ${alreadyInstalled} already installed, ${newToInstall} new to install`,
+      )
+    }
+
+    // If all packages are already installed, skip this manager
+    if (newToInstall === 0) {
+      displaySuccess(
+        `All ${manager.type} packages already installed`,
+        'Skipping package installation',
+      )
+      continue
+    }
+
+    const installChoice = await selectFromList<'yes' | 'no' | 'select'>(
+      `Restore ${newToInstall} ${manager.type} package(s)?`,
+      [
+        { name: 'Yes', value: 'yes' },
+        { name: 'No', value: 'no' },
+        { name: '📋 Select packages manually', value: 'select' },
+      ],
     )
 
-    if (shouldInstall && shouldInstall !== BACK_OPTION) {
+    if (installChoice === BACK_OPTION || installChoice === 'no') {
+      continue
+    }
+
+    if (installChoice === 'yes' || installChoice === 'select') {
+      // Determine which packages to install (start with filtered list)
+      let finalPackagesToInstall = packagesToInstall
+      let installCommand = manager.restoreCommand
+      const isNodePackageManager = ['npm', 'pnpm', 'yarn'].includes(manager.type)
+
+      // If manual selection, prompt user to select packages
+      if (installChoice === 'select') {
+        const { selectedPackages } = await inquirer.prompt<{ selectedPackages: string[] }>([
+          {
+            type: 'checkbox',
+            name: 'selectedPackages',
+            message: `Select ${manager.type} packages to install:`,
+            choices: packagesToInstall.map(pkg => ({
+              name: pkg.version ? `${pkg.name} (${pkg.version})` : pkg.name,
+              value: pkg.name,
+              checked: false,
+            })),
+            pageSize: 15,
+          },
+        ])
+
+        if (selectedPackages.length === 0) {
+          displayInfo('No packages selected', 'Skipping package installation')
+          continue
+        }
+
+        // Filter to only selected packages
+        finalPackagesToInstall = packagesToInstall.filter(pkg => selectedPackages.includes(pkg.name))
+
+        // Update install command for selected packages
+        if (isNodePackageManager) {
+          installCommand = `${manager.type} add --global ${selectedPackages.join(' ')}`
+        }
+      }
+
       if (config.mode === 'test') {
         displayInfo(
           `Test Mode - Not Installing ${manager.type} Packages`,
-          `Would install: ${packageList}${moreText}`,
+          `Would install: ${finalPackagesToInstall.slice(0, 5).map((p) => p.name).join(', ')}${finalPackagesToInstall.length > 5 ? '...' : ''}`,
         )
-        if (manager.restoreCommand) {
+        if (installCommand) {
           displayInfo(
             'Restore command',
-            manager.restoreCommand,
+            installCommand,
           )
         }
       } else {
@@ -533,8 +846,8 @@ async function restorePackages(
           `Installing ${manager.type} packages`,
           'This may take several minutes...',
         )
-        if (manager.restoreCommand) {
-          displayInfo('Would run', manager.restoreCommand)
+        if (installCommand) {
+          displayInfo('Would run', installCommand)
           // In a real implementation, we would execute the restore command here
           displaySuccess(`${manager.type} packages would be installed here`)
         } else {
@@ -800,6 +1113,14 @@ async function showRestoreMenu(
   // Count runtimes
   const runtimesCount = machineConfig?.runtimes?.runtimes?.length || 0
 
+  // Add "Restore Everything" first if there's anything to restore
+  if (dotfilesCount > 0 || packagesCount > 0 || runtimesCount > 0) {
+    choices.push({
+      name: '🚀 Restore Everything',
+      value: 'all',
+    })
+  }
+
   if (dotfilesCount > 0) {
     choices.push({
       name: `📄 Restore Dotfiles (${dotfilesCount} file${dotfilesCount !== 1 ? 's' : ''})`,
@@ -818,13 +1139,6 @@ async function showRestoreMenu(
     choices.push({
       name: `🔧 Restore Runtimes (${runtimesCount} runtime${runtimesCount !== 1 ? 's' : ''})`,
       value: 'runtimes',
-    })
-  }
-
-  if (dotfilesCount > 0 || packagesCount > 0 || runtimesCount > 0) {
-    choices.push({
-      name: '🚀 Restore Everything',
-      value: 'all',
     })
   }
 
@@ -876,7 +1190,7 @@ export default async function restore(): Promise<void> {
     if (pathExists(testRoot)) {
       const shouldClean = await confirmAction(
         `Test directory ${testRoot} already exists. Clean it first?`,
-        false,
+        true,
       )
 
       if (shouldClean && shouldClean !== BACK_OPTION) {
@@ -953,10 +1267,17 @@ export default async function restore(): Promise<void> {
     }
 
     if (selection === 'all') {
-      displaySuccess(
-        'All items processed',
-        'Restoration complete! Review the output above for details.',
-      )
+      if (config.mode === 'test') {
+        displaySuccess(
+          'All items processed',
+          `Restoration complete! Review the output above for details.\n\nTest files restored to: ${chalk.cyan(config.testRoot)}`,
+        )
+      } else {
+        displaySuccess(
+          'All items processed',
+          'Restoration complete! Review the output above for details.',
+        )
+      }
       break
     }
 
@@ -967,7 +1288,14 @@ export default async function restore(): Promise<void> {
     )
 
     if (!shouldContinue || shouldContinue === BACK_OPTION) {
-      displaySuccess('Restore process complete', 'Goodbye!')
+      if (config.mode === 'test') {
+        displaySuccess(
+          'Restore process complete',
+          `Test files restored to: ${chalk.cyan(config.testRoot)}\nGoodbye!`,
+        )
+      } else {
+        displaySuccess('Restore process complete', 'Goodbye!')
+      }
       break
     }
   }

@@ -16,7 +16,7 @@ type ScriptInfo = {
 const SCRIPT_METADATA: Record<string, ScriptInfo> = {
   backup: {
     name: 'Backup',
-    description: 'Interactive backup wizard to save your system configuration',
+    description: 'Create a backup of your dotfiles, packages, and system configuration',
     emoji: '💾',
   },
   'populate-backup-schema': {
@@ -26,7 +26,12 @@ const SCRIPT_METADATA: Record<string, ScriptInfo> = {
   },
   restore: {
     name: 'Restore',
-    description: 'Interactive restore wizard to restore backed-up configuration',
+    description: 'Restore your dotfiles, packages, and system configuration from backup',
+    emoji: '♻️',
+  },
+  'restore:test': {
+    name: 'Restore (Test Mode)',
+    description: 'Test restore process by restoring files to a temporary folder first',
     emoji: '♻️',
   },
   placeholder: {
@@ -104,14 +109,22 @@ async function selectScript(scriptFiles: string[]): Promise<string> {
     const emoji = getEmojiForScript(script)
 
     // Use metadata if available, otherwise create a nice formatted name
-    const name = metadata?.name || script.split('-').map(word =>
+    let name = metadata?.name || script.split('-').map(word =>
       word.charAt(0).toUpperCase() + word.slice(1)
     ).join(' ')
 
     const description = metadata?.description || 'No description available'
 
+    // Special formatting for restore:test - make "test mode" yellow and not bold
+    let displayName: string
+    if (script === 'restore:test') {
+      displayName = `${emoji}  ${chalk.white('Restore')} 🧪 ${chalk.yellow('(test mode)')} - ${chalk.gray(description)}`
+    } else {
+      displayName = `${emoji}  ${chalk.white(name)} - ${chalk.gray(description)}`
+    }
+
     return {
-      name: `${emoji}  ${chalk.white(name)} - ${chalk.gray(description)}`,
+      name: displayName,
       value: script,
       short: name,
     }
@@ -166,7 +179,11 @@ async function main() {
   const packageScripts = getPackageJsonScripts()
 
   // Merge and deduplicate (file-based scripts take precedence)
-  const allScripts = Array.from(new Set([...scriptFiles, ...packageScripts])).sort()
+  // Filter out internal/development scripts
+  const excludedScripts = ['placeholder', 'backup-legacy']
+  const allScripts = Array.from(new Set([...scriptFiles, ...packageScripts]))
+    .filter((script) => !excludedScripts.includes(script))
+    .sort()
 
   // If script provided as argument, run it directly
   if (ScriptSession.script) {
