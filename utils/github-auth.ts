@@ -115,13 +115,20 @@ async function promptForPersonalAccessToken(): Promise<Octokit> {
   console.log(chalk.cyan('📝 Personal Access Token Setup\n'))
   console.log(
     chalk.gray(
-      'Please create a Personal Access Token with the following scopes:',
+      'To access your private dotfiles repository, please create a Personal Access Token.\n',
     ),
   )
-  console.log(chalk.gray('  - repo (Full control of private repositories)\n'))
-  console.log(
-    chalk.gray('Create one at: https://github.com/settings/tokens/new\n'),
-  )
+  console.log(chalk.white('Required GitHub permissions:\n'))
+  console.log(chalk.gray('  ☑️  repo') + chalk.white(' (Full control of private repositories)'))
+  console.log(chalk.gray('      ↳ This grants ALL repository permissions'))
+  console.log(chalk.gray('      ↳ Required for private repository access\n'))
+  console.log(chalk.white('To create your token:\n'))
+  console.log(chalk.cyan('  1. Visit: https://github.com/settings/tokens/new'))
+  console.log(chalk.gray('  2. Give it a descriptive name (e.g., "dotport")'))
+  console.log(chalk.gray('  3. Select the "repo" scope checkbox (this selects all repo permissions)'))
+  console.log(chalk.gray('  4. Click "Generate token"'))
+  console.log(chalk.gray('  5. Copy the token and paste it below\n'))
+  console.log(chalk.yellow('⚠️  Important: Save your token somewhere safe - you won\'t see it again!\n'))
 
   let token: string
   try {

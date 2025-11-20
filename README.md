@@ -1,266 +1,199 @@
-# Dev Machine Backup & Restore
+# Dotport
 
-A comprehensive CLI tool for backing up and restoring development machine configurations, dotfiles, and settings across macOS and Linux.
+**Port your dotfiles across machines with ease.**
 
-## Possible Names
+Dotport is a comprehensive CLI tool that backs up and restores your development environment configuration files, settings, and packages. Never manually set up a new machine again.
 
-<!-- **Current working name:** `dev-machine-backup-restore` -->
+## What Does It Do?
 
-**Current working name:** `dotport`
+Dotport automatically:
 
-### Name Ideas
+- **Discovers** your configuration files (shell, editors, terminals, etc.)
+- **Backs up** selected files to a GitHub repository
+- **Tracks** installed packages, runtimes, and editor extensions
+- **Restores** your entire setup on a new machine
+- **Manages** secrets separately for security
+- **Syncs** configurations across multiple machines and operating systems
 
-- [ ] **dotport** ✅ - Port your dots across machines (AVAILABLE)
-- [ ] **dotporter** ✅ - Port your dots across machines (AVAILABLE)
-- [ ] **dotshift** ✅ - Short, catchy. "Shift your dots anywhere" (AVAILABLE)
-- [ ] **dotpack** ✅ - Pack up your dotfiles. Simple and clear (AVAILABLE)
-- [ ] **envclone** ✅ - Clone your development environment (AVAILABLE)
-- [ ] **setupkit** ✅ - Your development setup toolkit (AVAILABLE)
-- [ ] **dotmover** ✅ - Move dots between machines (AVAILABLE)
-- [ ] **workstation-backup** ✅ - Descriptive but longer (AVAILABLE)
-
-**Requirements:**
-
-- Must be available on npm
-- Should be descriptive or memorable
-- Ideally short (1-2 words, under 12 characters)
-- Easy to type and remember
-
-**TODO:** Research npm package name availability and finalize name choice
-
-## Features ✅
-
-### Completed
-
-- ✅ **Interactive Backup Wizard** - Step-by-step configuration with back navigation
-- ✅ **OS Detection** - Automatic detection of macOS/Linux with distro support
-- ✅ **Multi-OS Support** - Manage configs for multiple operating systems/distros
-- ✅ **GitHub Integration** - Create/clone repos, authenticate via device flow
-- ✅ **Automatic File Discovery** - Scans 40+ common config locations:
-  - Shell configs (.zshrc, .bashrc, .profile)
-  - Git configuration (.gitconfig, global ignore, commit templates)
-  - Editor/IDE configs (VS Code, Cursor, Windsurf, Vim, Neovim, JetBrains, Sublime, Emacs, Zed)
-  - Developer tools (npm, yarn, pnpm, Python, Ruby, Docker, Kubernetes, Terraform)
-  - Terminal emulators (Ghostty, Alacritty, Kitty, WezTerm, Hyper)
-  - SSH configuration (excludes private keys automatically)
-  - macOS-specific (Hammerspoon, Karabiner, Raycast, Homebrew)
-  - Linux-specific (window managers, keyd, GNOME extensions)
-- ✅ **Smart File Selection** - Checkbox interface with file size display
-- ✅ **Manual File Addition** - Add custom files not in default scan
-- ✅ **Secret File Management** - Local file storage with automatic .gitignore
-- ✅ **Directory Structure Preservation** - Maintains nested paths (e.g., `.ssh/config`)
-- ✅ **Multi-OS Directory Organization** - Files stored in `macos/`, `debian/`, `ubuntu/`, etc.
-- ✅ **SSH Key Protection** - Automatically excludes private keys, authorized_keys, known_hosts
-- ✅ **Backup Preview** - Shows what will be copied before execution
-- ✅ **Schema Export** - Saves TypeScript schema to dotfiles repo
-- ✅ **Schema Merging** - Intelligently merges configs from multiple OSes
-- ✅ **Git Commit & Push** - Optional automatic commit/push workflow
-- ✅ **Symlink Creation** - Interactive per-file symlink setup with backup
-- ✅ **Linux Display Server Detection** - Detects Wayland/X11 and stores in schema
-- ✅ **Linux Desktop Environment Detection** - Detects GNOME/KDE/i3/Sway and stores in schema
-- ✅ **GNOME dconf Export** - Automatically exports keybindings and settings on Linux
-- ✅ **Package Manager Export** - Homebrew, apt, cargo, gem, go, npm, pnpm, pip support
-- ✅ **Runtime Version Tracking** - Tracks Node.js, Python, Ruby, Go versions
-- ✅ **VS Code Extensions Export** - Exports installed extensions list
-
-### Current Status
-
-**Backup Flow (Complete)**:
-
-1. OS Detection → Operating system and distribution
-2. Repository → GitHub/Git service selection and authentication
-3. Multi-OS → Support for multiple operating systems/distros
-4. Secrets → Local file secret management configuration
-5. File Selection → Choose files to backup from auto-discovered list
-6. Backup → Preview and execute file backup
-7. Git Commit/Push → Optional commit and push to remote
-8. Symlinks → Optional per-file symlink creation
-9. Complete → Summary and next steps
-
-## Usage
+## Quick Start
 
 ```bash
 # Install dependencies
 pnpm install
 
-# Run backup wizard
+# Start interactive backup
+pnpm backup
+
+# Restore on a new machine
+pnpm restore
+```
+
+## Features
+
+### ✅ Completed Features
+
+- **Interactive Backup Wizard** - Guided setup with step-by-step configuration
+- **Multi-OS Support** - Works on macOS and Linux (Debian, Ubuntu, Arch, Fedora, etc.)
+- **GitHub Integration** - Private repository backup with automatic authentication
+- **Automatic File Discovery** - Scans for 40+ common config locations:
+  - Shell configs (.zshrc, .bashrc, .profile)
+  - Git configuration and global ignore
+  - Editor configs (VS Code, Cursor, Windsurf, Vim, Neovim, JetBrains, etc.)
+  - Terminal emulators (Ghostty, Alacritty, Kitty, WezTerm, Hyper)
+  - Developer tools (npm, yarn, pnpm, Docker, Kubernetes, etc.)
+  - macOS apps (Hammerspoon, Karabiner, Raycast)
+  - Linux tools (i3, Sway, GNOME extensions, keyd)
+- **Smart File Selection** - Checkbox interface with file sizes
+- **Secret Management** - Local file storage with automatic .gitignore
+- **Directory Structure Preservation** - Maintains nested paths
+- **SSH Key Protection** - Automatically excludes private keys
+- **Package Manager Export** - Homebrew, apt, cargo, gem, go, npm, pnpm, pip
+- **Runtime Version Tracking** - Node.js, Python, Ruby, Go versions
+- **VS Code Extensions** - Exports installed extensions list
+- **Symlink Creation** - Interactive per-file symlink setup
+- **GNOME Settings Export** - Keybindings and settings on Linux
+- **Display Server Detection** - Detects Wayland/X11 on Linux
+- **Complete Restore Wizard** - Restore files, packages, and settings
+
+## System Requirements
+
+- **Node.js** 24+ (recommended: use fnm or nvm)
+- **pnpm** (or npm/yarn)
+- **Git** installed and configured
+- **macOS** or **Linux** (Debian, Ubuntu, Arch, Fedora, or derivatives)
+
+## Installation
+
+```bash
+# Clone the repository
+git clone https://github.com/robertjbass/dotport.git
+cd dotport
+
+# Install dependencies
+pnpm install
+
+# Run the backup wizard
 pnpm backup
 ```
 
-## Project Structure
+## Usage
+
+### Backup Your Configuration
+
+```bash
+pnpm backup
+```
+
+Follow the interactive prompts to:
+
+1. Confirm your system information (OS, shell, runtime)
+2. Authenticate with GitHub (optional but recommended)
+3. Set up your dotfiles repository
+4. Configure secret management
+5. Select files to back up
+6. Execute backup and optionally commit/push to GitHub
+
+### Restore on a New Machine
+
+```bash
+pnpm restore
+```
+
+The restore wizard will:
+
+1. Find your existing dotfiles repository
+2. Load your backup configuration
+3. Let you choose what to restore (files, packages, runtimes)
+4. Restore files with optional symlink creation
+5. Install packages and runtimes based on your preferences
+
+## Repository Structure
 
 ```
-dev-machine-backup-restore/
+dotport/
 ├── scripts/
-│   ├── backup.ts             # Main interactive backup wizard
-│   ├── restore.ts            # Interactive restore wizard
-│   ├── placeholder.ts        # Example script template
-│   └── index.ts              # Script selector/runner
+│   ├── backup.ts              # Interactive backup wizard
+│   ├── restore.ts             # Interactive restore wizard
+│   └── index.ts               # Script selector
 ├── utils/
-│   ├── file-discovery.ts     # Automatic config file scanning
-│   ├── file-backup.ts        # File copying and backup logic
-│   ├── github-auth.ts        # GitHub device flow authentication
-│   ├── github-repo.ts        # Repository operations
-│   ├── git-url-parser.ts     # Git URL parsing and validation
-│   ├── schema-builder.ts     # Build and merge backup configs
-│   ├── schema-export.ts      # Schema export to repo
-│   ├── dconf-export.ts       # GNOME settings export (Linux)
-│   ├── linux-detection.ts    # Linux system metadata detection
-│   ├── constants.ts          # Linux distros and constants
-│   └── config.ts             # App configuration management
+│   ├── file-discovery.ts      # Config file scanning
+│   ├── file-backup.ts         # File copying and backup
+│   ├── github-auth.ts         # GitHub authentication
+│   ├── github-repo.ts         # Repository operations
+│   ├── schema-builder.ts      # Build backup configs
+│   ├── schema-export.ts       # Export schema to repo
+│   ├── package-detection.ts   # Detect package managers
+│   ├── runtime-detection.ts   # Detect runtimes
+│   └── ...                    # Other utilities
 ├── types/
-│   └── backup-config.ts      # TypeScript schema definitions
-├── templates/
-│   └── dotfiles.gitignore    # Template for dotfiles repos
+│   ├── backup-config.ts       # TypeScript schema definitions
+│   └── backup-schema.ts       # Repository schema types
 ├── docs/
-│   └── CONFIG-SCHEMA.md      # Schema documentation
-└── CHANGELOG.md              # Detailed change history
+│   └── SETUP.md               # Detailed setup guide
+└── README.md                  # This file
 ```
 
-## TODO - Next Steps
+## Your Dotfiles Repository
 
-### High Priority
+After running backup, your dotfiles repository will look like this:
 
-- [x] **Restore Functionality** ✅ COMPLETED
-  - [x] Detect existing schema in dotfiles repo
-  - [x] Auto-discover dotfiles repo location
-  - [x] Parse schema to understand file structure
-  - [x] Copy files from repo to home directory
-  - [x] Create symlinks based on user preference
-  - [x] Support for multiple OS/distro restoration
-  - [x] Handle conflicts (backup existing files before overwrite)
-  - [x] Test mode for safe restore testing
-  - [x] Backup management (view, restore, cleanup old backups)
-
-- [ ] **Package Manager Installation**
-  - [x] Package list export (Homebrew, apt, cargo, gem, go, npm, pnpm, pip)
-  - [ ] Package installation during restore
-  - [ ] Homebrew Bundle import (macOS)
-  - [ ] apt package installation (Debian/Ubuntu)
-  - [ ] dnf/yum package installation (Fedora/RHEL)
-  - [ ] pacman package installation (Arch)
-  - [ ] Snap/Flatpak package installation
-
-- [ ] **Runtime Installation**
-  - [x] Runtime version tracking (Node.js, Python, Ruby, Go)
-  - [ ] Automatic runtime installation via version managers
-  - [ ] fnm/nvm for Node.js
-  - [ ] pyenv for Python
-  - [ ] rbenv for Ruby
-  - [ ] gvm for Go
-
-- [ ] **Application Detection & Installation**
-  - [ ] Detect installed applications
-  - [ ] Generate installation scripts per OS/distro
-  - [ ] Support for cask/mas on macOS
-  - [ ] Support for AUR on Arch
-
-### Medium Priority
-
-- [x] **Display Server Detection (Linux)** ✅ COMPLETED
-  - [x] Detect X11 vs Wayland
-  - [x] Store server type in schema
-  - [x] Desktop environment detection (GNOME/KDE/i3/Sway/etc.)
-
-- [ ] **Window Manager Support (Linux)**
-  - [ ] i3/Sway config backup (file discovery already supports this)
-  - [ ] Hyprland config backup (file discovery already supports this)
-  - [x] GNOME Shell extensions (custom extensions backed up, third-party excluded)
-  - [x] GNOME dconf settings (keybindings, interface settings, WM settings)
-  - [ ] KDE Plasma settings
-
-- [ ] **Update Workflow**
-  - [ ] Detect changed files since last backup
-  - [ ] Incremental updates to dotfiles repo
-  - [ ] Optional automatic commit messages
-
-### Low Priority
-
-- [ ] **Interactive File Browser**
-  - [ ] Tree-view file selection
-  - [ ] Search/filter functionality
-  - [ ] Preview file contents
-
-- [ ] **Diff and Sync**
-  - [ ] Show diffs between local and repo versions
-  - [ ] Selective sync (pull specific files)
-  - [ ] Conflict resolution UI
-
-- [ ] **Advanced Features**
-  - [ ] Multiple profile support
-  - [ ] Machine-specific configs
-  - [ ] Templating for dynamic configs
-  - [ ] Pre/post install hooks
-
-## Schema
-
-The tool generates a comprehensive TypeScript schema stored in your dotfiles repository:
-
-```typescript
-type BackupConfig = {
-  version: string
-  system: {
-    primary: OperatingSystem
-    shell: Shell
-    shellConfigFile: string
-    displayServer?: 'x11' | 'wayland' | 'unknown' // Linux only
-    desktopEnvironment?: string // Linux only (e.g., 'gnome', 'kde')
-  }
-  multiOS: {
-    enabled: boolean
-    supportedOS: OperatingSystem[]
-    linuxDistros?: string[]
-  }
-  dotfiles: {
-    enabled: boolean
-    repoType: RepoType
-    repoUrl: string
-    structure: {
-      type: 'flat' | 'nested'
-      directories: Record<string, string> // e.g., 'macos' -> 'macos/'
-    }
-    trackedFiles: {
-      [osOrDistro: string]: {
-        files: TrackedFile[]
-      }
-    }
-  }
-  secrets: SecretsConfig
-  symlinks: SymlinksConfig
-  packages: SystemPackagesConfig
-  applications: SystemApplicationsConfig
-  extensions: SystemExtensionsConfig
-  runtimes: SystemRuntimesConfig
-  settings: SystemSettingsConfig
-  metadata: MetadataConfig
-}
+```
+dotfiles/
+├── schema.json                           # Backup configuration
+├── .gitignore                            # Excludes secrets
+└── macos-darwin-my-machine/              # Machine-specific folder
+    ├── .zshrc
+    ├── .gitconfig
+    ├── .config/
+    │   ├── ghostty/
+    │   └── ...
+    └── Library/Application Support/
+        └── Code/User/
 ```
 
 ## Security
 
-- ✅ SSH private keys automatically excluded from backup
-- ✅ Secret files handled separately (not tracked in git)
-- ✅ .gitignore template includes common secrets
-- ✅ GitHub token stored locally (not in schema)
-- ✅ Automatic .backup creation when symlinking over existing files
+- **SSH Private Keys** - Automatically excluded from backup
+- **Secret Files** - Managed separately, never committed to git
+- **GitHub Tokens** - Stored locally only (not in repository)
+- **Automatic .gitignore** - Protects sensitive files
+
+## Configuration Storage
+
+### On Your Machine (Not Synced)
+
+```
+~/.dotport/config/                        # Linux/macOS
+├── user-system.json                      # Your system configuration
+└── github-auth.json                      # GitHub token (kept private)
+```
+
+### In Your Dotfiles Repository (Synced)
+
+```
+dotfiles/
+├── schema.json                           # Sanitized backup configuration
+└── <machine-id>/                         # Your backed up files
+```
+
+## Documentation
+
+For detailed setup instructions and advanced usage, see [SETUP.md](docs/SETUP.md).
+
+## Roadmap
+
+See [TODO.md](TODO.md) for planned features and improvements.
+
+## Contributing
+
+This project is under active development. Contributions are welcome!
 
 ## License
 
 MIT
 
-## Contributing
-
-<!-- TODO -->
-
-This project is under active development. See CHANGELOG.md for recent updates.
-
 ---
 
-**Last Updated**: 2025-01-18
-**Status**:
+**Status:** Active Development
 
-- ✅ Backup wizard complete with full multi-OS support
-- ✅ Restore wizard complete with test mode
-- ✅ Linux-specific features: dconf export, display server detection, desktop environment detection
-- ✅ Package manager export for Homebrew, apt, cargo, gem, go, npm/pnpm/yarn, pip
-- ✅ Schema merging for multi-OS configurations
+**Last Updated:** 2025-01-20
