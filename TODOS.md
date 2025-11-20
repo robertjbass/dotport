@@ -7,10 +7,12 @@ This document tracks remaining tasks and future enhancements for the dev-machine
 **Current working name:** `dev-machine-backup-restore`
 
 ### Brainstorm Package Name
+
 - [ ] Research npm package name availability
 - [ ] Finalize name choice before publishing
 
 **Name Candidates:**
+
 - [ ] **dotshift** ✅ - Short, catchy. "Shift your dots anywhere" (AVAILABLE)
 - [ ] **devsnap** ⚠️ - Developer snapshots. Quick and memorable (unpublished, available)
 - [ ] **dotpack** ✅ - Pack up your dotfiles. Simple and clear (AVAILABLE)
@@ -23,6 +25,7 @@ This document tracks remaining tasks and future enhancements for the dev-machine
 - [ ] **workstation-backup** ✅ - Descriptive but longer (AVAILABLE)
 
 **Requirements:**
+
 - Must be available on npm
 - Should be descriptive or memorable
 - Ideally short (1-2 words, under 12 characters)
@@ -33,15 +36,24 @@ This document tracks remaining tasks and future enhancements for the dev-machine
 ## Code Cleanup
 
 ### Legacy Backup Removal
+
 - [ ] Test new backup script thoroughly to confirm it works as expected
 - [ ] Remove `backup-legacy.ts` once confirmed new backup script is stable
 - [ ] Remove `backup-legacy` npm script from `package.json`
 - [ ] Audit and remove unused functions/files that were ONLY used in legacy backup
 - [ ] Update any documentation that references the old backup script
 
+### Testing
+
+- [ ] Test JSON secret file parsing and conversion to .env.sh format
+- [ ] Test .env format parsing and conversion to .env.sh format
+- [ ] Test that secret files are properly added to both home and repo .gitignore files
+- [ ] Test that shell RC files properly source the .env.sh file after backup
+
 ## High Priority
 
 ### Restore Functionality (Shared)
+
 - [ ] Detect existing schema in dotfiles repo
 - [ ] Clone dotfiles repo on new machine
 - [ ] Parse schema to understand file structure
@@ -55,6 +67,7 @@ This document tracks remaining tasks and future enhancements for the dev-machine
   - Mixed mode: latest for languages/runtimes, exact for packages
 
 ### Package Manager Support (Shared)
+
 - [x] Homebrew Bundle export (macOS) ✅
 - [ ] Homebrew Bundle import/restore (macOS)
 - [x] apt package list export (Debian/Ubuntu) ✅
@@ -64,6 +77,7 @@ This document tracks remaining tasks and future enhancements for the dev-machine
 - [ ] Snap/Flatpak package lists export/import
 
 ### Application Detection & Installation (Shared)
+
 - [ ] Detect installed applications
 - [ ] Generate installation scripts per OS/distro
 - [ ] Support for cask/mas on macOS
@@ -72,6 +86,7 @@ This document tracks remaining tasks and future enhancements for the dev-machine
 ## Medium Priority
 
 ### Window Manager Support (Linux)
+
 - [ ] i3/Sway config backup (file discovery already supports this)
 - [ ] Hyprland config backup (file discovery already supports this)
 - [x] GNOME Shell extensions (custom extensions backed up, third-party excluded) ✅
@@ -79,6 +94,7 @@ This document tracks remaining tasks and future enhancements for the dev-machine
 - [ ] KDE Plasma settings export/import
 
 ### Update Workflow (Shared)
+
 - [ ] Detect changed files since last backup
 - [ ] Incremental updates to dotfiles repo
 - [ ] Optional automatic commit messages
@@ -87,16 +103,19 @@ This document tracks remaining tasks and future enhancements for the dev-machine
 ## Low Priority
 
 ### Interactive File Browser (Shared)
+
 - [ ] Tree-view file selection
 - [ ] Search/filter functionality
 - [ ] Preview file contents before backup
 
 ### Diff and Sync (Shared)
+
 - [ ] Show diffs between local and repo versions
 - [ ] Selective sync (pull specific files)
 - [ ] Conflict resolution UI
 
 ### Advanced Features (Shared)
+
 - [ ] Multiple profile support (work/personal/etc.)
 - [ ] Machine-specific configs
 - [ ] Templating for dynamic configs (username, hostname, etc.)
@@ -109,16 +128,17 @@ This document tracks remaining tasks and future enhancements for the dev-machine
 ### macOS
 
 #### Initial Setup Tasks
+
 - [ ] **Create dotfiles repository** - Run `pnpm run setup` to create automatically
 - [ ] **Security - Move API keys to secrets file**:
   - Create `~/.secrets` or `~/.zshsecrets` for sensitive environment variables
   - Remove ANTHROPIC_API_KEY, OPENAI_API_KEY from .zshrc
   - Source secrets file from .zshrc: `[ -f ~/.zshsecrets ] && source ~/.zshsecrets`
   - The backup tool automatically excludes secret files from git
-- [ ] **Run `touch ~/.hushlogin`** - Suppress "Last login" message in terminal
 - [ ] **Setup Karabiner-Elements** - Remap Caps Lock to Escape (config auto-backed up)
 
 #### Restoration Tasks
+
 - [ ] Install fnm via Homebrew: `brew install fnm`
 - [ ] Set fnm default Node version: `fnm install 24 && fnm default 24`
 - [ ] Note: .zshrc already configured with `eval "$(fnm env --use-on-cd)"`
@@ -129,10 +149,12 @@ This document tracks remaining tasks and future enhancements for the dev-machine
 #### Currently Installed Apps (Reference)
 
 **Homebrew Casks (GUI Apps):**
+
 - hammerspoon
 - Fonts: cascadia-code, cascadia-mono, fira-code, hack-nerd-font
 
 **Key Applications:**
+
 - **Terminals**: Ghostty, iTerm
 - **Browsers**: Arc, Brave Browser, Google Chrome, Safari
 - **Development**: Visual Studio Code, Visual Studio Code - Insiders, Windsurf, Docker, DBngin, TablePlus, RunJS, Insomnia
@@ -143,6 +165,7 @@ This document tracks remaining tasks and future enhancements for the dev-machine
 - **Other**: Spotify, Steam, OpenEmu, Unity Hub, UTM, VNC Viewer, ChatGPT
 
 **Homebrew CLI Tools (selected key tools):**
+
 - **fnm** (Fast Node Manager - use instead of nvm, currently on Node v22.21.1 default)
 - tmux, gh, cowsay, fortune, sshpass
 - ffmpeg, sox (audio/video tools)
@@ -152,6 +175,7 @@ This document tracks remaining tasks and future enhancements for the dev-machine
 - Full list available via: `brew list --formula`
 
 **Important Notes:**
+
 - **Node Version Manager**: Using **fnm** instead of nvm for faster shell startup
   - Automatically switches Node versions when cd'ing into projects (via `--use-on-cd`)
   - .zshrc includes `nvm` function that forwards to fnm for compatibility
@@ -164,12 +188,14 @@ This document tracks remaining tasks and future enhancements for the dev-machine
 #### Manual Backups Required
 
 **System Configuration:**
+
 - [ ] `~/keyd-default.conf.backup` - keyd keyboard remapping (backup of `/etc/keyd/default.conf`)
   - Command: `sudo cp /etc/keyd/default.conf ~/keyd-default.conf.backup`
 - [ ] Systemd service files from `/etc/systemd/system/`
   - Example: `fix-trackpad-resume.service` (machine-specific)
 
 **Secrets Files (Backup Separately - DO NOT COMMIT TO GIT):**
+
 - [ ] `~/.zshsecrets` - Environment variables and secrets for zsh (if exists)
 - [ ] `~/.bashsecrets` - Environment variables and secrets for bash (if exists)
 
@@ -224,12 +250,14 @@ A complete restoration script should:
 Custom keybindings are managed via `dconf` (GNOME's configuration database).
 
 **Automatic Backup:** When running the backup script on Linux, GNOME settings are automatically exported to `.config/dconf/` in your dotfiles repository. The following files are created:
+
 - `gnome-keybindings.conf` - Custom keybindings (Alt+Space for ulauncher, Ctrl+Alt+T for terminal, etc.)
 - `gnome-wm-keybindings.conf` - Window manager keybindings
 - `gnome-shell-keybindings.conf` - GNOME Shell keybindings
 - `gnome-interface.conf` - Desktop interface settings
 
 **Manual Restoration:** To restore keybindings on a new system, you can either:
+
 1. Use the backup script's restore functionality (automatically loads dconf files)
 2. Manually import: `dconf load /org/gnome/settings-daemon/plugins/media-keys/ < ~/.config/dconf/gnome-keybindings.conf`
 
@@ -238,18 +266,21 @@ Custom keybindings are managed via `dconf` (GNOME's configuration database).
 If you need to manually configure keybindings via `gsettings`:
 
 **Custom Keybinding 0: Focus Terminal**
+
 - **Name:** Focus Terminal
 - **Binding:** `Ctrl+Alt+T`
 - **Command:** `/home/bob/scripts/focus-terminal.sh`
 - **Purpose:** Open new Ghostty window or focus existing one
 
 **Custom Keybinding 1: Flameshot Screenshot**
+
 - **Name:** Flameshot
 - **Binding:** `Ctrl+4`
 - **Command:** `sh -c "QT_QPA_PLATFORM=wayland flameshot gui"`
 - **Purpose:** Take screenshots with Flameshot on Wayland
 
 **Custom Keybinding 2: Ulauncher Toggle**
+
 - **Name:** Toggle Ulauncher
 - **Binding:** `Alt+Space`
 - **Command:** `ulauncher-toggle`
@@ -258,11 +289,13 @@ If you need to manually configure keybindings via `gsettings`:
 #### Systemd Services
 
 **Trackpad Resume Fix Service:**
+
 - **Location:** `/etc/systemd/system/fix-trackpad-resume.service`
 - **Purpose:** Fix trackpad after resume from suspend
 - **Status:** Machine-specific, may need manual setup on new machines
 
 **To check:**
+
 ```bash
 systemctl status fix-trackpad-resume.service
 ```

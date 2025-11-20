@@ -57,6 +57,15 @@ import { detectAllRuntimes } from '../utils/runtime-detection'
 import { exportSchemaToRepo, createSchemaReadme } from '../utils/schema-export'
 import { exportGnomeSettings } from '../utils/dconf-export'
 import { scanFile, isKnownSecretFile } from '../utils/secret-scanner'
+import {
+  parseEnvToShellExports,
+  parseJsonToShellExports,
+  createOrUpdateEnvShFile,
+  addToGitignore,
+  isSourcedInRcFile,
+  addSourceToRcFile,
+  getRcFilePath,
+} from '../utils/secret-file-helpers'
 import type {
   TrackedFile,
   PackageManager,
@@ -250,22 +259,83 @@ export default async function backupV2() {
 
     const step4 = await promptStep4SecretConfig()
 
-    if (step4.enabled && step4.createNew && step4.secretFilePath) {
-      // Create secret file
+    // Track all secret files we need to add to .gitignore
+    const secretFilesToIgnore: string[] = []
+
+    if (step4.enabled && step4.secretFilePath) {
       const secretPath = expandTilde(step4.secretFilePath)
-      const secretContent = `# Secret environment variables
+      const targetEnvShPath = expandTilde('~/.env.sh')
+
+      if (step4.createNew) {
+        // Create new secret file with default content
+        const defaultContent = `# Secret environment variables
+# This file contains sensitive data and should NOT be committed to version control
 # Add your secrets here in the format: export MY_SECRET="value"
 
 export EXAMPLE_SECRET="your-secret-here"
 `
-      fs.writeFileSync(secretPath, secretContent, 'utf-8')
-      console.log(
-        chalk.green(`\n✅ Created secret file at ${step4.secretFilePath}\n`),
-      )
-    }
+        fs.writeFileSync(secretPath, defaultContent, 'utf-8')
+        console.log(
+          chalk.green(`\n✅ Created secret file at ${step4.secretFilePath}\n`),
+        )
+        secretFilesToIgnore.push(step4.secretFilePath)
+      } else if (step4.secretFileFormat && step4.secretFileFormat !== 'shell-export') {
+        // Convert existing file to .env.sh format
+        console.log(chalk.cyan(`\n🔄 Converting ${step4.secretFilePath} to ~/.env.sh format...\n`))
 
-    // Update user config with secret info
-    if (step4.enabled && step4.secretFilePath) {
+        try {
+          const sourceContent = fs.readFileSync(secretPath, 'utf-8')
+          let exports: string[] = []
+
+          if (step4.secretFileFormat === 'dotenv') {
+            exports = parseEnvToShellExports(sourceContent)
+          } else if (step4.secretFileFormat === 'json') {
+            exports = parseJsonToShellExports(sourceContent)
+          }
+
+          if (exports.length > 0) {
+            createOrUpdateEnvShFile(targetEnvShPath, exports)
+            console.log(chalk.green(`✅ Converted ${exports.length} environment variable(s) to ~/.env.sh\n`))
+            secretFilesToIgnore.push(step4.secretFilePath)
+            secretFilesToIgnore.push('~/.env.sh')
+          } else {
+            console.log(chalk.yellow('⚠️  No environment variables found to convert\n'))
+          }
+        } catch (error: any) {
+          console.log(chalk.red(`❌ Failed to convert secret file: ${error.message}\n`))
+        }
+      } else {
+        // Using existing .env.sh file as-is
+        secretFilesToIgnore.push(step4.secretFilePath)
+      }
+
+      // Add secret file to home directory .gitignore
+      const homeGitignorePath = '~/.gitignore'
+      const secretFileName = path.basename(step4.secretFilePath)
+
+      console.log(chalk.cyan('📝 Updating home directory .gitignore...\n'))
+      addToGitignore(homeGitignorePath, secretFileName)
+      console.log(chalk.green(`✅ Added ${secretFileName} to ~/.gitignore\n`))
+
+      // Check if secret file is sourced in shell RC file
+      const rcFilePath = getRcFilePath(systemInfo.shell)
+      const rcFileExpanded = expandTilde(rcFilePath)
+
+      if (fs.existsSync(rcFileExpanded)) {
+        const secretFileToSource = step4.secretFileFormat === 'shell-export'
+          ? step4.secretFilePath
+          : '~/.env.sh'
+
+        if (!isSourcedInRcFile(rcFilePath, secretFileToSource)) {
+          console.log(chalk.cyan(`📝 Adding source statement to ${rcFilePath}...\n`))
+          addSourceToRcFile(rcFilePath, secretFileToSource)
+          console.log(chalk.green(`✅ Added source statement for ${secretFileToSource}\n`))
+        } else {
+          console.log(chalk.gray(`  ${secretFileToSource} is already sourced in ${rcFilePath}\n`))
+        }
+      }
+
+      // Update user config with secret info
       userConfig.secrets = {
         enabled: true,
         secretFile: {
@@ -325,6 +395,7 @@ export EXAMPLE_SECRET="your-secret-here"
 
     // File selection and confirmation loop
     let trackedFiles: TrackedFile[] = []
+    let filesWithSecrets: string[] = []
     let proceed = 'no'
 
     while (proceed === 'no') {
@@ -382,7 +453,7 @@ export EXAMPLE_SECRET="your-secret-here"
 
       // Scan files for secrets
       console.log(chalk.cyan('🔐 Scanning files for secrets...\n'))
-      const filesWithSecrets: string[] = []
+      filesWithSecrets = []
 
       for (const file of selectedFiles) {
         const absolutePath = expandTilde(file.relativePath)
@@ -730,6 +801,20 @@ export EXAMPLE_SECRET="your-secret-here"
       console.error(
         chalk.yellow(`⚠️  Schema export failed: ${error.message}\n`),
       )
+    }
+
+    // Add secret files to repo .gitignore
+    if (filesWithSecrets.length > 0 || secretFilesToIgnore.length > 0) {
+      console.log(chalk.cyan('📝 Updating repository .gitignore with secret files...\n'))
+
+      const repoGitignorePath = path.join(repoPath, '.gitignore')
+      const allSecretFiles = new Set([
+        ...filesWithSecrets.map((f: string) => path.basename(f)),
+        ...secretFilesToIgnore.map((f: string) => path.basename(expandTilde(f))),
+      ])
+
+      addToGitignore(repoGitignorePath, Array.from(allSecretFiles))
+      console.log(chalk.green(`✅ Added ${allSecretFiles.size} secret file(s) to repository .gitignore\n`))
     }
 
     // Git operations (if applicable)

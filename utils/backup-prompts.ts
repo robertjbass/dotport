@@ -486,7 +486,7 @@ async function promptBranchSelection(repoPath: string): Promise<string> {
         chalk.cyan(`\n🔄 Creating and checking out branch: ${newBranchName}...\n`),
       )
 
-      const checkoutResult = await checkoutBranch(repoPath, newBranchName, true)
+      const checkoutResult = await checkoutBranch(repoPath, newBranchName, { createIfMissing: true })
 
       if (!checkoutResult.success) {
         console.log(
