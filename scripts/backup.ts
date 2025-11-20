@@ -285,9 +285,16 @@ export EXAMPLE_SECRET="your-secret-here"
           chalk.green(`\n✅ Created secret file at ${step4.secretFilePath}\n`),
         )
         secretFilesToIgnore.push(step4.secretFilePath)
-      } else if (step4.secretFileFormat && step4.secretFileFormat !== 'shell-export') {
+      } else if (
+        step4.secretFileFormat &&
+        step4.secretFileFormat !== 'shell-export'
+      ) {
         // Convert existing file to .env.sh format
-        console.log(chalk.cyan(`\n🔄 Converting ${step4.secretFilePath} to ~/.env.sh format...\n`))
+        console.log(
+          chalk.cyan(
+            `\n🔄 Converting ${step4.secretFilePath} to ~/.env.sh format...\n`,
+          ),
+        )
 
         try {
           const sourceContent = fs.readFileSync(secretPath, 'utf-8')
@@ -301,14 +308,22 @@ export EXAMPLE_SECRET="your-secret-here"
 
           if (exports.length > 0) {
             createOrUpdateEnvShFile(targetEnvShPath, exports)
-            console.log(chalk.green(`✅ Converted ${exports.length} environment variable(s) to ~/.env.sh\n`))
+            console.log(
+              chalk.green(
+                `✅ Converted ${exports.length} environment variable(s) to ~/.env.sh\n`,
+              ),
+            )
             secretFilesToIgnore.push(step4.secretFilePath)
             secretFilesToIgnore.push('~/.env.sh')
           } else {
-            console.log(chalk.yellow('⚠️  No environment variables found to convert\n'))
+            console.log(
+              chalk.yellow('⚠️  No environment variables found to convert\n'),
+            )
           }
         } catch (error: any) {
-          console.log(chalk.red(`❌ Failed to convert secret file: ${error.message}\n`))
+          console.log(
+            chalk.red(`❌ Failed to convert secret file: ${error.message}\n`),
+          )
         }
       } else {
         // Using existing .env.sh file as-is
@@ -328,16 +343,27 @@ export EXAMPLE_SECRET="your-secret-here"
       const rcFileExpanded = expandTilde(rcFilePath)
 
       if (fs.existsSync(rcFileExpanded)) {
-        const secretFileToSource = step4.secretFileFormat === 'shell-export'
-          ? step4.secretFilePath
-          : '~/.env.sh'
+        const secretFileToSource =
+          step4.secretFileFormat === 'shell-export'
+            ? step4.secretFilePath
+            : '~/.env.sh'
 
         if (!isSourcedInRcFile(rcFilePath, secretFileToSource)) {
-          console.log(chalk.cyan(`📝 Adding source statement to ${rcFilePath}...\n`))
+          console.log(
+            chalk.cyan(`📝 Adding source statement to ${rcFilePath}...\n`),
+          )
           addSourceToRcFile(rcFilePath, secretFileToSource)
-          console.log(chalk.green(`✅ Added source statement for ${secretFileToSource}\n`))
+          console.log(
+            chalk.green(
+              `✅ Added source statement for ${secretFileToSource}\n`,
+            ),
+          )
         } else {
-          console.log(chalk.gray(`  ${secretFileToSource} is already sourced in ${rcFilePath}\n`))
+          console.log(
+            chalk.gray(
+              `  ${secretFileToSource} is already sourced in ${rcFilePath}\n`,
+            ),
+          )
         }
       }
 
@@ -400,7 +426,10 @@ export EXAMPLE_SECRET="your-secret-here"
     console.log(chalk.green(`✓ Detected ${detectedRuntimes.length} runtimes`))
 
     // Detect fonts
-    const detectedFontsConfig = await createFontsConfig(systemInfo.os, machineId)
+    const detectedFontsConfig = await createFontsConfig(
+      systemInfo.os,
+      machineId,
+    )
     const totalFonts = getTotalFontCount(detectedFontsConfig)
     console.log(chalk.green(`✓ Detected ${totalFonts} fonts\n`))
 
@@ -472,7 +501,11 @@ export EXAMPLE_SECRET="your-secret-here"
         // Check if it's a known secret file
         if (isKnownSecretFile(file.relativePath)) {
           filesWithSecrets.push(file.relativePath)
-          console.log(chalk.yellow(`  ⚠️  Excluding known secret file: ${file.relativePath}`))
+          console.log(
+            chalk.yellow(
+              `  ⚠️  Excluding known secret file: ${file.relativePath}`,
+            ),
+          )
           continue
         }
 
@@ -481,13 +514,21 @@ export EXAMPLE_SECRET="your-secret-here"
           const scanResult = scanFile(absolutePath)
           if (scanResult.containsSecrets) {
             filesWithSecrets.push(file.relativePath)
-            console.log(chalk.yellow(`  ⚠️  Excluding file with secrets: ${file.relativePath}`))
+            console.log(
+              chalk.yellow(
+                `  ⚠️  Excluding file with secrets: ${file.relativePath}`,
+              ),
+            )
           }
         }
       }
 
       if (filesWithSecrets.length > 0) {
-        console.log(chalk.yellow(`\n⚠️  Excluded ${filesWithSecrets.length} file(s) containing secrets\n`))
+        console.log(
+          chalk.yellow(
+            `\n⚠️  Excluded ${filesWithSecrets.length} file(s) containing secrets\n`,
+          ),
+        )
       } else {
         console.log(chalk.green('✓ No secret files detected\n'))
       }
@@ -867,22 +908,34 @@ export EXAMPLE_SECRET="your-secret-here"
 
     // Add secret files to repo .gitignore
     if (filesWithSecrets.length > 0 || secretFilesToIgnore.length > 0) {
-      console.log(chalk.cyan('📝 Updating repository .gitignore with secret files...\n'))
+      console.log(
+        chalk.cyan('📝 Updating repository .gitignore with secret files...\n'),
+      )
 
       const repoGitignorePath = path.join(repoPath, '.gitignore')
       const allSecretFiles = new Set([
         ...filesWithSecrets.map((f: string) => path.basename(f)),
-        ...secretFilesToIgnore.map((f: string) => path.basename(expandTilde(f))),
+        ...secretFilesToIgnore.map((f: string) =>
+          path.basename(expandTilde(f)),
+        ),
       ])
 
       addToGitignore(repoGitignorePath, Array.from(allSecretFiles))
-      console.log(chalk.green(`✅ Added ${allSecretFiles.size} secret file(s) to repository .gitignore\n`))
+      console.log(
+        chalk.green(
+          `✅ Added ${allSecretFiles.size} secret file(s) to repository .gitignore\n`,
+        ),
+      )
     }
 
     // Git operations (if applicable)
     let didCommit = false
     if (step3.isGitRepo && isGitRepository(repoPath)) {
-      console.log(chalk.gray('It is recommended that you manually review the diff before pushing\n'))
+      console.log(
+        chalk.gray(
+          'It is recommended that you manually review the diff before pushing\n',
+        ),
+      )
 
       const { commitNow } = await inquirer.prompt<{ commitNow: string }>([
         {

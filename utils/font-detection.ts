@@ -103,7 +103,15 @@ function parseFontName(filename: string): { family: string; style: string } {
  */
 async function scanFontDirectory(dirPath: string): Promise<FontInfo[]> {
   const fonts: FontInfo[] = []
-  const fontExtensions = ['.ttf', '.otf', '.woff', '.woff2', '.eot', '.dfont', '.ttc']
+  const fontExtensions = [
+    '.ttf',
+    '.otf',
+    '.woff',
+    '.woff2',
+    '.eot',
+    '.dfont',
+    '.ttc',
+  ]
 
   try {
     const entries = await fs.readdir(dirPath, { withFileTypes: true })

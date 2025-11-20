@@ -102,10 +102,7 @@ import {
   checkoutBranch,
   pullFromRemote,
 } from '../utils/git-operations'
-import {
-  buildBackupConfig,
-  convertOSType,
-} from '../utils/schema-builder'
+import { buildBackupConfig, convertOSType } from '../utils/schema-builder'
 import {
   checkRCFileSourcesSecret,
   addSecretSourceToRC,
@@ -789,7 +786,9 @@ async function promptMachineConfiguration(currentOS: OperatingSystem): Promise<
     distro = 'darwin'
   } else if (currentOS === 'linux') {
     // For Linux, ask for the distribution
-    const { selectedDistro } = await inquirer.prompt<{ selectedDistro: string }>([
+    const { selectedDistro } = await inquirer.prompt<{
+      selectedDistro: string
+    }>([
       {
         type: 'list',
         name: 'selectedDistro',
@@ -811,14 +810,16 @@ async function promptMachineConfiguration(currentOS: OperatingSystem): Promise<
   }
 
   // Ask for machine nickname
-  const { machineNickname } = await inquirer.prompt<{ machineNickname: string }>([
+  const { machineNickname } = await inquirer.prompt<{
+    machineNickname: string
+  }>([
     {
       type: 'input',
       name: 'machineNickname',
       message: 'Enter a nickname for this machine:',
       prefix: chalk.gray(
         `\nExamples: 'macbook-air', 'thinkpad', 'aws-linux', 'raspberry-pi'\n` +
-        `This will create a directory: ${currentOS.toLowerCase()}-${distro}-<nickname>\n`,
+          `This will create a directory: ${currentOS.toLowerCase()}-${distro}-<nickname>\n`,
       ),
       validate: (input) => {
         if (!input.trim()) return 'Nickname is required'
@@ -939,9 +940,7 @@ async function promptCloneLocation(
 
         if (allBranches.length === 0) {
           console.log(
-            chalk.yellow(
-              '⚠️  No branches found. Using current branch.\n',
-            ),
+            chalk.yellow('⚠️  No branches found. Using current branch.\n'),
           )
           return expandedLocation
         }
@@ -984,9 +983,7 @@ async function promptCloneLocation(
             continue
           }
 
-          console.log(
-            chalk.green(`✅ Checked out branch: ${selectedBranch}\n`),
-          )
+          console.log(chalk.green(`✅ Checked out branch: ${selectedBranch}\n`))
         }
 
         // Pull latest changes
@@ -1157,7 +1154,10 @@ async function promptFileSelection(
         name: 'addMore',
         message: 'Add more files manually?',
         choices: [
-          { name: 'No, continue with the currently selected files only', value: 'no' },
+          {
+            name: 'No, continue with the currently selected files only',
+            value: 'no',
+          },
           { name: 'Yes, add more files manually', value: 'yes' },
         ],
       },
@@ -1298,9 +1298,7 @@ async function promptSecretStorage(
 ): Promise<SetupConfig['secrets'] | typeof BACK_OPTION> {
   displayStepProgress(stepNumber, 9, 'Secret Management')
   console.log(
-    chalk.dim(
-      '\n  Secrets: environment variables, API keys, SSH keys, etc.\n',
-    ),
+    chalk.dim('\n  Secrets: environment variables, API keys, SSH keys, etc.\n'),
   )
 
   // State machine for navigation within secrets section
@@ -1372,7 +1370,8 @@ async function promptSecretStorage(
         {
           type: 'list',
           name: 'currentlyBackingUp',
-          message: 'Do you already use a local file and/or a cloud service for managing your secrets?',
+          message:
+            'Do you already use a local file and/or a cloud service for managing your secrets?',
           choices: backupChoices,
         },
       ])
@@ -1514,10 +1513,7 @@ async function promptSecretStorage(
     details.secretFileLocation = secretFileLocation
 
     // Check if the file exists using path utilities
-    const fullPath = path.join(
-      expandTilde(secretFileLocation),
-      secretFileName,
-    )
+    const fullPath = path.join(expandTilde(secretFileLocation), secretFileName)
     const fileExists = pathExists(fullPath)
 
     if (fileExists) {
@@ -1599,7 +1595,8 @@ async function promptSecretStorage(
           {
             type: 'list',
             name: 'convertFile',
-            message: 'Would you like to create a .env.sh file with proper exports?',
+            message:
+              'Would you like to create a .env.sh file with proper exports?',
             choices: [
               { name: 'Yes, create .env.sh with exports', value: 'yes' },
               { name: 'No, I will handle this manually', value: 'no' },
@@ -1630,8 +1627,7 @@ async function promptSecretStorage(
       }
 
       // Now configure the shell RC file
-      const finalSecretFile =
-        details.secretFileName || secretFileName
+      const finalSecretFile = details.secretFileName || secretFileName
       const finalSecretPath = path.join(secretFileLocation, finalSecretFile)
 
       console.log(
@@ -1665,9 +1661,7 @@ async function promptSecretStorage(
 
           if (addResult.success) {
             console.log(
-              chalk.green(
-                `\n✅ Added source command to .${shell}rc\n`,
-              ),
+              chalk.green(`\n✅ Added source command to .${shell}rc\n`),
             )
             console.log(
               chalk.gray(
@@ -1681,9 +1675,7 @@ async function promptSecretStorage(
               ),
             )
             console.log(
-              chalk.gray(
-                `   You can manually add this to your .${shell}rc:\n`,
-              ),
+              chalk.gray(`   You can manually add this to your .${shell}rc:\n`),
             )
             console.log(
               chalk.gray(
@@ -1842,19 +1834,25 @@ async function promptSystemDetection(
   console.log(
     chalk.gray(
       'This step will detect and track:\n' +
-      '  • Package managers and installed packages (Homebrew, apt, npm, etc.)\n' +
-      '  • Editor extensions (VS Code, Cursor, Windsurf, Vim, etc.)\n' +
-      '  • Runtime versions (Node.js, Python, Ruby, etc.)\n',
+        '  • Package managers and installed packages (Homebrew, apt, npm, etc.)\n' +
+        '  • Editor extensions (VS Code, Cursor, Windsurf, Vim, etc.)\n' +
+        '  • Runtime versions (Node.js, Python, Ruby, etc.)\n',
     ),
   )
 
-  const { enableDetection } = await inquirer.prompt<{ enableDetection: string }>([
+  const { enableDetection } = await inquirer.prompt<{
+    enableDetection: string
+  }>([
     {
       type: 'list',
       name: 'enableDetection',
-      message: 'Do you want to detect and track system packages and configurations?',
+      message:
+        'Do you want to detect and track system packages and configurations?',
       choices: [
-        { name: 'Yes, detect packages, extensions, and runtimes', value: 'yes' },
+        {
+          name: 'Yes, detect packages, extensions, and runtimes',
+          value: 'yes',
+        },
         { name: 'No, skip detection (only backup dotfiles)', value: 'no' },
         new inquirer.Separator(),
         { name: '← Go back', value: 'back' },
@@ -1866,13 +1864,17 @@ async function promptSystemDetection(
 
   if (enableDetection === 'no') {
     console.log(
-      chalk.yellow('\n⚠️  Skipping system detection. Only dotfiles will be tracked.\n'),
+      chalk.yellow(
+        '\n⚠️  Skipping system detection. Only dotfiles will be tracked.\n',
+      ),
     )
     return { packages: [], extensions: [], runtimes: [] }
   }
 
   console.log('')
-  console.log(chalk.cyan('🔍 Detecting system packages and configurations...\n'))
+  console.log(
+    chalk.cyan('🔍 Detecting system packages and configurations...\n'),
+  )
 
   const backupOsType: BackupOS = os === 'macOS' ? 'macos' : 'linux'
 
@@ -1881,7 +1883,9 @@ async function promptSystemDetection(
   const packageManagers: PackageManager[] = []
   try {
     const availableManagers = await detectPackageManagers(backupOsType)
-    console.log(chalk.green(`    ✓ Found ${availableManagers.length} package manager(s)`))
+    console.log(
+      chalk.green(`    ✓ Found ${availableManagers.length} package manager(s)`),
+    )
 
     // Ask which package managers to track
     if (availableManagers.length > 0) {
@@ -1906,9 +1910,13 @@ async function promptSystemDetection(
         try {
           const pm = await createPackageManager(manager as any)
           packageManagers.push(pm)
-          console.log(chalk.green(`      ✓ Found ${pm.packages.length} package(s)`))
+          console.log(
+            chalk.green(`      ✓ Found ${pm.packages.length} package(s)`),
+          )
         } catch (error) {
-          console.log(chalk.yellow(`      ⚠️  Could not get packages for ${manager}`))
+          console.log(
+            chalk.yellow(`      ⚠️  Could not get packages for ${manager}`),
+          )
         }
       }
     }
@@ -1945,11 +1953,19 @@ async function promptSystemDetection(
       for (const editor of selectedEditors) {
         console.log(chalk.gray(`    Getting extensions for ${editor}...`))
         try {
-          const ext = await createEditorExtensions(editor as any, backupOsType, machineId)
+          const ext = await createEditorExtensions(
+            editor as any,
+            backupOsType,
+            machineId,
+          )
           editorExtensions.push(ext)
-          console.log(chalk.green(`      ✓ Found ${ext.extensions.length} extension(s)`))
+          console.log(
+            chalk.green(`      ✓ Found ${ext.extensions.length} extension(s)`),
+          )
         } catch (error) {
-          console.log(chalk.yellow(`      ⚠️  Could not get extensions for ${editor}`))
+          console.log(
+            chalk.yellow(`      ⚠️  Could not get extensions for ${editor}`),
+          )
         }
       }
     }
@@ -1972,9 +1988,11 @@ async function promptSystemDetection(
 
     if (availableNodeManagers.length > 1) {
       // Determine default based on shell RC detection
-      const defaultManager = shellDetectedManager && availableNodeManagers.includes(shellDetectedManager)
-        ? shellDetectedManager
-        : availableNodeManagers[0]
+      const defaultManager =
+        shellDetectedManager &&
+        availableNodeManagers.includes(shellDetectedManager)
+          ? shellDetectedManager
+          : availableNodeManagers[0]
 
       console.log(
         chalk.yellow(
@@ -1982,7 +2000,10 @@ async function promptSystemDetection(
         ),
       )
 
-      if (shellDetectedManager && availableNodeManagers.includes(shellDetectedManager)) {
+      if (
+        shellDetectedManager &&
+        availableNodeManagers.includes(shellDetectedManager)
+      ) {
         console.log(
           chalk.gray(
             `    Shell config indicates: ${shellDetectedManager} (from .zshrc/.bashrc)`,
@@ -2004,7 +2025,11 @@ async function promptSystemDetection(
       ])
 
       selectedNodeManager = manager
-    } else if (availableNodeManagers.length === 1 && shellDetectedManager && availableNodeManagers[0] !== shellDetectedManager) {
+    } else if (
+      availableNodeManagers.length === 1 &&
+      shellDetectedManager &&
+      availableNodeManagers[0] !== shellDetectedManager
+    ) {
       // Only one manager installed, but shell config mentions a different one
       console.log(
         chalk.yellow(
@@ -2018,7 +2043,9 @@ async function promptSystemDetection(
     const detectedRuntimes = await detectAllRuntimes()
 
     // Replace Node runtime with user-selected manager if applicable
-    const nodeRuntimeIndex = detectedRuntimes.findIndex((r) => r.type === 'node')
+    const nodeRuntimeIndex = detectedRuntimes.findIndex(
+      (r) => r.type === 'node',
+    )
     if (nodeRuntimeIndex !== -1 && selectedNodeManager) {
       const nodeRuntime = await detectNodeVersions(selectedNodeManager)
       if (nodeRuntime) {
@@ -2026,7 +2053,9 @@ async function promptSystemDetection(
       }
     }
 
-    console.log(chalk.green(`    ✓ Found ${detectedRuntimes.length} runtime(s)`))
+    console.log(
+      chalk.green(`    ✓ Found ${detectedRuntimes.length} runtime(s)`),
+    )
 
     for (const runtime of detectedRuntimes) {
       console.log(
@@ -2044,9 +2073,9 @@ async function promptSystemDetection(
   console.log(
     chalk.green(
       `✓ Detection complete!\n` +
-      `  • ${packageManagers.length} package manager(s)\n` +
-      `  • ${editorExtensions.length} editor(s)\n` +
-      `  • ${runtimes.length} runtime(s)\n`,
+        `  • ${packageManagers.length} package manager(s)\n` +
+        `  • ${editorExtensions.length} editor(s)\n` +
+        `  • ${runtimes.length} runtime(s)\n`,
     ),
   )
 
@@ -2124,7 +2153,9 @@ async function promptAndExecuteBackup(
   }
 
   // Export GNOME settings (Linux only)
-  const currentSystem = backupConfig.systems.find(s => s.repoPath === machineId)
+  const currentSystem = backupConfig.systems.find(
+    (s) => s.repoPath === machineId,
+  )
   if (currentSystem?.os === 'linux') {
     const gnomeSettingsDir = path.join(repoPath, machineId, '.config', 'dconf')
     const dconfResult = await exportGnomeSettings(gnomeSettingsDir, {
@@ -2560,7 +2591,15 @@ export default async function backup() {
   }
 
   // State machine for navigation
-  type Step = 'os' | 'shell' | 'config' | 'secrets' | 'confirm' | 'files' | 'detect' | 'backup'
+  type Step =
+    | 'os'
+    | 'shell'
+    | 'config'
+    | 'secrets'
+    | 'confirm'
+    | 'files'
+    | 'detect'
+    | 'backup'
   let currentStep: Step = 'os'
   const stepOrder: Step[] = [
     'os',
@@ -2763,7 +2802,8 @@ export default async function backup() {
           os: config.os,
           nickname,
           distro,
-          repoType: config.configFiles.service === 'github' ? 'github' : 'other-git',
+          repoType:
+            config.configFiles.service === 'github' ? 'github' : 'other-git',
           repoName: config.configFiles.repoName || 'dotfiles',
           repoUrl: config.configFiles.gitRepoUrl || '',
           repoOwner: '', // TODO: extract from URL
@@ -2835,7 +2875,9 @@ export default async function backup() {
                     JSON.stringify(packageData, null, 2),
                     'utf-8',
                   )
-                  console.log(chalk.green(`  ✓ Exported ${pm.type} to ${pm.exportPath}`))
+                  console.log(
+                    chalk.green(`  ✓ Exported ${pm.type} to ${pm.exportPath}`),
+                  )
                 } catch (error) {
                   console.log(chalk.yellow(`  ⚠️  Could not export ${pm.type}`))
                 }
@@ -2844,7 +2886,10 @@ export default async function backup() {
           }
 
           // Export editor extensions
-          if (config.detectedExtensions && config.detectedExtensions.length > 0) {
+          if (
+            config.detectedExtensions &&
+            config.detectedExtensions.length > 0
+          ) {
             console.log(chalk.cyan('\n🔌 Exporting editor extensions...\n'))
             for (const editor of config.detectedExtensions) {
               if (editor.exportPath) {
@@ -2859,9 +2904,17 @@ export default async function backup() {
                 // Export extensions
                 try {
                   await exportExtensionsToFile(editor, exportFilePath)
-                  console.log(chalk.green(`  ✓ Exported ${editor.editor} extensions to ${editor.exportPath}`))
+                  console.log(
+                    chalk.green(
+                      `  ✓ Exported ${editor.editor} extensions to ${editor.exportPath}`,
+                    ),
+                  )
                 } catch (error) {
-                  console.log(chalk.yellow(`  ⚠️  Could not export ${editor.editor} extensions`))
+                  console.log(
+                    chalk.yellow(
+                      `  ⚠️  Could not export ${editor.editor} extensions`,
+                    ),
+                  )
                 }
               }
             }
@@ -2887,9 +2940,15 @@ export default async function backup() {
                 JSON.stringify(runtimesData, null, 2),
                 'utf-8',
               )
-              console.log(chalk.green(`  ✓ Exported runtime versions to .config/runtimes.json`))
+              console.log(
+                chalk.green(
+                  `  ✓ Exported runtime versions to .config/runtimes.json`,
+                ),
+              )
             } catch (error) {
-              console.log(chalk.yellow('  ⚠️  Could not export runtime versions'))
+              console.log(
+                chalk.yellow('  ⚠️  Could not export runtime versions'),
+              )
             }
           }
         }

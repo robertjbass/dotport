@@ -44,9 +44,7 @@ export type GitPushResult = {
  *   console.log('Repository has changes')
  * }
  */
-export async function getGitStatus(
-  repoPath: string,
-): Promise<GitStatusResult> {
+export async function getGitStatus(repoPath: string): Promise<GitStatusResult> {
   const absolutePath = expandTilde(repoPath)
 
   try {
