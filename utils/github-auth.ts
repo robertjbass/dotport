@@ -22,13 +22,6 @@ const CLIENT_ID = 'YOUR_GITHUB_OAUTH_CLIENT_ID' // TODO: Replace with actual cli
  * This redirects the user to GitHub in their browser to approve the app
  */
 export async function authenticateWithGitHub(): Promise<Octokit> {
-  console.log(chalk.cyan('\n🔐 GitHub Authentication Required\n'))
-  console.log(
-    chalk.gray(
-      'To perform operations on your GitHub repositories, we need to authenticate.\n',
-    ),
-  )
-
   // Check if we already have a valid token
   const existingAuth = loadAuthConfig()
   if (existingAuth) {
@@ -62,7 +55,7 @@ export async function authenticateWithGitHub(): Promise<Octokit> {
       }
 
       console.log(
-        chalk.green(`✅ Already authenticated as ${chalk.bold(user.login)}\n`),
+        chalk.green(`🔓 Authenticated as ${chalk.bold(user.login)}\n`),
       )
       return octokit
     } catch (error: any) {
@@ -91,7 +84,13 @@ export async function authenticateWithGitHub(): Promise<Octokit> {
     }
   }
 
-  // No existing token found, prompt for new one
+  // No existing token found - show authentication required message
+  console.log(chalk.cyan('\n🔐 GitHub Authentication Required\n'))
+  console.log(
+    chalk.gray(
+      'To perform operations on your GitHub repositories, we need to authenticate.\n',
+    ),
+  )
   console.log(
     chalk.yellow('📱 Starting GitHub device authentication flow...\n'),
   )
@@ -299,7 +298,7 @@ function getTokenExpirationInfo(token: string): string | undefined {
 /**
  * Load saved authentication config
  */
-function loadAuthConfig(): GitHubAuthConfig | null {
+export function loadAuthConfig(): GitHubAuthConfig | null {
   const authPath = expandTilde(`~/${GITHUB_AUTH_FILE}`)
 
   try {

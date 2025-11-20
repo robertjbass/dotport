@@ -30,6 +30,15 @@ This document tracks remaining tasks and future enhancements for the dev-machine
 
 ---
 
+## Code Cleanup
+
+### Legacy Backup Removal
+- [ ] Test new backup script thoroughly to confirm it works as expected
+- [ ] Remove `backup-legacy.ts` once confirmed new backup script is stable
+- [ ] Remove `backup-legacy` npm script from `package.json`
+- [ ] Audit and remove unused functions/files that were ONLY used in legacy backup
+- [ ] Update any documentation that references the old backup script
+
 ## High Priority
 
 ### Restore Functionality (Shared)

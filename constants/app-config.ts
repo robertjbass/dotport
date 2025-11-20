@@ -9,7 +9,7 @@ import { readFileSync } from 'fs'
 import { join } from 'path'
 
 // Application metadata
-export const APP_NAME = 'DotPort'
+export const APP_NAME = 'Dotport'
 
 // Read version from package.json
 let appVersion = '1.0.0'

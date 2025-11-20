@@ -59,7 +59,7 @@ export function displayStepProgress(
   const emptyLength = Math.max(0, progressBarLength - filledLength)
   const progressBar = '█'.repeat(filledLength) + '░'.repeat(emptyLength)
 
-  const boxWidth = 38
+  const boxWidth = 45
   console.log(chalk.cyan(`\n┌${'─'.repeat(boxWidth)}┐`))
 
   // Calculate spacing for step line, ensuring it's never negative

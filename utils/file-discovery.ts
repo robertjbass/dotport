@@ -43,6 +43,7 @@ const COMMON_FILES = {
     { path: '~/.p10k.zsh', name: '.p10k.zsh' },
     { path: '~/.shell_common', name: '.shell_common' },
     { path: '~/.profile', name: '.profile' },
+    { path: '~/.hushlogin', name: '.hushlogin' },
   ],
 
   // Secret files (should NOT be tracked in git)

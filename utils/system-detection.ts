@@ -10,6 +10,7 @@ import { execSync } from 'child_process'
 import ScriptSession from '../clients/script-session'
 import type { OperatingSystem, Shell } from '../types/backup-config'
 import type { RuntimeData } from '../types/user-system-config'
+import { detectDisplayServer, detectDesktopEnvironment } from './linux-detection'
 
 export type DetectedSystemInfo = {
   os: OperatingSystem
@@ -19,6 +20,8 @@ export type DetectedSystemInfo = {
   homeDirectory: string
   username: string
   runtimeData: RuntimeData
+  displayServer?: 'x11' | 'wayland' | 'unknown'
+  desktopEnvironment?: string
 }
 
 /**
@@ -154,6 +157,15 @@ export function detectAllSystemInfo(): DetectedSystemInfo {
   const username = ScriptSession.username || process.env.USER || 'user'
   const runtimeData = detectRuntimeData()
 
+  // Detect Linux-specific metadata
+  let displayServer: 'x11' | 'wayland' | 'unknown' | undefined
+  let desktopEnvironment: string | undefined
+
+  if (os === 'linux') {
+    displayServer = detectDisplayServer()
+    desktopEnvironment = detectDesktopEnvironment()
+  }
+
   return {
     os,
     distro,
@@ -162,6 +174,8 @@ export function detectAllSystemInfo(): DetectedSystemInfo {
     homeDirectory,
     username,
     runtimeData,
+    displayServer,
+    desktopEnvironment,
   }
 }
 

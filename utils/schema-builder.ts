@@ -94,6 +94,17 @@ export function buildBackupConfig(
     // Optional overrides
     shell?: 'bash' | 'zsh' | 'fish' | 'other'
     shellConfigFile?: string
+
+    // System info (synced from user-system.json)
+    homeDirectory?: string
+    localRepoPath?: string
+    runtimeData?: {
+      node: {
+        packageManager: string
+        versionManager: string
+        version: string
+      }
+    }
   },
   existingConfig?: BackupConfig,
 ): BackupConfig {
@@ -111,6 +122,9 @@ export function buildBackupConfig(
     trackedFiles,
     shell,
     shellConfigFile,
+    homeDirectory,
+    localRepoPath,
+    runtimeData,
   } = options
 
   // Convert OS type
@@ -139,6 +153,10 @@ export function buildBackupConfig(
     repoPath: machineId,
     shell: detectedShell,
     shellConfigFile: configFile,
+    // Add system paths and runtime info if available
+    ...(homeDirectory && { homeDirectory }),
+    ...(localRepoPath && { localRepoPath }),
+    ...(runtimeData && { runtimeData }),
     // Add Linux-specific metadata if available
     ...(linuxMetadata && {
       displayServer: linuxMetadata.displayServer,
