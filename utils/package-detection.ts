@@ -143,24 +143,35 @@ async function getMasPackages(): Promise<PackageInfo[]> {
 
 /**
  * Get APT packages (Debian/Ubuntu)
+ * Only returns manually installed packages (not dependencies or base system packages)
  */
 async function getAptPackages(): Promise<PackageInfo[]> {
   try {
-    const { stdout } = await execAsync(
-      "apt list --installed 2>/dev/null | grep -v '^Listing'",
-    )
-    return stdout
+    // Get list of manually installed packages only
+    const { stdout } = await execAsync('apt-mark showmanual')
+    const manualPackages = stdout
       .trim()
       .split('\n')
       .filter((line) => line.trim())
-      .map((line) => {
-        // Format: "package/distribution version arch [installed]"
-        const parts = line.split(' ')
-        const nameDistro = parts[0].split('/')
-        const name = nameDistro[0]
-        const version = parts[1]
-        return { name, version }
-      })
+
+    // Get version information for each manually installed package
+    const packages: PackageInfo[] = []
+    for (const pkgName of manualPackages) {
+      try {
+        const { stdout: versionInfo } = await execAsync(
+          `dpkg-query -W -f='\${Version}' ${pkgName} 2>/dev/null`
+        )
+        packages.push({
+          name: pkgName,
+          version: versionInfo.trim(),
+        })
+      } catch {
+        // If we can't get version info, still add the package without version
+        packages.push({ name: pkgName })
+      }
+    }
+
+    return packages
   } catch (error: any) {
     // Silently handle the error - package manager may not be installed
     return []
@@ -506,8 +517,8 @@ export function getPackageManagerCommands(type: PackageManagerType): {
       exportPath: 'mas-apps.txt',
     },
     apt: {
-      command: 'dpkg --get-selections > apt-packages.txt',
-      restoreCommand: 'sudo dpkg --set-selections < apt-packages.txt && sudo apt-get dselect-upgrade',
+      command: 'apt-mark showmanual > apt-packages.txt',
+      restoreCommand: 'xargs -a apt-packages.txt sudo apt-get install -y',
       exportPath: 'apt-packages.txt',
     },
     dnf: {
