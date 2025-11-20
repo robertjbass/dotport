@@ -7,13 +7,11 @@
 import { Octokit } from '@octokit/rest'
 import chalk from 'chalk'
 import fs from 'fs'
-import { getConfig, ensureDirectories } from './config'
-
-type GitHubAuthConfig = {
-  token: string
-  expiresAt?: string
-  username?: string
-}
+import path from 'path'
+import { GITHUB_AUTH_FILE } from '../constants/app-config'
+import { expandTilde } from './path-helpers'
+import { ensureDotPortDirectories } from './directory-manager'
+import type { GitHubAuthConfig } from '../types/user-system-config'
 
 // GitHub OAuth App credentials (you'll need to create a GitHub OAuth app)
 // For now, we'll use device flow which doesn't require a client secret
@@ -24,13 +22,6 @@ const CLIENT_ID = 'YOUR_GITHUB_OAUTH_CLIENT_ID' // TODO: Replace with actual cli
  * This redirects the user to GitHub in their browser to approve the app
  */
 export async function authenticateWithGitHub(): Promise<Octokit> {
-  console.log(chalk.cyan('\n🔐 GitHub Authentication Required\n'))
-  console.log(
-    chalk.gray(
-      'To perform operations on your GitHub repositories, we need to authenticate.\n',
-    ),
-  )
-
   // Check if we already have a valid token
   const existingAuth = loadAuthConfig()
   if (existingAuth) {
@@ -64,7 +55,7 @@ export async function authenticateWithGitHub(): Promise<Octokit> {
       }
 
       console.log(
-        chalk.green(`✅ Already authenticated as ${chalk.bold(user.login)}\n`),
+        chalk.green(`🔓 Authenticated as ${chalk.bold(user.login)}\n`),
       )
       return octokit
     } catch (error: any) {
@@ -93,7 +84,13 @@ export async function authenticateWithGitHub(): Promise<Octokit> {
     }
   }
 
-  // No existing token found, prompt for new one
+  // No existing token found - show authentication required message
+  console.log(chalk.cyan('\n🔐 GitHub Authentication Required\n'))
+  console.log(
+    chalk.gray(
+      'To perform operations on your GitHub repositories, we need to authenticate.\n',
+    ),
+  )
   console.log(
     chalk.yellow('📱 Starting GitHub device authentication flow...\n'),
   )
@@ -301,9 +298,8 @@ function getTokenExpirationInfo(token: string): string | undefined {
 /**
  * Load saved authentication config
  */
-function loadAuthConfig(): GitHubAuthConfig | null {
-  const config = getConfig()
-  const authPath = config.paths.githubAuth
+export function loadAuthConfig(): GitHubAuthConfig | null {
+  const authPath = expandTilde(`~/${GITHUB_AUTH_FILE}`)
 
   try {
     if (fs.existsSync(authPath)) {
@@ -319,15 +315,29 @@ function loadAuthConfig(): GitHubAuthConfig | null {
 /**
  * Save authentication config
  */
-function saveAuthConfig(authConfig: GitHubAuthConfig): void {
-  const config = getConfig()
-  const authPath = config.paths.githubAuth
+function saveAuthConfig(authConfig: Partial<GitHubAuthConfig>): void {
+  const authPath = expandTilde(`~/${GITHUB_AUTH_FILE}`)
 
   try {
     // Ensure directories exist
-    ensureDirectories()
+    ensureDotPortDirectories()
 
-    fs.writeFileSync(authPath, JSON.stringify(authConfig, null, 2), {
+    // Add createdAt timestamp if not present
+    const fullAuthConfig: GitHubAuthConfig = {
+      token: authConfig.token || '',
+      username: authConfig.username || '',
+      scopes: authConfig.scopes || [],
+      createdAt: authConfig.createdAt || new Date().toISOString(),
+      expiresAt: authConfig.expiresAt,
+    }
+
+    // Ensure parent directory exists
+    const authDir = path.dirname(authPath)
+    if (!fs.existsSync(authDir)) {
+      fs.mkdirSync(authDir, { recursive: true, mode: 0o755 })
+    }
+
+    fs.writeFileSync(authPath, JSON.stringify(fullAuthConfig, null, 2), {
       mode: 0o600, // Only owner can read/write
     })
 
@@ -347,8 +357,7 @@ function saveAuthConfig(authConfig: GitHubAuthConfig): void {
  * Clear saved authentication
  */
 export function clearAuthConfig(): void {
-  const config = getConfig()
-  const authPath = config.paths.githubAuth
+  const authPath = expandTilde(`~/${GITHUB_AUTH_FILE}`)
 
   try {
     if (fs.existsSync(authPath)) {

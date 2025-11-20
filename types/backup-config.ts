@@ -48,6 +48,17 @@ export type SystemMetadata = {
   shell: Shell
   shellConfigFile: string // e.g., '.zshrc', '.bashrc'
 
+  // System paths and runtime info (synced from user-system.json)
+  homeDirectory?: string
+  localRepoPath?: string
+  runtimeData?: {
+    node: {
+      packageManager: string
+      versionManager: string
+      version: string
+    }
+  }
+
   // Optional Linux-specific metadata
   displayServer?: 'x11' | 'wayland' | 'unknown'
   desktopEnvironment?: string // e.g., 'gnome', 'kde', 'i3', 'sway'
