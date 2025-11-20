@@ -2,8 +2,22 @@
   "name": "dotport",
   "version": "1.0.0",
   "description": "A lightweight tool that snapshots and restores your entire system configuration and dotfiles, making new-machine setup fast, consistent, and painless",
-  "main": "index.js",
+  "main": "scripts/index.ts",
   "type": "module",
+  "bin": {
+    "dotport": "./bin/dotport.js"
+  },
+  "files": [
+    "bin",
+    "scripts",
+    "utils",
+    "types",
+    "constants",
+    "config",
+    "clients",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
     "scripts": "pnpm script",
     "script": "tsx scripts/index.ts",
@@ -22,9 +36,32 @@
     "test:secret-scanner": "tsx --test tests/secret-scanner.test.ts",
     "test:dry-run": "tsx --test tests/dry-run.test.ts"
   },
-  "keywords": [],
+  "keywords": [
+    "dotfiles",
+    "backup",
+    "restore",
+    "configuration",
+    "cli",
+    "development",
+    "environment",
+    "devops",
+    "macos",
+    "linux",
+    "setup"
+  ],
   "author": "Bob Bass",
   "license": "ISC",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/robertjbass/dotport.git"
+  },
+  "bugs": {
+    "url": "https://github.com/robertjbass/dotport/issues"
+  },
+  "homepage": "https://github.com/robertjbass/dotport#readme",
+  "engines": {
+    "node": ">=18.0.0"
+  },
   "packageManager": "pnpm@10.20.0",
   "devDependencies": {
     "@eslint/js": "^9.39.1",
@@ -36,7 +73,6 @@
     "eslint": "^9.39.1",
     "globals": "^16.5.0",
     "prettier": "^3.6.2",
-    "tsx": "^4.20.6",
     "typescript": "^5.9.3"
   },
   "dependencies": {
@@ -48,6 +84,7 @@
     "cli-progress": "^3.12.0",
     "diff": "^8.0.2",
     "inquirer": "^12.11.0",
-    "simple-git": "^3.30.0"
+    "simple-git": "^3.30.0",
+    "tsx": "^4.20.6"
   }
 }
