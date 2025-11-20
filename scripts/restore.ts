@@ -10,7 +10,6 @@ import { detectPackageManager } from '../utils/detect-runtime'
 import { getPackagesForManager } from '../utils/package-detection'
 import { refreshFontCache } from '../utils/font-detection'
 
-
 // Type definitions
 import type {
   BackupConfig,
@@ -127,9 +126,7 @@ function findDotfilesRepo(): string | null {
 /**
  * Filter out already-installed packages and return summary statistics
  */
-async function filterInstalledPackages(
-  manager: PackageManager,
-): Promise<{
+async function filterInstalledPackages(manager: PackageManager): Promise<{
   packagesToInstall: typeof manager.packages
   totalBackedUp: number
   alreadyInstalled: number
@@ -157,15 +154,18 @@ async function filterInstalledPackages(
 /**
  * Load the backup configuration from the dotfiles repository
  */
-async function loadBackupData(): Promise<{ config: BackupConfig; repoPath: string } | null> {
+async function loadBackupData(): Promise<{
+  config: BackupConfig
+  repoPath: string
+} | null> {
   let repoPath = findDotfilesRepo()
 
   if (!repoPath) {
     displayWarning(
       'Dotfiles repository not found automatically',
       'Searched common locations:\n' +
-      '  ~/dotfiles, ~/.dotfiles, ~/dev/dotfiles\n' +
-      '  ~/Developer/dotfiles, ~/projects/dotfiles',
+        '  ~/dotfiles, ~/.dotfiles, ~/dev/dotfiles\n' +
+        '  ~/Developer/dotfiles, ~/projects/dotfiles',
     )
 
     const customPath = await promptInput(
@@ -192,7 +192,10 @@ async function loadBackupData(): Promise<{ config: BackupConfig; repoPath: strin
     )
 
     if (!customPath) {
-      displayError('No repository path provided', 'Cannot continue without a dotfiles repository.')
+      displayError(
+        'No repository path provided',
+        'Cannot continue without a dotfiles repository.',
+      )
       return null
     }
 
@@ -282,21 +285,39 @@ async function promptFileRestoreAction(
   const maxLineLength = Math.max(
     filename.length,
     11 + expectedPath.length, // "Expected: " + path
-    11 + backupPath.length,   // "Backup:  " + path
+    11 + backupPath.length, // "Backup:  " + path
     mode === 'test' ? 10 + testRoot.length : 0, // "Actual: " + path
   )
   const boxWidth = Math.max(minBoxWidth, maxLineLength + 2) // +2 for padding
 
   console.log(chalk.cyan(`\n┌${'─'.repeat(boxWidth)}┐`))
-  console.log(chalk.cyan(`│ ${chalk.bold(filename)}${' '.repeat(boxWidth - filename.length - 1)}│`))
+  console.log(
+    chalk.cyan(
+      `│ ${chalk.bold(filename)}${' '.repeat(boxWidth - filename.length - 1)}│`,
+    ),
+  )
   console.log(chalk.cyan(`├${'─'.repeat(boxWidth)}┤`))
-  console.log(chalk.cyan(`│ ${chalk.gray('Expected:')} ${expectedPath}${' '.repeat(boxWidth - 11 - expectedPath.length - 1)}│`))
-  console.log(chalk.cyan(`│ ${chalk.gray('Backup:')}  ${backupPath}${' '.repeat(boxWidth - 11 - backupPath.length - 1)}│`))
+  console.log(
+    chalk.cyan(
+      `│ ${chalk.gray('Expected:')} ${expectedPath}${' '.repeat(boxWidth - 11 - expectedPath.length - 1)}│`,
+    ),
+  )
+  console.log(
+    chalk.cyan(
+      `│ ${chalk.gray('Backup:')}  ${backupPath}${' '.repeat(boxWidth - 11 - backupPath.length - 1)}│`,
+    ),
+  )
 
   if (mode === 'test') {
     console.log(chalk.cyan(`├${'─'.repeat(boxWidth)}┤`))
-    console.log(chalk.yellow(`│ ${chalk.bold('TEST MODE')}${' '.repeat(boxWidth - 11)}│`))
-    console.log(chalk.yellow(`│ Actual: ${testRoot}${' '.repeat(boxWidth - 10 - testRoot.length - 1)}│`))
+    console.log(
+      chalk.yellow(`│ ${chalk.bold('TEST MODE')}${' '.repeat(boxWidth - 11)}│`),
+    )
+    console.log(
+      chalk.yellow(
+        `│ Actual: ${testRoot}${' '.repeat(boxWidth - 10 - testRoot.length - 1)}│`,
+      ),
+    )
   }
 
   console.log(chalk.cyan(`└${'─'.repeat(boxWidth)}┘\n`))
@@ -596,47 +617,54 @@ async function restorePackages(
 
   // Check if there are multiple Node.js package managers with global packages
   const nodePackageManagers = packageManagers.filter(
-    (m) => ['npm', 'pnpm', 'yarn'].includes(m.type) && m.enabled && m.packages.length > 0,
+    (m) =>
+      ['npm', 'pnpm', 'yarn'].includes(m.type) &&
+      m.enabled &&
+      m.packages.length > 0,
   )
 
   // If there are multiple Node.js package managers, ask user for preference
   if (nodePackageManagers.length > 1) {
     // Calculate total packages
-    const totalNodePackages = nodePackageManagers.reduce((sum, m) => sum + m.packages.length, 0)
+    const totalNodePackages = nodePackageManagers.reduce(
+      (sum, m) => sum + m.packages.length,
+      0,
+    )
 
     // Build summary of packages by manager
     const packageSummary = nodePackageManagers
-      .map((m) => `${m.packages.length} global ${m.type} package${m.packages.length !== 1 ? 's' : ''} backed up`)
+      .map(
+        (m) =>
+          `${m.packages.length} global ${m.type} package${m.packages.length !== 1 ? 's' : ''} backed up`,
+      )
       .join('\n')
 
-    displayInfo(
-      'Multiple Node.js Package Managers Detected',
-      packageSummary,
-    )
+    displayInfo('Multiple Node.js Package Managers Detected', packageSummary)
 
     // Determine if system default is one of the backed-up managers
-    const systemDefaultInList = nodePackageManagers.some((m) => m.type === systemDefaultPackageManager)
+    const systemDefaultInList = nodePackageManagers.some(
+      (m) => m.type === systemDefaultPackageManager,
+    )
     const defaultManagerText = systemDefaultInList
       ? ` (${systemDefaultPackageManager} - your system default)`
       : ''
 
-    const installChoice = await selectFromList<'default' | 'respective' | 'skip'>(
-      'How would you like to install global Node.js packages?',
-      [
-        {
-          name: `🔄 Install all ${totalNodePackages} packages with one package manager${defaultManagerText}`,
-          value: 'default',
-        },
-        {
-          name: `📦 Install each package manager's packages separately (${nodePackageManagers.map(m => m.packages.length).join(', ')})`,
-          value: 'respective',
-        },
-        {
-          name: '⏭️  Skip all Node.js packages',
-          value: 'skip',
-        },
-      ],
-    )
+    const installChoice = await selectFromList<
+      'default' | 'respective' | 'skip'
+    >('How would you like to install global Node.js packages?', [
+      {
+        name: `🔄 Install all ${totalNodePackages} packages with one package manager${defaultManagerText}`,
+        value: 'default',
+      },
+      {
+        name: `📦 Install each package manager's packages separately (${nodePackageManagers.map((m) => m.packages.length).join(', ')})`,
+        value: 'respective',
+      },
+      {
+        name: '⏭️  Skip all Node.js packages',
+        value: 'skip',
+      },
+    ])
 
     if (installChoice === BACK_OPTION || installChoice === 'skip') {
       // Skip all Node.js packages
@@ -655,7 +683,10 @@ async function restorePackages(
 
       // If system default is in the list, use it automatically
       if (systemDefaultInList) {
-        defaultPackageManagerChoice = systemDefaultPackageManager as 'npm' | 'pnpm' | 'yarn'
+        defaultPackageManagerChoice = systemDefaultPackageManager as
+          | 'npm'
+          | 'pnpm'
+          | 'yarn'
         displayInfo(
           `Using ${systemDefaultPackageManager} (system default)`,
           'Installing all global Node.js packages with your system default package manager',
@@ -687,8 +718,12 @@ async function restorePackages(
         )
 
         // Filter out already-installed packages
-        const installedPackages = await getPackagesForManager(defaultPackageManagerChoice)
-        const installedPackageNames = new Set(installedPackages.map((p) => p.name))
+        const installedPackages = await getPackagesForManager(
+          defaultPackageManagerChoice,
+        )
+        const installedPackageNames = new Set(
+          installedPackages.map((p) => p.name),
+        )
         const packagesToInstall = uniquePackages.filter(
           (pkg) => !installedPackageNames.has(pkg.name),
         )
@@ -731,7 +766,10 @@ async function restorePackages(
         if (config.mode === 'test') {
           displayInfo(
             `Test Mode - Not Installing ${defaultPackageManagerChoice} Packages`,
-            `Would install: ${packagesToInstall.slice(0, 5).map((p) => p.name).join(', ')}${packagesToInstall.length > 5 ? '...' : ''}`,
+            `Would install: ${packagesToInstall
+              .slice(0, 5)
+              .map((p) => p.name)
+              .join(', ')}${packagesToInstall.length > 5 ? '...' : ''}`,
           )
           displayInfo('Restore command', installCommand)
         } else {
@@ -740,7 +778,9 @@ async function restorePackages(
             'This may take several minutes...',
           )
           displayInfo('Would run', installCommand)
-          displaySuccess(`${defaultPackageManagerChoice} packages would be installed here`)
+          displaySuccess(
+            `${defaultPackageManagerChoice} packages would be installed here`,
+          )
         }
 
         // Mark all Node package managers as disabled so we don't prompt for them again
@@ -760,12 +800,8 @@ async function restorePackages(
     }
 
     // Filter out already-installed packages
-    const {
-      packagesToInstall,
-      totalBackedUp,
-      alreadyInstalled,
-      newToInstall,
-    } = await filterInstalledPackages(manager)
+    const { packagesToInstall, totalBackedUp, alreadyInstalled, newToInstall } =
+      await filterInstalledPackages(manager)
 
     // Show summary
     if (alreadyInstalled > 0) {
@@ -801,16 +837,20 @@ async function restorePackages(
       // Determine which packages to install (start with filtered list)
       let finalPackagesToInstall = packagesToInstall
       let installCommand = manager.restoreCommand
-      const isNodePackageManager = ['npm', 'pnpm', 'yarn'].includes(manager.type)
+      const isNodePackageManager = ['npm', 'pnpm', 'yarn'].includes(
+        manager.type,
+      )
 
       // If manual selection, prompt user to select packages
       if (installChoice === 'select') {
-        const { selectedPackages } = await inquirer.prompt<{ selectedPackages: string[] }>([
+        const { selectedPackages } = await inquirer.prompt<{
+          selectedPackages: string[]
+        }>([
           {
             type: 'checkbox',
             name: 'selectedPackages',
             message: `Select ${manager.type} packages to install:`,
-            choices: packagesToInstall.map(pkg => ({
+            choices: packagesToInstall.map((pkg) => ({
               name: pkg.version ? `${pkg.name} (${pkg.version})` : pkg.name,
               value: pkg.name,
               checked: false,
@@ -825,7 +865,9 @@ async function restorePackages(
         }
 
         // Filter to only selected packages
-        finalPackagesToInstall = packagesToInstall.filter(pkg => selectedPackages.includes(pkg.name))
+        finalPackagesToInstall = packagesToInstall.filter((pkg) =>
+          selectedPackages.includes(pkg.name),
+        )
 
         // Update install command for selected packages
         if (isNodePackageManager) {
@@ -836,13 +878,13 @@ async function restorePackages(
       if (config.mode === 'test') {
         displayInfo(
           `Test Mode - Not Installing ${manager.type} Packages`,
-          `Would install: ${finalPackagesToInstall.slice(0, 5).map((p) => p.name).join(', ')}${finalPackagesToInstall.length > 5 ? '...' : ''}`,
+          `Would install: ${finalPackagesToInstall
+            .slice(0, 5)
+            .map((p) => p.name)
+            .join(', ')}${finalPackagesToInstall.length > 5 ? '...' : ''}`,
         )
         if (installCommand) {
-          displayInfo(
-            'Restore command',
-            installCommand,
-          )
+          displayInfo('Restore command', installCommand)
         }
       } else {
         displayInfo(
@@ -942,7 +984,10 @@ async function restoreFonts(
   const enabledLocations = fontsConfig.locations.filter((loc) => loc.enabled)
 
   if (enabledLocations.length === 0) {
-    displayInfo('No fonts enabled', 'No font locations are enabled for restoration.')
+    displayInfo(
+      'No fonts enabled',
+      'No font locations are enabled for restoration.',
+    )
     return
   }
 
@@ -955,7 +1000,8 @@ async function restoreFonts(
       .slice(0, 5)
       .map((f) => f.name)
       .join(', ')
-    const remaining = location.fonts.length > 5 ? ` and ${location.fonts.length - 5} more` : ''
+    const remaining =
+      location.fonts.length > 5 ? ` and ${location.fonts.length - 5} more` : ''
 
     const shouldRestore = await confirmAction(
       `Restore ${location.fonts.length} fonts from ${location.type} location (${location.path})?`,
@@ -978,10 +1024,7 @@ async function restoreFonts(
             `Font restoration would copy files to ${testPath}`,
           )
         } catch (error: any) {
-          displayError(
-            'Test directory creation failed',
-            error.message,
-          )
+          displayError('Test directory creation failed', error.message)
         }
       } else {
         displayInfo(
@@ -995,7 +1038,8 @@ async function restoreFonts(
 
           // Get the source path in the repo
           const sourcePath = path.join(
-            config.data?.dotfiles[machineId]?.['tracked-files']?.cloneLocation || '~',
+            config.data?.dotfiles[machineId]?.['tracked-files']
+              ?.cloneLocation || '~',
             machineId,
             '.fonts',
             location.type,
@@ -1028,7 +1072,11 @@ async function restoreFonts(
               fs.copyFileSync(sourceFile, destFile)
               copiedCount++
             } catch (error: any) {
-              console.log(chalk.yellow(`  ⚠️  Could not restore ${font.name}: ${error.message}`))
+              console.log(
+                chalk.yellow(
+                  `  ⚠️  Could not restore ${font.name}: ${error.message}`,
+                ),
+              )
               errorCount++
             }
           }
@@ -1052,10 +1100,7 @@ async function restoreFonts(
             )
           }
         } catch (error: any) {
-          displayError(
-            'Font restoration error',
-            error.message,
-          )
+          displayError('Font restoration error', error.message)
         }
       }
     }
@@ -1085,24 +1130,33 @@ async function manageBackupsMenu(): Promise<void> {
     // Display summary
     console.log(chalk.gray(`Backup Directory: ${summary.backupDirectory}`))
     console.log(chalk.gray(`Total Backups: ${summary.totalBackups}`))
-    console.log(chalk.gray(`Total Size: ${(summary.totalSize / 1024).toFixed(2)} KB`))
+    console.log(
+      chalk.gray(`Total Size: ${(summary.totalSize / 1024).toFixed(2)} KB`),
+    )
     if (summary.oldestBackup) {
-      console.log(chalk.gray(`Oldest: ${new Date(summary.oldestBackup).toLocaleString()}`))
+      console.log(
+        chalk.gray(
+          `Oldest: ${new Date(summary.oldestBackup).toLocaleString()}`,
+        ),
+      )
     }
     if (summary.newestBackup) {
-      console.log(chalk.gray(`Newest: ${new Date(summary.newestBackup).toLocaleString()}`))
+      console.log(
+        chalk.gray(
+          `Newest: ${new Date(summary.newestBackup).toLocaleString()}`,
+        ),
+      )
     }
     console.log()
 
-    const action = await selectFromList<'list' | 'restore' | 'cleanup' | 'back'>(
-      'What would you like to do?',
-      [
-        { name: '📋 List all backups', value: 'list' },
-        { name: '♻️  Restore a backup', value: 'restore' },
-        { name: '🧹 Clean up old backups', value: 'cleanup' },
-        { name: '← Back to main menu', value: 'back' },
-      ],
-    )
+    const action = await selectFromList<
+      'list' | 'restore' | 'cleanup' | 'back'
+    >('What would you like to do?', [
+      { name: '📋 List all backups', value: 'list' },
+      { name: '♻️  Restore a backup', value: 'restore' },
+      { name: '🧹 Clean up old backups', value: 'cleanup' },
+      { name: '← Back to main menu', value: 'back' },
+    ])
 
     if (action === BACK_OPTION || action === 'back') {
       return
@@ -1115,7 +1169,9 @@ async function manageBackupsMenu(): Promise<void> {
 
       backups.forEach((backup, index) => {
         const date = new Date(backup.backedUpAt).toLocaleString()
-        const size = backup.originalSize ? `${(backup.originalSize / 1024).toFixed(2)} KB` : 'Unknown'
+        const size = backup.originalSize
+          ? `${(backup.originalSize / 1024).toFixed(2)} KB`
+          : 'Unknown'
         console.log(chalk.white(`${index + 1}. ${backup.filename}`))
         console.log(chalk.gray(`   Location: ${backup.location}`))
         console.log(chalk.gray(`   Backed up: ${date}`))
@@ -1195,7 +1251,10 @@ async function manageBackupsMenu(): Promise<void> {
             `Deleted backups older than ${days} days`,
           )
         } else {
-          displayInfo('No old backups to clean up', `All backups are newer than ${days} days`)
+          displayInfo(
+            'No old backups to clean up',
+            `All backups are newer than ${days} days`,
+          )
         }
       }
     }
@@ -1207,12 +1266,17 @@ async function manageBackupsMenu(): Promise<void> {
  * With the new flat structure, machine IDs follow the pattern: <os>-<distro>-<nickname>
  * This function will prompt the user to select which machine configuration to restore from
  */
-function getMachineIdKey(platform: 'darwin' | 'linux', config: BackupConfig): string {
+function getMachineIdKey(
+  platform: 'darwin' | 'linux',
+  config: BackupConfig,
+): string {
   const machineIds = Object.keys(config.dotfiles)
 
   // Filter keys that match the current platform
   const platformPrefix = platform === 'darwin' ? 'macos-' : 'linux-'
-  const matchingKeys = machineIds.filter((key) => key.startsWith(platformPrefix))
+  const matchingKeys = machineIds.filter((key) =>
+    key.startsWith(platformPrefix),
+  )
 
   if (matchingKeys.length === 0) {
     // No matching configurations found
@@ -1234,18 +1298,32 @@ function getMachineIdKey(platform: 'darwin' | 'linux', config: BackupConfig): st
  */
 async function showRestoreMenu(
   config: RestoreConfig,
-): Promise<'dotfiles' | 'packages' | 'runtimes' | 'fonts' | 'all' | 'backups' | 'exit'> {
+): Promise<
+  'dotfiles' | 'packages' | 'runtimes' | 'fonts' | 'all' | 'backups' | 'exit'
+> {
   if (!config.data) {
     return 'exit'
   }
 
   const machineId = getMachineIdKey(config.platform, config.data)
 
-  const choices: Array<{ name: string; value: 'dotfiles' | 'packages' | 'runtimes' | 'fonts' | 'all' | 'backups' | 'exit' }> = []
+  const choices: Array<{
+    name: string
+    value:
+      | 'dotfiles'
+      | 'packages'
+      | 'runtimes'
+      | 'fonts'
+      | 'all'
+      | 'backups'
+      | 'exit'
+  }> = []
 
   // Count available items
   const machineConfig = config.data.dotfiles[machineId]
-  const dotfilesCount = machineConfig?.['tracked-files']?.files?.filter((f) => f.tracked).length || 0
+  const dotfilesCount =
+    machineConfig?.['tracked-files']?.files?.filter((f) => f.tracked).length ||
+    0
 
   // Count packages
   const packagesCount = machineConfig?.packages?.packageManagers?.length || 0
@@ -1254,13 +1332,19 @@ async function showRestoreMenu(
   const runtimesCount = machineConfig?.runtimes?.runtimes?.length || 0
 
   // Count fonts
-  const fontsCount = machineConfig?.fonts?.locations?.reduce(
-    (total, loc) => total + (loc.enabled ? loc.fonts.length : 0),
-    0,
-  ) || 0
+  const fontsCount =
+    machineConfig?.fonts?.locations?.reduce(
+      (total, loc) => total + (loc.enabled ? loc.fonts.length : 0),
+      0,
+    ) || 0
 
   // Add "Restore Everything" first if there's anything to restore
-  if (dotfilesCount > 0 || packagesCount > 0 || runtimesCount > 0 || fontsCount > 0) {
+  if (
+    dotfilesCount > 0 ||
+    packagesCount > 0 ||
+    runtimesCount > 0 ||
+    fontsCount > 0
+  ) {
     choices.push({
       name: '🚀 Restore Everything',
       value: 'all',
@@ -1288,7 +1372,6 @@ async function showRestoreMenu(
     })
   }
 
-
   if (fontsCount > 0) {
     choices.push({
       name: `🔤 Restore Fonts (${fontsCount} font${fontsCount !== 1 ? 's' : ''})`,
@@ -1296,12 +1379,12 @@ async function showRestoreMenu(
     })
   }
 
-
   // Get backup summary to show count
   const backupSummary = getBackupSummary()
-  const backupLabel = backupSummary.totalBackups > 0
-    ? `🗄️  Manage Backups (${backupSummary.totalBackups} backup${backupSummary.totalBackups !== 1 ? 's' : ''})`
-    : '🗄️  Manage Backups'
+  const backupLabel =
+    backupSummary.totalBackups > 0
+      ? `🗄️  Manage Backups (${backupSummary.totalBackups} backup${backupSummary.totalBackups !== 1 ? 's' : ''})`
+      : '🗄️  Manage Backups'
 
   choices.push({
     name: backupLabel,
@@ -1401,14 +1484,16 @@ export default async function restore(): Promise<void> {
     }
 
     if (selection === 'dotfiles' || selection === 'all') {
-      const trackedFiles = backupConfig.dotfiles[machineId]?.['tracked-files']?.files
+      const trackedFiles =
+        backupConfig.dotfiles[machineId]?.['tracked-files']?.files
       if (trackedFiles && trackedFiles.length > 0) {
         await restoreDotfiles(trackedFiles, config)
       }
     }
 
     if (selection === 'packages' || selection === 'all') {
-      const packageManagers = backupConfig.dotfiles[machineId]?.packages?.packageManagers
+      const packageManagers =
+        backupConfig.dotfiles[machineId]?.packages?.packageManagers
       if (packageManagers && packageManagers.length > 0) {
         await restorePackages(packageManagers, config)
       }
