@@ -7,6 +7,7 @@ import path from 'path'
 import os from 'os'
 import ScriptSession from '../clients/script-session'
 import { detectPackageManager } from '../utils/detect-runtime'
+import { getPackagesForManager } from '../utils/package-detection'
 
 // Type definitions
 import type {
@@ -118,6 +119,36 @@ function findDotfilesRepo(): string | null {
   }
 
   return null
+}
+
+/**
+ * Filter out already-installed packages and return summary statistics
+ */
+async function filterInstalledPackages(
+  manager: PackageManager,
+): Promise<{
+  packagesToInstall: typeof manager.packages
+  totalBackedUp: number
+  alreadyInstalled: number
+  newToInstall: number
+}> {
+  const totalBackedUp = manager.packages.length
+
+  // Get currently installed packages
+  const installedPackages = await getPackagesForManager(manager.type)
+  const installedPackageNames = new Set(installedPackages.map((p) => p.name))
+
+  // Filter out already-installed packages
+  const packagesToInstall = manager.packages.filter(
+    (pkg) => !installedPackageNames.has(pkg.name),
+  )
+
+  return {
+    packagesToInstall,
+    totalBackedUp,
+    alreadyInstalled: totalBackedUp - packagesToInstall.length,
+    newToInstall: packagesToInstall.length,
+  }
 }
 
 /**
@@ -652,18 +683,52 @@ async function restorePackages(
           new Map(allNodePackages.map((p) => [p.name, p])).values(),
         )
 
-        const packageNames = uniquePackages.map((p) => p.name).join(' ')
+        // Filter out already-installed packages
+        const installedPackages = await getPackagesForManager(defaultPackageManagerChoice)
+        const installedPackageNames = new Set(installedPackages.map((p) => p.name))
+        const packagesToInstall = uniquePackages.filter(
+          (pkg) => !installedPackageNames.has(pkg.name),
+        )
+
+        const totalBackedUp = uniquePackages.length
+        const alreadyInstalled = totalBackedUp - packagesToInstall.length
+        const newToInstall = packagesToInstall.length
+
+        // Show summary
+        if (alreadyInstalled > 0) {
+          displayInfo(
+            `${defaultPackageManagerChoice} package summary`,
+            `${totalBackedUp} backed up, ${alreadyInstalled} already installed, ${newToInstall} new to install`,
+          )
+        }
+
+        // If all packages are already installed, skip
+        if (newToInstall === 0) {
+          displaySuccess(
+            `All Node.js packages already installed`,
+            'Skipping package installation',
+          )
+          // Mark all Node package managers as disabled
+          for (const manager of packageManagers) {
+            if (['npm', 'pnpm', 'yarn'].includes(manager.type)) {
+              manager.enabled = false
+            }
+          }
+          return
+        }
+
+        const packageNames = packagesToInstall.map((p) => p.name).join(' ')
         const installCommand = `${defaultPackageManagerChoice} add --global ${packageNames}`
 
         displayInfo(
           `Installing all global Node.js packages with ${defaultPackageManagerChoice}`,
-          `Total: ${uniquePackages.length} package(s)`,
+          `Total: ${newToInstall} package(s)`,
         )
 
         if (config.mode === 'test') {
           displayInfo(
             `Test Mode - Not Installing ${defaultPackageManagerChoice} Packages`,
-            `Would install: ${uniquePackages.slice(0, 5).map((p) => p.name).join(', ')}${uniquePackages.length > 5 ? '...' : ''}`,
+            `Would install: ${packagesToInstall.slice(0, 5).map((p) => p.name).join(', ')}${packagesToInstall.length > 5 ? '...' : ''}`,
           )
           displayInfo('Restore command', installCommand)
         } else {
@@ -691,8 +756,33 @@ async function restorePackages(
       continue
     }
 
+    // Filter out already-installed packages
+    const {
+      packagesToInstall,
+      totalBackedUp,
+      alreadyInstalled,
+      newToInstall,
+    } = await filterInstalledPackages(manager)
+
+    // Show summary
+    if (alreadyInstalled > 0) {
+      displayInfo(
+        `${manager.type} package summary`,
+        `${totalBackedUp} backed up, ${alreadyInstalled} already installed, ${newToInstall} new to install`,
+      )
+    }
+
+    // If all packages are already installed, skip this manager
+    if (newToInstall === 0) {
+      displaySuccess(
+        `All ${manager.type} packages already installed`,
+        'Skipping package installation',
+      )
+      continue
+    }
+
     const installChoice = await selectFromList<'yes' | 'no' | 'select'>(
-      `Restore ${manager.packages.length} ${manager.type} package(s)?`,
+      `Restore ${newToInstall} ${manager.type} package(s)?`,
       [
         { name: 'Yes', value: 'yes' },
         { name: 'No', value: 'no' },
@@ -705,8 +795,8 @@ async function restorePackages(
     }
 
     if (installChoice === 'yes' || installChoice === 'select') {
-      // Determine which packages to install
-      let packagesToInstall = manager.packages
+      // Determine which packages to install (start with filtered list)
+      let finalPackagesToInstall = packagesToInstall
       let installCommand = manager.restoreCommand
       const isNodePackageManager = ['npm', 'pnpm', 'yarn'].includes(manager.type)
 
@@ -732,7 +822,7 @@ async function restorePackages(
         }
 
         // Filter to only selected packages
-        packagesToInstall = packagesToInstall.filter(pkg => selectedPackages.includes(pkg.name))
+        finalPackagesToInstall = packagesToInstall.filter(pkg => selectedPackages.includes(pkg.name))
 
         // Update install command for selected packages
         if (isNodePackageManager) {
@@ -743,7 +833,7 @@ async function restorePackages(
       if (config.mode === 'test') {
         displayInfo(
           `Test Mode - Not Installing ${manager.type} Packages`,
-          `Would install: ${packagesToInstall.slice(0, 5).map((p) => p.name).join(', ')}${packagesToInstall.length > 5 ? '...' : ''}`,
+          `Would install: ${finalPackagesToInstall.slice(0, 5).map((p) => p.name).join(', ')}${finalPackagesToInstall.length > 5 ? '...' : ''}`,
         )
         if (installCommand) {
           displayInfo(
