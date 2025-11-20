@@ -404,6 +404,43 @@ export type MachineRuntimesConfig = {
 }
 
 /**
+ * Font location types
+ */
+export type FontLocationType = 'user' | 'system' | 'local'
+
+/**
+ * Font file information
+ */
+export type FontInfo = {
+  name: string // Font file name (e.g., 'Roboto-Regular.ttf')
+  family?: string // Font family name (e.g., 'Roboto')
+  style?: string // Font style (e.g., 'Regular', 'Bold', 'Italic')
+  format?: string // Font format (e.g., 'ttf', 'otf', 'woff', 'woff2')
+  path: string // Absolute path to font file
+  size?: number // File size in bytes
+  installedAt?: string // ISO 8601 timestamp
+}
+
+/**
+ * Font configuration by location
+ */
+export type FontLocation = {
+  type: FontLocationType
+  path: string // Directory path where fonts are stored
+  enabled: boolean // Whether to backup/restore fonts from this location
+  fonts: FontInfo[]
+}
+
+/**
+ * Fonts configuration for a machine
+ */
+export type MachineFontsConfig = {
+  enabled: boolean
+  locations: FontLocation[]
+  exportPath?: string // Path to exported font list (e.g., '.config/fonts.json')
+}
+
+/**
  * Complete configuration for a single machine
  * All machine-specific settings are grouped here
  */
@@ -417,6 +454,7 @@ export type MachineConfig = {
   services: MachineServicesConfig
   settings: MachineSettingsConfig
   runtimes: MachineRuntimesConfig
+  fonts: MachineFontsConfig
 }
 
 /**
@@ -514,6 +552,10 @@ export function createDefaultMachineConfig(): MachineConfig {
     runtimes: {
       enabled: false,
       runtimes: [],
+    },
+    fonts: {
+      enabled: false,
+      locations: [],
     },
   }
 }

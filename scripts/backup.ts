@@ -54,6 +54,12 @@ import {
   exportExtensionsToFile,
 } from '../utils/editor-detection'
 import { detectAllRuntimes } from '../utils/runtime-detection'
+import {
+  createFontsConfig,
+  exportFontsToFile,
+  getTotalFontCount,
+  backupFontsToRepo,
+} from '../utils/font-detection'
 import { exportSchemaToRepo, createSchemaReadme } from '../utils/schema-export'
 import { exportGnomeSettings } from '../utils/dconf-export'
 import { scanFile, isKnownSecretFile } from '../utils/secret-scanner'
@@ -391,7 +397,12 @@ export EXAMPLE_SECRET="your-secret-here"
 
     // Detect runtimes
     const detectedRuntimes = await detectAllRuntimes()
-    console.log(chalk.green(`✓ Detected ${detectedRuntimes.length} runtimes\n`))
+    console.log(chalk.green(`✓ Detected ${detectedRuntimes.length} runtimes`))
+
+    // Detect fonts
+    const detectedFontsConfig = await createFontsConfig(systemInfo.os, machineId)
+    const totalFonts = getTotalFontCount(detectedFontsConfig)
+    console.log(chalk.green(`✓ Detected ${totalFonts} fonts\n`))
 
     // File selection and confirmation loop
     let trackedFiles: TrackedFile[] = []
@@ -694,6 +705,55 @@ export EXAMPLE_SECRET="your-secret-here"
       }
     }
 
+    // Export font configuration
+    if (detectedFontsConfig && detectedFontsConfig.enabled) {
+      console.log(chalk.cyan('\n🔤 Exporting font configuration...\n'))
+      const baseDir = path.join(repoPath, machineId)
+
+      try {
+        await exportFontsToFile(detectedFontsConfig, baseDir)
+        if (detectedFontsConfig.exportPath) {
+          console.log(
+            chalk.green(
+              `  ✓ Exported font list to ${detectedFontsConfig.exportPath}`,
+            ),
+          )
+        }
+
+        // Backup font files
+        const enabledLocations = detectedFontsConfig.locations.filter(
+          (loc) => loc.enabled,
+        )
+        if (enabledLocations.length > 0) {
+          const fontBackupResult = await backupFontsToRepo(
+            detectedFontsConfig,
+            repoPath,
+            machineId,
+          )
+
+          if (fontBackupResult.success) {
+            console.log(
+              chalk.green(
+                `  ✓ Backed up ${fontBackupResult.count} font files\n`,
+              ),
+            )
+          } else {
+            console.log(
+              chalk.yellow(
+                `  ⚠️  Some fonts could not be backed up (${fontBackupResult.errors.length} errors)\n`,
+              ),
+            )
+          }
+        }
+      } catch (error: any) {
+        console.log(
+          chalk.yellow(
+            `  ⚠️  Could not export font configuration: ${error.message}\n`,
+          ),
+        )
+      }
+    }
+
     // Export GNOME settings (Linux only)
     if (
       systemInfo.os === 'linux' &&
@@ -779,6 +839,8 @@ export EXAMPLE_SECRET="your-secret-here"
           enabled: detectedRuntimes.length > 0,
           runtimes: detectedRuntimes,
         }
+
+        backupConfig.dotfiles[machineId].fonts = detectedFontsConfig
 
         // Add Linux-specific metadata if on Linux
         if (systemInfo.os === 'linux') {
