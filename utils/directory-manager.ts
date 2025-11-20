@@ -70,7 +70,10 @@ export function dotPortDirectoriesExist(): boolean {
  * Returns the path to the created directory
  */
 export function createTimestampedBackupDir(): string {
-  const timestamp = new Date().toISOString().replace(/:/g, '-').replace(/\..+/, '')
+  const timestamp = new Date()
+    .toISOString()
+    .replace(/:/g, '-')
+    .replace(/\..+/, '')
   const backupDir = expandTilde(`~/${GENERATED_BACKUPS_FOLDER}/${timestamp}`)
 
   if (!fs.existsSync(backupDir)) {
@@ -85,7 +88,10 @@ export function createTimestampedBackupDir(): string {
  * Returns the path to the created directory
  */
 export function createTimestampedDestructedDir(): string {
-  const timestamp = new Date().toISOString().replace(/:/g, '-').replace(/\..+/, '')
+  const timestamp = new Date()
+    .toISOString()
+    .replace(/:/g, '-')
+    .replace(/\..+/, '')
   const destructedDir = expandTilde(`~/${DESTRUCTED_FILES_FOLDER}/${timestamp}`)
 
   if (!fs.existsSync(destructedDir)) {

@@ -43,7 +43,15 @@ import {
 function findPotentialSecretFiles(): string[] {
   try {
     const homeDir = os.homedir()
-    const secretPatterns = ['env', 'secret', 'key', 'credential', 'token', 'password', 'auth']
+    const secretPatterns = [
+      'env',
+      'secret',
+      'key',
+      'credential',
+      'token',
+      'password',
+      'auth',
+    ]
 
     // Read all files in home directory (not recursive, just top level)
     // Include hidden files starting with '.'
@@ -73,7 +81,9 @@ function findPotentialSecretFiles(): string[] {
 
         // Check if filename contains any secret-related patterns
         const lowerFileName = file.toLowerCase()
-        const matchesPattern = secretPatterns.some(pattern => lowerFileName.includes(pattern))
+        const matchesPattern = secretPatterns.some((pattern) =>
+          lowerFileName.includes(pattern),
+        )
 
         if (matchesPattern) {
           potentialSecrets.push(`~/${file}`)
@@ -101,7 +111,9 @@ function findPotentialSecretFiles(): string[] {
 /**
  * Detect secret file format by analyzing file content
  */
-function detectSecretFileFormat(filePath: string): 'shell-export' | 'dotenv' | 'json' | null {
+function detectSecretFileFormat(
+  filePath: string,
+): 'shell-export' | 'dotenv' | 'json' | null {
   try {
     const expandedPath = expandTilde(filePath)
     if (!fs.existsSync(expandedPath)) {
@@ -109,7 +121,9 @@ function detectSecretFileFormat(filePath: string): 'shell-export' | 'dotenv' | '
     }
 
     const content = fs.readFileSync(expandedPath, 'utf-8')
-    const lines = content.split('\n').filter(line => line.trim() && !line.trim().startsWith('#'))
+    const lines = content
+      .split('\n')
+      .filter((line) => line.trim() && !line.trim().startsWith('#'))
 
     if (lines.length === 0) {
       return null
@@ -176,17 +190,39 @@ export async function promptStep1SystemDetection(): Promise<Step1Result> {
   // Loop to allow multiple updates
   let confirmed = ''
   while (confirmed !== 'yes') {
-    console.log(chalk.gray("\nWe've detected the following system information:\n"))
+    console.log(
+      chalk.gray("\nWe've detected the following system information:\n"),
+    )
 
     // Display detected info
-    console.log(chalk.white('  Operating System:   ') + chalk.cyan(getOSDisplayName(systemInfo.os)))
-    console.log(chalk.white('  Distribution:       ') + chalk.cyan(getDistroDisplayName(systemInfo.distro)))
-    console.log(chalk.white('  Shell:              ') + chalk.cyan(systemInfo.shell))
-    console.log(chalk.white('  Home Directory:     ') + chalk.cyan(systemInfo.homeDirectory))
+    console.log(
+      chalk.white('  Operating System:   ') +
+        chalk.cyan(getOSDisplayName(systemInfo.os)),
+    )
+    console.log(
+      chalk.white('  Distribution:       ') +
+        chalk.cyan(getDistroDisplayName(systemInfo.distro)),
+    )
+    console.log(
+      chalk.white('  Shell:              ') + chalk.cyan(systemInfo.shell),
+    )
+    console.log(
+      chalk.white('  Home Directory:     ') +
+        chalk.cyan(systemInfo.homeDirectory),
+    )
     console.log()
-    console.log(chalk.white('  Runtime:            ') + chalk.cyan(`node (v${systemInfo.runtimeData.node.version})`))
-    console.log(chalk.white('  Package Manager:    ') + chalk.cyan(systemInfo.runtimeData.node.packageManager))
-    console.log(chalk.white('  Version Manager:    ') + chalk.cyan(systemInfo.runtimeData.node.versionManager))
+    console.log(
+      chalk.white('  Runtime:            ') +
+        chalk.cyan(`node (v${systemInfo.runtimeData.node.version})`),
+    )
+    console.log(
+      chalk.white('  Package Manager:    ') +
+        chalk.cyan(systemInfo.runtimeData.node.packageManager),
+    )
+    console.log(
+      chalk.white('  Version Manager:    ') +
+        chalk.cyan(systemInfo.runtimeData.node.versionManager),
+    )
     console.log()
 
     // Confirm information is correct
@@ -250,7 +286,9 @@ export async function promptStep1SystemDetection(): Promise<Step1Result> {
     } else if (confirmed === 'runtime') {
       console.log(chalk.cyan('\nUpdate Runtime Information:\n'))
 
-      const { packageManager } = await inquirer.prompt<{ packageManager: string }>([
+      const { packageManager } = await inquirer.prompt<{
+        packageManager: string
+      }>([
         {
           type: 'list',
           name: 'packageManager',
@@ -260,7 +298,9 @@ export async function promptStep1SystemDetection(): Promise<Step1Result> {
         },
       ])
 
-      const { versionManager } = await inquirer.prompt<{ versionManager: string }>([
+      const { versionManager } = await inquirer.prompt<{
+        versionManager: string
+      }>([
         {
           type: 'list',
           name: 'versionManager',
@@ -302,12 +342,13 @@ export async function promptStep1SystemDetection(): Promise<Step1Result> {
     {
       type: 'input',
       name: 'nickname',
-      message: chalk.white('Enter a nickname for this machine:') +
-               chalk.gray(' (lowercase alphanumeric, dashes ok)'),
+      message:
+        chalk.white('Enter a nickname for this machine:') +
+        chalk.gray(' (lowercase alphanumeric, dashes ok)'),
       default: defaultNickname,
       prefix: chalk.gray(
         `\nExamples: 'macbook-air', 'thinkpad', 'aws-linux', 'raspberry-pi'\n` +
-        `This will create a directory: ${systemInfo.os}-${systemInfo.distro}-<nickname>\n`
+          `This will create a directory: ${systemInfo.os}-${systemInfo.distro}-<nickname>\n`,
       ),
       validate: (input) => {
         const normalized = normalizeNickname(input)
@@ -350,8 +391,8 @@ export async function promptStep2GitHubAuth(): Promise<Step2Result> {
   if (existingAuth) {
     console.log(
       chalk.green(
-        `\n✅ Found existing GitHub authentication for ${chalk.bold(existingAuth.username || 'user')}\n`
-      )
+        `\n✅ Found existing GitHub authentication for ${chalk.bold(existingAuth.username || 'user')}\n`,
+      ),
     )
 
     const { useExisting } = await inquirer.prompt<{ useExisting: string }>([
@@ -376,10 +417,23 @@ export async function promptStep2GitHubAuth(): Promise<Step2Result> {
 
   // No existing token found
   console.log(chalk.gray('\nDotport supports three backup modes:\n'))
-  console.log(chalk.white('  1. Local folder') + chalk.gray(' - Backup to a local directory'))
-  console.log(chalk.white('  2. Local git repo') + chalk.gray(' - Version control without remote sync'))
-  console.log(chalk.white('  3. GitHub repo') + chalk.gray(' - Remote backup with multi-machine sync\n'))
-  console.log(chalk.gray('GitHub authentication is optional and only needed for remote backup.\n'))
+  console.log(
+    chalk.white('  1. Local folder') +
+      chalk.gray(' - Backup to a local directory'),
+  )
+  console.log(
+    chalk.white('  2. Local git repo') +
+      chalk.gray(' - Version control without remote sync'),
+  )
+  console.log(
+    chalk.white('  3. GitHub repo') +
+      chalk.gray(' - Remote backup with multi-machine sync\n'),
+  )
+  console.log(
+    chalk.gray(
+      'GitHub authentication is optional and only needed for remote backup.\n',
+    ),
+  )
 
   const { authChoice } = await inquirer.prompt<{ authChoice: string }>([
     {
@@ -488,10 +542,14 @@ async function promptBranchSelection(repoPath: string): Promise<string> {
       ])
 
       console.log(
-        chalk.cyan(`\n🔄 Creating and checking out branch: ${newBranchName}...\n`),
+        chalk.cyan(
+          `\n🔄 Creating and checking out branch: ${newBranchName}...\n`,
+        ),
       )
 
-      const checkoutResult = await checkoutBranch(repoPath, newBranchName, { createIfMissing: true })
+      const checkoutResult = await checkoutBranch(repoPath, newBranchName, {
+        createIfMissing: true,
+      })
 
       if (!checkoutResult.success) {
         console.log(
@@ -500,7 +558,9 @@ async function promptBranchSelection(repoPath: string): Promise<string> {
         return currentBranch
       }
 
-      console.log(chalk.green(`✓ Created and checked out branch: ${newBranchName}\n`))
+      console.log(
+        chalk.green(`✓ Created and checked out branch: ${newBranchName}\n`),
+      )
       return newBranchName
     }
 
@@ -516,9 +576,7 @@ async function promptBranchSelection(repoPath: string): Promise<string> {
         console.log(
           chalk.red(`❌ Failed to checkout branch: ${checkoutResult.error}\n`),
         )
-        console.log(
-          chalk.yellow('Using current branch instead.\n'),
-        )
+        console.log(chalk.yellow('Using current branch instead.\n'))
         return currentBranch
       }
 
@@ -527,9 +585,7 @@ async function promptBranchSelection(repoPath: string): Promise<string> {
 
     return selectedBranch
   } catch (error: any) {
-    console.log(
-      chalk.yellow(`⚠️  Branch selection failed: ${error.message}\n`),
-    )
+    console.log(chalk.yellow(`⚠️  Branch selection failed: ${error.message}\n`))
     return 'main'
   }
 }
@@ -539,7 +595,7 @@ async function promptBranchSelection(repoPath: string): Promise<string> {
  * Determines repository scenario and handles setup
  */
 export async function promptStep3RepoSetup(
-  useGitHub: boolean
+  useGitHub: boolean,
 ): Promise<Step3Result> {
   displayStepProgress(3, 6, 'Repository Setup')
 
@@ -606,7 +662,9 @@ export async function promptStep3RepoSetup(
  * Handle new or different directory setup
  * Consolidates first-time and existing repo flows
  */
-async function promptNewOrDifferentDirectory(useGitHub: boolean): Promise<Step3Result> {
+async function promptNewOrDifferentDirectory(
+  useGitHub: boolean,
+): Promise<Step3Result> {
   // First, check if they have an existing repo somewhere
   const { hasExisting } = await inquirer.prompt<{ hasExisting: string }>([
     {
@@ -685,15 +743,17 @@ async function promptFirstTimeSetup(useGitHub: boolean): Promise<Step3Result> {
 /**
  * Handle existing repository setup
  */
-async function promptExistingRepoSetup(useGitHub: boolean): Promise<Step3Result> {
+async function promptExistingRepoSetup(
+  useGitHub: boolean,
+): Promise<Step3Result> {
   const { repoLocation } = await inquirer.prompt<{ repoLocation: string }>([
     {
       type: 'list',
       name: 'repoLocation',
       message: 'Where is your dotfiles repository?',
       choices: [
-        { name: 'On GitHub (I\'ll provide the repo name)', value: 'github' },
-        { name: 'Local directory (I\'ll provide the path)', value: 'local' },
+        { name: "On GitHub (I'll provide the repo name)", value: 'github' },
+        { name: "Local directory (I'll provide the path)", value: 'local' },
       ],
     },
   ])
@@ -768,15 +828,16 @@ export async function promptStep4SecretConfig(): Promise<Step4Result> {
 
   console.log(
     chalk.gray(
-      '\nEnvironment variables and secrets will NOT be committed to your dotfiles repository. Dotport will use this information to help automate the restore process, or help encrypt secrets if you choose to back them up.\n'
-    )
+      '\nEnvironment variables and secrets will NOT be committed to your dotfiles repository. Dotport will use this information to help automate the restore process, or help encrypt secrets if you choose to back them up.\n',
+    ),
   )
 
   const { secretChoice } = await inquirer.prompt<{ secretChoice: string }>([
     {
       type: 'list',
       name: 'secretChoice',
-      message: 'Do you have a file containing environment variables or secrets?',
+      message:
+        'Do you have a file containing environment variables or secrets?',
       choices: [
         { name: 'Yes, I have a secret file', value: 'existing' },
         { name: 'No, but I want to create one', value: 'create' },
@@ -788,8 +849,8 @@ export async function promptStep4SecretConfig(): Promise<Step4Result> {
   if (secretChoice === 'skip') {
     console.log(
       chalk.yellow(
-        '\n⚠️  No secret management configured. You can add this later by editing your user-system.json config file.\n'
-      )
+        '\n⚠️  No secret management configured. You can add this later by editing your user-system.json config file.\n',
+      ),
     )
     return { enabled: false }
   }
@@ -800,8 +861,12 @@ export async function promptStep4SecretConfig(): Promise<Step4Result> {
 
     // Debug logging
     if (potentialFiles.length > 0) {
-      console.log(chalk.gray(`\nFound ${potentialFiles.length} potential secret file(s):\n`))
-      potentialFiles.forEach(f => console.log(chalk.gray(`  • ${f}`)))
+      console.log(
+        chalk.gray(
+          `\nFound ${potentialFiles.length} potential secret file(s):\n`,
+        ),
+      )
+      potentialFiles.forEach((f) => console.log(chalk.gray(`  • ${f}`)))
       console.log()
     }
 
@@ -810,23 +875,27 @@ export async function promptStep4SecretConfig(): Promise<Step4Result> {
 
     if (potentialFiles.length > 0) {
       // Add detected files
-      potentialFiles.forEach(file => {
+      potentialFiles.forEach((file) => {
         fileChoices.push({ name: file, value: file })
       })
       fileChoices.push(new inquirer.Separator())
     }
 
     // Add create/manual options
-    fileChoices.push({ name: 'Create new ~/.env.sh file now', value: 'create-new' })
+    fileChoices.push({
+      name: 'Create new ~/.env.sh file now',
+      value: 'create-new',
+    })
     fileChoices.push({ name: 'Manually enter file path', value: 'manual' })
 
     const { fileChoice } = await inquirer.prompt<{ fileChoice: string }>([
       {
         type: 'list',
         name: 'fileChoice',
-        message: potentialFiles.length > 0
-          ? 'Select your secret file or choose an option:'
-          : 'No secret files detected. Choose an option:',
+        message:
+          potentialFiles.length > 0
+            ? 'Select your secret file or choose an option:'
+            : 'No secret files detected. Choose an option:',
         choices: fileChoices,
         pageSize: 12,
       },
@@ -856,30 +925,34 @@ export async function promptStep4SecretConfig(): Promise<Step4Result> {
     }
 
     // Try to detect format from file content (skip if we're creating new)
-    const detectedFormat = shouldCreateFile ? null : detectSecretFileFormat(filePath)
+    const detectedFormat = shouldCreateFile
+      ? null
+      : detectSecretFileFormat(filePath)
 
     // Build format choices with aligned pipes
     const formatLabels = ['Shell exports', '.env format', 'JSON format']
-    const maxLabelLength = Math.max(...formatLabels.map(l => l.length))
+    const maxLabelLength = Math.max(...formatLabels.map((l) => l.length))
 
     const formatChoices = [
       {
         name: `${'Shell exports'.padEnd(maxLabelLength)} | export MY_VAR="value"`,
-        value: 'shell-export'
+        value: 'shell-export',
       },
       {
         name: `${'.env format'.padEnd(maxLabelLength)} | MY_VAR=value`,
-        value: 'dotenv'
+        value: 'dotenv',
       },
       {
         name: `${'JSON format'.padEnd(maxLabelLength)} | { "MY_VAR": "value" }`,
-        value: 'json'
+        value: 'json',
       },
     ]
 
     // Sort choices to put detected format first
     if (detectedFormat) {
-      const detectedIndex = formatChoices.findIndex(c => c.value === detectedFormat)
+      const detectedIndex = formatChoices.findIndex(
+        (c) => c.value === detectedFormat,
+      )
       if (detectedIndex > 0) {
         const [detected] = formatChoices.splice(detectedIndex, 1)
         formatChoices.unshift(detected)

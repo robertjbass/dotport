@@ -66,7 +66,9 @@ export function logDestructedFile(entry: DestructedFileEntry): void {
 /**
  * Get all destructed files for a specific machine
  */
-export function getDestructedFilesForMachine(machineId: string): DestructedFileEntry[] {
+export function getDestructedFilesForMachine(
+  machineId: string,
+): DestructedFileEntry[] {
   const log = readDestructedFilesLog()
   return log.entries.filter((entry) => entry.machineId === machineId)
 }
@@ -75,7 +77,7 @@ export function getDestructedFilesForMachine(machineId: string): DestructedFileE
  * Get destructed files by reason
  */
 export function getDestructedFilesByReason(
-  reason: 'symlink' | 'overwrite' | 'manual'
+  reason: 'symlink' | 'overwrite' | 'manual',
 ): DestructedFileEntry[] {
   const log = readDestructedFilesLog()
   return log.entries.filter((entry) => entry.reason === reason)
@@ -86,20 +88,27 @@ export function getDestructedFilesByReason(
  */
 export function getRestoreableDestructedFiles(): DestructedFileEntry[] {
   const log = readDestructedFilesLog()
-  return log.entries.filter((entry) => entry.restoreable && fs.existsSync(entry.backupPath))
+  return log.entries.filter(
+    (entry) => entry.restoreable && fs.existsSync(entry.backupPath),
+  )
 }
 
 /**
  * Find a destructed file by original path
  */
-export function findDestructedFile(originalPath: string): DestructedFileEntry | null {
+export function findDestructedFile(
+  originalPath: string,
+): DestructedFileEntry | null {
   const log = readDestructedFilesLog()
   const normalizedPath = expandTilde(originalPath)
 
   // Find the most recent entry for this path
   const entries = log.entries
     .filter((entry) => expandTilde(entry.originalPath) === normalizedPath)
-    .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+    .sort(
+      (a, b) =>
+        new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime(),
+    )
 
   return entries.length > 0 ? entries[0] : null
 }
@@ -202,7 +211,8 @@ export function getDestructedFilesStats(): {
     stats.byReason[entry.reason] = (stats.byReason[entry.reason] || 0) + 1
 
     // Count by machine
-    stats.byMachine[entry.machineId] = (stats.byMachine[entry.machineId] || 0) + 1
+    stats.byMachine[entry.machineId] =
+      (stats.byMachine[entry.machineId] || 0) + 1
   }
 
   return stats

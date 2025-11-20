@@ -135,12 +135,11 @@ export function buildBackupConfig(
   const configFile = shellConfigFile || getShellConfigFile(detectedShell)
 
   // Detect Linux-specific metadata if on Linux
-  const linuxMetadata = backupOS === 'linux' ? getLinuxSystemMetadata() : undefined
+  const linuxMetadata =
+    backupOS === 'linux' ? getLinuxSystemMetadata() : undefined
 
   // Determine distro
-  const distro = providedDistro || (backupOS === 'linux'
-    ? 'unknown'
-    : 'darwin') // Always use 'darwin' for macOS
+  const distro = providedDistro || (backupOS === 'linux' ? 'unknown' : 'darwin') // Always use 'darwin' for macOS
 
   // Build machine ID using naming convention: <os>-<distro>-<nickname>
   const machineId = getMachineId(backupOS, distro, nickname)
@@ -178,7 +177,8 @@ export function buildBackupConfig(
     return mergeBackupConfig(existingConfig, {
       version: '1.0.0',
       metadata: {
-        createdAt: existingConfig.metadata?.createdAt || new Date().toISOString(),
+        createdAt:
+          existingConfig.metadata?.createdAt || new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       },
       repo: {
@@ -258,9 +258,9 @@ export function mergeBackupConfig(
 ): BackupConfig {
   // Merge systems array (deduplicate by repoPath)
   const existingSystemsMap = new Map(
-    existing.systems.map(s => [s.repoPath, s])
+    existing.systems.map((s) => [s.repoPath, s]),
   )
-  newConfig.systems.forEach(s => {
+  newConfig.systems.forEach((s) => {
     existingSystemsMap.set(s.repoPath, s) // Overwrites if same machine
   })
   const mergedSystems = Array.from(existingSystemsMap.values())

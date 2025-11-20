@@ -5,137 +5,511 @@
 
   "common": {
     "shell": [
-      { "path": "~/.bashrc", "name": ".bashrc", "description": "Bash shell configuration" },
-      { "path": "~/.bash_profile", "name": ".bash_profile", "description": "Bash profile (login shell)" },
-      { "path": "~/.zshrc", "name": ".zshrc", "description": "Zsh shell configuration" },
-      { "path": "~/.zprofile", "name": ".zprofile", "description": "Zsh profile (login shell)" },
-      { "path": "~/.zshenv", "name": ".zshenv", "description": "Zsh environment variables" },
-      { "path": "~/.shell_common", "name": ".shell_common", "description": "Shared shell configuration" },
-      { "path": "~/.profile", "name": ".profile", "description": "POSIX shell profile" },
-      { "path": "~/.config/fish/config.fish", "name": "Fish shell config", "description": "Fish shell configuration" }
+      {
+        "path": "~/.bashrc",
+        "name": ".bashrc",
+        "description": "Bash shell configuration"
+      },
+      {
+        "path": "~/.bash_profile",
+        "name": ".bash_profile",
+        "description": "Bash profile (login shell)"
+      },
+      {
+        "path": "~/.zshrc",
+        "name": ".zshrc",
+        "description": "Zsh shell configuration"
+      },
+      {
+        "path": "~/.zprofile",
+        "name": ".zprofile",
+        "description": "Zsh profile (login shell)"
+      },
+      {
+        "path": "~/.zshenv",
+        "name": ".zshenv",
+        "description": "Zsh environment variables"
+      },
+      {
+        "path": "~/.shell_common",
+        "name": ".shell_common",
+        "description": "Shared shell configuration"
+      },
+      {
+        "path": "~/.profile",
+        "name": ".profile",
+        "description": "POSIX shell profile"
+      },
+      {
+        "path": "~/.config/fish/config.fish",
+        "name": "Fish shell config",
+        "description": "Fish shell configuration"
+      }
     ],
 
     "secrets": [
-      { "path": "~/.env", "name": ".env (secrets)", "description": "Environment variables (secrets)", "autoExclude": true },
-      { "path": "~/.env.sh", "name": ".env.sh (secrets)", "description": "Shell-exported secrets", "autoExclude": true },
-      { "path": "~/.secrets", "name": ".secrets", "description": "Generic secrets file", "autoExclude": true },
-      { "path": "~/.zshsecrets", "name": ".zshsecrets", "description": "Zsh secrets", "autoExclude": true },
-      { "path": "~/.bashsecrets", "name": ".bashsecrets", "description": "Bash secrets", "autoExclude": true },
-      { "path": "~/.npmrc", "name": ".npmrc (may contain auth tokens)", "description": "NPM configuration", "warnSecrets": true },
-      { "path": "~/.pypirc", "name": ".pypirc (may contain PyPI credentials)", "description": "PyPI configuration", "warnSecrets": true },
-      { "path": "~/.docker/config.json", "name": "Docker config (may contain registry auth)", "description": "Docker configuration", "warnSecrets": true },
-      { "path": "~/.aws/credentials", "name": "AWS credentials", "description": "AWS access keys", "autoExclude": true }
+      {
+        "path": "~/.env",
+        "name": ".env (secrets)",
+        "description": "Environment variables (secrets)",
+        "autoExclude": true
+      },
+      {
+        "path": "~/.env.sh",
+        "name": ".env.sh (secrets)",
+        "description": "Shell-exported secrets",
+        "autoExclude": true
+      },
+      {
+        "path": "~/.secrets",
+        "name": ".secrets",
+        "description": "Generic secrets file",
+        "autoExclude": true
+      },
+      {
+        "path": "~/.zshsecrets",
+        "name": ".zshsecrets",
+        "description": "Zsh secrets",
+        "autoExclude": true
+      },
+      {
+        "path": "~/.bashsecrets",
+        "name": ".bashsecrets",
+        "description": "Bash secrets",
+        "autoExclude": true
+      },
+      {
+        "path": "~/.npmrc",
+        "name": ".npmrc (may contain auth tokens)",
+        "description": "NPM configuration",
+        "warnSecrets": true
+      },
+      {
+        "path": "~/.pypirc",
+        "name": ".pypirc (may contain PyPI credentials)",
+        "description": "PyPI configuration",
+        "warnSecrets": true
+      },
+      {
+        "path": "~/.docker/config.json",
+        "name": "Docker config (may contain registry auth)",
+        "description": "Docker configuration",
+        "warnSecrets": true
+      },
+      {
+        "path": "~/.aws/credentials",
+        "name": "AWS credentials",
+        "description": "AWS access keys",
+        "autoExclude": true
+      }
     ],
 
     "git": [
-      { "path": "~/.gitconfig", "name": ".gitconfig", "description": "Git configuration" },
-      { "path": "~/.gitignore_global", "name": ".gitignore_global", "description": "Global Git ignore patterns" },
-      { "path": "~/.config/git/config", "name": "Git config (XDG)", "description": "Git configuration (XDG Base Directory)" },
-      { "path": "~/.config/git/ignore", "name": "Git global ignore (XDG)", "description": "Global Git ignore (XDG)" },
-      { "path": "~/.gitmessage", "name": "Git commit message template", "description": "Default commit message template" }
+      {
+        "path": "~/.gitconfig",
+        "name": ".gitconfig",
+        "description": "Git configuration"
+      },
+      {
+        "path": "~/.gitignore_global",
+        "name": ".gitignore_global",
+        "description": "Global Git ignore patterns"
+      },
+      {
+        "path": "~/.config/git/config",
+        "name": "Git config (XDG)",
+        "description": "Git configuration (XDG Base Directory)"
+      },
+      {
+        "path": "~/.config/git/ignore",
+        "name": "Git global ignore (XDG)",
+        "description": "Global Git ignore (XDG)"
+      },
+      {
+        "path": "~/.gitmessage",
+        "name": "Git commit message template",
+        "description": "Default commit message template"
+      }
     ],
 
     "devtools": [
-      { "path": "~/.yarnrc", "name": "Yarn config", "description": "Yarn package manager configuration" },
-      { "path": "~/.yarnrc.yml", "name": "Yarn 2+ config", "description": "Yarn 2+ configuration" },
-      { "path": "~/.config/pnpm/rc", "name": "pnpm config", "description": "pnpm package manager configuration" },
-      { "path": "~/.pythonrc", "name": "Python startup script", "description": "Python REPL startup" },
-      { "path": "~/.config/pip/pip.conf", "name": "pip config", "description": "Python pip configuration" },
-      { "path": "~/.gemrc", "name": "RubyGems config", "description": "RubyGems configuration" },
-      { "path": "~/.irbrc", "name": "IRB config", "description": "Interactive Ruby configuration" },
-      { "path": "~/.kube/config", "name": "Kubernetes config", "description": "Kubernetes cluster configuration", "warnSecrets": true },
-      { "path": "~/.aws/config", "name": "AWS config", "description": "AWS CLI configuration" },
-      { "path": "~/.terraformrc", "name": "Terraform config", "description": "Terraform CLI configuration" },
-      { "path": "~/.terraform.d", "name": "Terraform plugins/config", "description": "Terraform plugins directory" },
-      { "path": "~/.tmux.conf", "name": "tmux config", "description": "Terminal multiplexer configuration" },
-      { "path": "~/.config/tmux", "name": "tmux config directory", "description": "tmux configuration directory" },
-      { "path": "~/.wgetrc", "name": "wget config", "description": "wget download tool configuration" },
-      { "path": "~/.curlrc", "name": "curl config", "description": "curl HTTP client configuration" }
+      {
+        "path": "~/.yarnrc",
+        "name": "Yarn config",
+        "description": "Yarn package manager configuration"
+      },
+      {
+        "path": "~/.yarnrc.yml",
+        "name": "Yarn 2+ config",
+        "description": "Yarn 2+ configuration"
+      },
+      {
+        "path": "~/.config/pnpm/rc",
+        "name": "pnpm config",
+        "description": "pnpm package manager configuration"
+      },
+      {
+        "path": "~/.pythonrc",
+        "name": "Python startup script",
+        "description": "Python REPL startup"
+      },
+      {
+        "path": "~/.config/pip/pip.conf",
+        "name": "pip config",
+        "description": "Python pip configuration"
+      },
+      {
+        "path": "~/.gemrc",
+        "name": "RubyGems config",
+        "description": "RubyGems configuration"
+      },
+      {
+        "path": "~/.irbrc",
+        "name": "IRB config",
+        "description": "Interactive Ruby configuration"
+      },
+      {
+        "path": "~/.kube/config",
+        "name": "Kubernetes config",
+        "description": "Kubernetes cluster configuration",
+        "warnSecrets": true
+      },
+      {
+        "path": "~/.aws/config",
+        "name": "AWS config",
+        "description": "AWS CLI configuration"
+      },
+      {
+        "path": "~/.terraformrc",
+        "name": "Terraform config",
+        "description": "Terraform CLI configuration"
+      },
+      {
+        "path": "~/.terraform.d",
+        "name": "Terraform plugins/config",
+        "description": "Terraform plugins directory"
+      },
+      {
+        "path": "~/.tmux.conf",
+        "name": "tmux config",
+        "description": "Terminal multiplexer configuration"
+      },
+      {
+        "path": "~/.config/tmux",
+        "name": "tmux config directory",
+        "description": "tmux configuration directory"
+      },
+      {
+        "path": "~/.wgetrc",
+        "name": "wget config",
+        "description": "wget download tool configuration"
+      },
+      {
+        "path": "~/.curlrc",
+        "name": "curl config",
+        "description": "curl HTTP client configuration"
+      }
     ],
 
     "ssh": [
-      { "path": "~/.ssh/config", "name": "SSH config", "description": "SSH client configuration" }
+      {
+        "path": "~/.ssh/config",
+        "name": "SSH config",
+        "description": "SSH client configuration"
+      }
     ],
 
     "editor": [
-      { "path": "~/.vimrc", "name": ".vimrc", "description": "Vim editor configuration" },
-      { "path": "~/.config/nvim", "name": "Neovim config", "description": "Neovim configuration directory" },
-      { "path": "~/.config/Code/User/settings.json", "name": "VS Code settings", "description": "VS Code editor settings (Linux)" },
-      { "path": "~/.config/Code/User/keybindings.json", "name": "VS Code keybindings", "description": "VS Code keyboard shortcuts (Linux)" },
-      { "path": "~/.config/Code/User/snippets", "name": "VS Code snippets", "description": "VS Code code snippets (Linux)" },
-      { "path": "~/.config/Code/User/profiles", "name": "VS Code profiles", "description": "VS Code user profiles (Linux)" },
-      { "path": "~/.config/Cursor/User/settings.json", "name": "Cursor settings", "description": "Cursor AI editor settings (Linux)" },
-      { "path": "~/.config/Cursor/User/keybindings.json", "name": "Cursor keybindings", "description": "Cursor keyboard shortcuts (Linux)" },
-      { "path": "~/.config/Cursor/User/snippets", "name": "Cursor snippets", "description": "Cursor code snippets (Linux)" },
-      { "path": "~/.config/Windsurf/User/settings.json", "name": "Windsurf settings", "description": "Windsurf Codeium editor settings (Linux)" },
-      { "path": "~/.config/Windsurf/User/keybindings.json", "name": "Windsurf keybindings", "description": "Windsurf keyboard shortcuts (Linux)" },
-      { "path": "~/.config/Windsurf/User/snippets", "name": "Windsurf snippets", "description": "Windsurf code snippets (Linux)" },
-      { "path": "~/.config/JetBrains", "name": "JetBrains IDEs config", "description": "JetBrains IDE configuration directory" },
-      { "path": "~/.config/sublime-text", "name": "Sublime Text config", "description": "Sublime Text configuration (Linux)" },
-      { "path": "~/.emacs", "name": ".emacs", "description": "GNU Emacs configuration" },
-      { "path": "~/.emacs.d", "name": "Emacs config directory", "description": "Emacs configuration directory" },
-      { "path": "~/.config/zed", "name": "Zed editor config", "description": "Zed code editor configuration" }
+      {
+        "path": "~/.vimrc",
+        "name": ".vimrc",
+        "description": "Vim editor configuration"
+      },
+      {
+        "path": "~/.config/nvim",
+        "name": "Neovim config",
+        "description": "Neovim configuration directory"
+      },
+      {
+        "path": "~/.config/Code/User/settings.json",
+        "name": "VS Code settings",
+        "description": "VS Code editor settings (Linux)"
+      },
+      {
+        "path": "~/.config/Code/User/keybindings.json",
+        "name": "VS Code keybindings",
+        "description": "VS Code keyboard shortcuts (Linux)"
+      },
+      {
+        "path": "~/.config/Code/User/snippets",
+        "name": "VS Code snippets",
+        "description": "VS Code code snippets (Linux)"
+      },
+      {
+        "path": "~/.config/Code/User/profiles",
+        "name": "VS Code profiles",
+        "description": "VS Code user profiles (Linux)"
+      },
+      {
+        "path": "~/.config/Cursor/User/settings.json",
+        "name": "Cursor settings",
+        "description": "Cursor AI editor settings (Linux)"
+      },
+      {
+        "path": "~/.config/Cursor/User/keybindings.json",
+        "name": "Cursor keybindings",
+        "description": "Cursor keyboard shortcuts (Linux)"
+      },
+      {
+        "path": "~/.config/Cursor/User/snippets",
+        "name": "Cursor snippets",
+        "description": "Cursor code snippets (Linux)"
+      },
+      {
+        "path": "~/.config/Windsurf/User/settings.json",
+        "name": "Windsurf settings",
+        "description": "Windsurf Codeium editor settings (Linux)"
+      },
+      {
+        "path": "~/.config/Windsurf/User/keybindings.json",
+        "name": "Windsurf keybindings",
+        "description": "Windsurf keyboard shortcuts (Linux)"
+      },
+      {
+        "path": "~/.config/Windsurf/User/snippets",
+        "name": "Windsurf snippets",
+        "description": "Windsurf code snippets (Linux)"
+      },
+      {
+        "path": "~/.config/JetBrains",
+        "name": "JetBrains IDEs config",
+        "description": "JetBrains IDE configuration directory"
+      },
+      {
+        "path": "~/.config/sublime-text",
+        "name": "Sublime Text config",
+        "description": "Sublime Text configuration (Linux)"
+      },
+      {
+        "path": "~/.emacs",
+        "name": ".emacs",
+        "description": "GNU Emacs configuration"
+      },
+      {
+        "path": "~/.emacs.d",
+        "name": "Emacs config directory",
+        "description": "Emacs configuration directory"
+      },
+      {
+        "path": "~/.config/zed",
+        "name": "Zed editor config",
+        "description": "Zed code editor configuration"
+      }
     ],
 
     "terminal": [
-      { "path": "~/.config/ghostty", "name": "Ghostty config", "description": "Ghostty terminal emulator configuration" },
-      { "path": "~/.config/alacritty", "name": "Alacritty config", "description": "Alacritty GPU-accelerated terminal configuration" },
-      { "path": "~/.config/kitty", "name": "Kitty config", "description": "Kitty terminal emulator configuration" },
-      { "path": "~/.config/wezterm", "name": "WezTerm config", "description": "WezTerm terminal configuration" },
-      { "path": "~/.hyper.js", "name": "Hyper config", "description": "Hyper electron-based terminal configuration" }
+      {
+        "path": "~/.config/ghostty",
+        "name": "Ghostty config",
+        "description": "Ghostty terminal emulator configuration"
+      },
+      {
+        "path": "~/.config/alacritty",
+        "name": "Alacritty config",
+        "description": "Alacritty GPU-accelerated terminal configuration"
+      },
+      {
+        "path": "~/.config/kitty",
+        "name": "Kitty config",
+        "description": "Kitty terminal emulator configuration"
+      },
+      {
+        "path": "~/.config/wezterm",
+        "name": "WezTerm config",
+        "description": "WezTerm terminal configuration"
+      },
+      {
+        "path": "~/.hyper.js",
+        "name": "Hyper config",
+        "description": "Hyper electron-based terminal configuration"
+      }
     ]
   },
 
   "macos": {
     "appConfig": [
-      { "path": "~/.hammerspoon", "name": "Hammerspoon config", "description": "macOS automation tool configuration" },
-      { "path": "~/.config/karabiner", "name": "Karabiner-Elements config", "description": "macOS keyboard customizer configuration" },
-      { "path": "~/.config/raycast", "name": "Raycast config", "description": "Raycast productivity launcher configuration" },
-      { "path": "~/.finicky.js", "name": "Finicky config", "description": "macOS browser picker configuration" },
-      { "path": "~/.skhdrc", "name": "SKHD config", "description": "Simple hotkey daemon for macOS" },
-      { "path": "~/.yabairc", "name": "Yabai config", "description": "Yabai tiling window manager for macOS" }
+      {
+        "path": "~/.hammerspoon",
+        "name": "Hammerspoon config",
+        "description": "macOS automation tool configuration"
+      },
+      {
+        "path": "~/.config/karabiner",
+        "name": "Karabiner-Elements config",
+        "description": "macOS keyboard customizer configuration"
+      },
+      {
+        "path": "~/.config/raycast",
+        "name": "Raycast config",
+        "description": "Raycast productivity launcher configuration"
+      },
+      {
+        "path": "~/.finicky.js",
+        "name": "Finicky config",
+        "description": "macOS browser picker configuration"
+      },
+      {
+        "path": "~/.skhdrc",
+        "name": "SKHD config",
+        "description": "Simple hotkey daemon for macOS"
+      },
+      {
+        "path": "~/.yabairc",
+        "name": "Yabai config",
+        "description": "Yabai tiling window manager for macOS"
+      }
     ],
 
     "homebrew": [
-      { "path": "~/Brewfile", "name": "Homebrew Bundle", "description": "Homebrew package list" },
-      { "path": "~/.Brewfile", "name": "Homebrew Bundle (hidden)", "description": "Homebrew package list (hidden)" }
+      {
+        "path": "~/Brewfile",
+        "name": "Homebrew Bundle",
+        "description": "Homebrew package list"
+      },
+      {
+        "path": "~/.Brewfile",
+        "name": "Homebrew Bundle (hidden)",
+        "description": "Homebrew package list (hidden)"
+      }
     ],
 
     "editor": [
-      { "path": "~/Library/Application Support/Code/User/settings.json", "name": "VS Code settings (macOS)", "description": "VS Code settings on macOS" },
-      { "path": "~/Library/Application Support/Code/User/keybindings.json", "name": "VS Code keybindings (macOS)", "description": "VS Code keybindings on macOS" },
-      { "path": "~/Library/Application Support/Code/User/snippets", "name": "VS Code snippets (macOS)", "description": "VS Code snippets on macOS" },
-      { "path": "~/Library/Application Support/Code/User/profiles", "name": "VS Code profiles (macOS)", "description": "VS Code profiles on macOS" },
-      { "path": "~/Library/Application Support/Cursor/User/settings.json", "name": "Cursor settings (macOS)", "description": "Cursor settings on macOS" },
-      { "path": "~/Library/Application Support/Cursor/User/keybindings.json", "name": "Cursor keybindings (macOS)", "description": "Cursor keybindings on macOS" },
-      { "path": "~/Library/Application Support/Cursor/User/snippets", "name": "Cursor snippets (macOS)", "description": "Cursor snippets on macOS" },
-      { "path": "~/Library/Application Support/Windsurf/User/settings.json", "name": "Windsurf settings (macOS)", "description": "Windsurf settings on macOS" },
-      { "path": "~/Library/Application Support/Windsurf/User/keybindings.json", "name": "Windsurf keybindings (macOS)", "description": "Windsurf keybindings on macOS" },
-      { "path": "~/Library/Application Support/Windsurf/User/snippets", "name": "Windsurf snippets (macOS)", "description": "Windsurf snippets on macOS" },
-      { "path": "~/Library/Application Support/Sublime Text/Packages/User", "name": "Sublime Text User packages (macOS)", "description": "Sublime Text user configuration on macOS" }
+      {
+        "path": "~/Library/Application Support/Code/User/settings.json",
+        "name": "VS Code settings (macOS)",
+        "description": "VS Code settings on macOS"
+      },
+      {
+        "path": "~/Library/Application Support/Code/User/keybindings.json",
+        "name": "VS Code keybindings (macOS)",
+        "description": "VS Code keybindings on macOS"
+      },
+      {
+        "path": "~/Library/Application Support/Code/User/snippets",
+        "name": "VS Code snippets (macOS)",
+        "description": "VS Code snippets on macOS"
+      },
+      {
+        "path": "~/Library/Application Support/Code/User/profiles",
+        "name": "VS Code profiles (macOS)",
+        "description": "VS Code profiles on macOS"
+      },
+      {
+        "path": "~/Library/Application Support/Cursor/User/settings.json",
+        "name": "Cursor settings (macOS)",
+        "description": "Cursor settings on macOS"
+      },
+      {
+        "path": "~/Library/Application Support/Cursor/User/keybindings.json",
+        "name": "Cursor keybindings (macOS)",
+        "description": "Cursor keybindings on macOS"
+      },
+      {
+        "path": "~/Library/Application Support/Cursor/User/snippets",
+        "name": "Cursor snippets (macOS)",
+        "description": "Cursor snippets on macOS"
+      },
+      {
+        "path": "~/Library/Application Support/Windsurf/User/settings.json",
+        "name": "Windsurf settings (macOS)",
+        "description": "Windsurf settings on macOS"
+      },
+      {
+        "path": "~/Library/Application Support/Windsurf/User/keybindings.json",
+        "name": "Windsurf keybindings (macOS)",
+        "description": "Windsurf keybindings on macOS"
+      },
+      {
+        "path": "~/Library/Application Support/Windsurf/User/snippets",
+        "name": "Windsurf snippets (macOS)",
+        "description": "Windsurf snippets on macOS"
+      },
+      {
+        "path": "~/Library/Application Support/Sublime Text/Packages/User",
+        "name": "Sublime Text User packages (macOS)",
+        "description": "Sublime Text user configuration on macOS"
+      }
     ]
   },
 
   "linux": {
     "appConfig": [
-      { "path": "~/.config/flameshot", "name": "Flameshot config", "description": "Flameshot screenshot tool configuration" },
-      { "path": "~/.config/ulauncher", "name": "Ulauncher config", "description": "Ulauncher application launcher configuration" },
-      { "path": "~/.config/i3", "name": "i3 window manager config", "description": "i3 tiling window manager configuration" },
-      { "path": "~/.config/sway", "name": "Sway compositor config", "description": "Sway Wayland compositor configuration" },
-      { "path": "~/.config/hypr", "name": "Hyprland config", "description": "Hyprland Wayland compositor configuration" },
-      { "path": "~/.Xmodmap", "name": "Xmodmap (key remapping)", "description": "X11 keyboard modifier mapping" },
-      { "path": "~/keyd-default.conf.backup", "name": "keyd config backup", "description": "keyd keyboard remapper configuration backup" }
+      {
+        "path": "~/.config/flameshot",
+        "name": "Flameshot config",
+        "description": "Flameshot screenshot tool configuration"
+      },
+      {
+        "path": "~/.config/ulauncher",
+        "name": "Ulauncher config",
+        "description": "Ulauncher application launcher configuration"
+      },
+      {
+        "path": "~/.config/i3",
+        "name": "i3 window manager config",
+        "description": "i3 tiling window manager configuration"
+      },
+      {
+        "path": "~/.config/sway",
+        "name": "Sway compositor config",
+        "description": "Sway Wayland compositor configuration"
+      },
+      {
+        "path": "~/.config/hypr",
+        "name": "Hyprland config",
+        "description": "Hyprland Wayland compositor configuration"
+      },
+      {
+        "path": "~/.Xmodmap",
+        "name": "Xmodmap (key remapping)",
+        "description": "X11 keyboard modifier mapping"
+      },
+      {
+        "path": "~/keyd-default.conf.backup",
+        "name": "keyd config backup",
+        "description": "keyd keyboard remapper configuration backup"
+      }
     ],
 
     "gnome": [
-      { "path": "~/.local/share/gnome-shell/extensions", "name": "GNOME Shell extensions", "description": "GNOME Shell extensions directory" },
-      { "path": "~/.config/gtk-3.0", "name": "GTK 3 settings", "description": "GTK 3 toolkit settings" },
-      { "path": "~/.config/gtk-4.0", "name": "GTK 4 settings", "description": "GTK 4 toolkit settings" }
+      {
+        "path": "~/.local/share/gnome-shell/extensions",
+        "name": "GNOME Shell extensions",
+        "description": "GNOME Shell extensions directory"
+      },
+      {
+        "path": "~/.config/gtk-3.0",
+        "name": "GTK 3 settings",
+        "description": "GTK 3 toolkit settings"
+      },
+      {
+        "path": "~/.config/gtk-4.0",
+        "name": "GTK 4 settings",
+        "description": "GTK 4 toolkit settings"
+      }
     ],
 
     "scripts": [
-      { "path": "~/scripts", "name": "Custom scripts directory", "description": "User custom scripts directory" },
-      { "path": "~/.local/bin", "name": "User binaries", "description": "User-installed executables" }
+      {
+        "path": "~/scripts",
+        "name": "Custom scripts directory",
+        "description": "User custom scripts directory"
+      },
+      {
+        "path": "~/.local/bin",
+        "name": "User binaries",
+        "description": "User-installed executables"
+      }
     ]
   },
 

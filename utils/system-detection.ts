@@ -10,7 +10,10 @@ import { execSync } from 'child_process'
 import ScriptSession from '../clients/script-session'
 import type { OperatingSystem, Shell } from '../types/backup-config'
 import type { RuntimeData } from '../types/user-system-config'
-import { detectDisplayServer, detectDesktopEnvironment } from './linux-detection'
+import {
+  detectDisplayServer,
+  detectDesktopEnvironment,
+} from './linux-detection'
 
 export type DetectedSystemInfo = {
   os: OperatingSystem
@@ -186,7 +189,7 @@ export function detectAllSystemInfo(): DetectedSystemInfo {
 export function generateMachineId(
   os: OperatingSystem,
   distro: string,
-  nickname: string
+  nickname: string,
 ): string {
   return `${os}-${distro}-${nickname}`
 }

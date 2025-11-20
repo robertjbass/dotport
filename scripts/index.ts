@@ -16,7 +16,8 @@ type ScriptInfo = {
 const SCRIPT_METADATA: Record<string, ScriptInfo> = {
   backup: {
     name: 'Backup',
-    description: 'Create a backup of your dotfiles, packages, and system configuration',
+    description:
+      'Create a backup of your dotfiles, packages, and system configuration',
     emoji: '💾',
   },
   'populate-backup-schema': {
@@ -26,12 +27,14 @@ const SCRIPT_METADATA: Record<string, ScriptInfo> = {
   },
   restore: {
     name: 'Restore',
-    description: 'Restore your dotfiles, packages, and system configuration from backup',
+    description:
+      'Restore your dotfiles, packages, and system configuration from backup',
     emoji: '♻️',
   },
   'restore:test': {
     name: 'Restore (Test Mode)',
-    description: 'Test restore process by restoring files to a temporary folder first',
+    description:
+      'Test restore process by restoring files to a temporary folder first',
     emoji: '♻️',
   },
   placeholder: {
@@ -84,8 +87,8 @@ function getPackageJsonScripts(): string[] {
 
     // Get all scripts that start with "script:"
     return Object.keys(packageJson.scripts || {})
-      .filter(key => key.startsWith('script:'))
-      .map(key => key.replace('script:', ''))
+      .filter((key) => key.startsWith('script:'))
+      .map((key) => key.replace('script:', ''))
       .sort()
   } catch (error) {
     console.warn(chalk.yellow('⚠️  Could not read package.json scripts'))
@@ -109,9 +112,12 @@ async function selectScript(scriptFiles: string[]): Promise<string> {
     const emoji = getEmojiForScript(script)
 
     // Use metadata if available, otherwise create a nice formatted name
-    let name = metadata?.name || script.split('-').map(word =>
-      word.charAt(0).toUpperCase() + word.slice(1)
-    ).join(' ')
+    let name =
+      metadata?.name ||
+      script
+        .split('-')
+        .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+        .join(' ')
 
     const description = metadata?.description || 'No description available'
 
@@ -162,7 +168,7 @@ async function main() {
     case 'win32':
       console.log(chalk.red('❌ Windows is not yet supported'))
       process.exit(1)
-      // eslint-disable-next-line no-fallthrough
+    // eslint-disable-next-line no-fallthrough
     default:
       console.log(chalk.red('❌ Unsupported operating system'))
       process.exit(1)
@@ -196,7 +202,9 @@ async function main() {
         const metadata = SCRIPT_METADATA[script]
         const emoji = getEmojiForScript(script)
         if (metadata) {
-          console.log(chalk.gray(`  ${emoji}  ${script}: ${metadata.description}`))
+          console.log(
+            chalk.gray(`  ${emoji}  ${script}: ${metadata.description}`),
+          )
         } else {
           console.log(chalk.gray(`  ${emoji}  ${script}`))
         }
@@ -212,7 +220,9 @@ async function main() {
       await scriptFunction()
     } else {
       // This is a package.json-only script, run it via pnpm
-      console.log(chalk.cyan(`\n▶️  Running script:${ScriptSession.script}...\n`))
+      console.log(
+        chalk.cyan(`\n▶️  Running script:${ScriptSession.script}...\n`),
+      )
       const { execSync } = await import('child_process')
       execSync(`pnpm script:${ScriptSession.script}`, { stdio: 'inherit' })
     }

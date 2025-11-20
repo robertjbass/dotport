@@ -159,7 +159,9 @@ export async function isEditorInstalled(
     try {
       // For glob patterns (JetBrains), check if any matching directory exists
       if (expandedPath.includes('*')) {
-        const { stdout } = await execAsync(`ls -d ${expandedPath} 2>/dev/null || true`)
+        const { stdout } = await execAsync(
+          `ls -d ${expandedPath} 2>/dev/null || true`,
+        )
         return stdout.trim().length > 0
       }
 
@@ -198,9 +200,7 @@ export async function isEditorInstalled(
 /**
  * Get extensions for VS Code-based editors (VS Code, Cursor, Windsurf)
  */
-async function getVSCodeExtensions(
-  command: string,
-): Promise<ExtensionInfo[]> {
+async function getVSCodeExtensions(command: string): Promise<ExtensionInfo[]> {
   try {
     const { stdout } = await execAsync(command)
     return stdout
@@ -358,7 +358,10 @@ async function getNeovimPlugins(): Promise<ExtensionInfo[]> {
 export async function getEditorExtensions(
   editor: EditorType,
 ): Promise<ExtensionInfo[]> {
-  const paths = getEditorPaths(editor, process.platform === 'darwin' ? 'macos' : 'linux')
+  const paths = getEditorPaths(
+    editor,
+    process.platform === 'darwin' ? 'macos' : 'linux',
+  )
 
   // VS Code-based editors
   if (paths.extensionsListCommand) {

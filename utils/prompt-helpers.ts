@@ -65,7 +65,11 @@ export function displayStepProgress(
   // Calculate spacing for step line, ensuring it's never negative
   const stepLineSpacing = Math.max(
     0,
-    boxWidth - 12 - stepName.length - String(currentStep).length - String(totalSteps).length,
+    boxWidth -
+      12 -
+      stepName.length -
+      String(currentStep).length -
+      String(totalSteps).length,
   )
   console.log(
     chalk.cyan(
@@ -110,9 +114,8 @@ export function displaySummarySection(
 
   Object.entries(items).forEach(([key, value]) => {
     if (value !== undefined) {
-      const displayValue = typeof value === 'boolean'
-        ? (value ? 'Yes' : 'No')
-        : value
+      const displayValue =
+        typeof value === 'boolean' ? (value ? 'Yes' : 'No') : value
       console.log(`  ${key}: ${displayValue}`)
     }
   })

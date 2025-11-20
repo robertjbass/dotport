@@ -58,7 +58,7 @@ export function checkRCFileSourcesSecret(
     `. ${expandedSecretPath}`,
   ]
 
-  return sourcePatterns.some(pattern => rcContent.includes(pattern))
+  return sourcePatterns.some((pattern) => rcContent.includes(pattern))
 }
 
 /**

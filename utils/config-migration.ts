@@ -17,7 +17,10 @@ import {
   USER_SYSTEM_CONFIG_FILE,
   GITHUB_AUTH_FILE,
 } from '../constants/app-config'
-import type { UserSystemConfig, GitHubAuthConfig } from '../types/user-system-config'
+import type {
+  UserSystemConfig,
+  GitHubAuthConfig,
+} from '../types/user-system-config'
 import { ensureDotPortDirectories } from './directory-manager'
 
 /**
@@ -50,7 +53,9 @@ function readOldBackupConfig(): any {
     const content = fs.readFileSync(configPath, 'utf-8')
     return JSON.parse(content)
   } catch (error) {
-    console.warn(chalk.yellow(`Warning: Could not read old backup config: ${error}`))
+    console.warn(
+      chalk.yellow(`Warning: Could not read old backup config: ${error}`),
+    )
     return null
   }
 }
@@ -69,7 +74,9 @@ function readOldGithubAuth(): any {
     const content = fs.readFileSync(authPath, 'utf-8')
     return JSON.parse(content)
   } catch (error) {
-    console.warn(chalk.yellow(`Warning: Could not read old GitHub auth: ${error}`))
+    console.warn(
+      chalk.yellow(`Warning: Could not read old GitHub auth: ${error}`),
+    )
     return null
   }
 }
@@ -77,7 +84,9 @@ function readOldGithubAuth(): any {
 /**
  * Convert old backup config to new user system config format
  */
-function convertBackupConfigToUserSystemConfig(oldConfig: any): UserSystemConfig {
+function convertBackupConfigToUserSystemConfig(
+  oldConfig: any,
+): UserSystemConfig {
   // Extract OS and convert to lowercase
   const os = oldConfig.os?.toLowerCase() || 'unknown'
 
@@ -204,8 +213,8 @@ export async function migrateOldConfig(): Promise<boolean> {
   if (fs.existsSync(newPath)) {
     console.log(
       chalk.yellow(
-        'New config structure already exists. Skipping migration to avoid overwriting.'
-      )
+        'New config structure already exists. Skipping migration to avoid overwriting.',
+      ),
     )
     return false
   }
@@ -230,13 +239,17 @@ export async function migrateOldConfig(): Promise<boolean> {
       }
 
       writeUserSystemConfig(newConfig)
-      console.log(chalk.green(`  ✓ Migrated backup config to ${USER_SYSTEM_CONFIG_FILE}`))
+      console.log(
+        chalk.green(`  ✓ Migrated backup config to ${USER_SYSTEM_CONFIG_FILE}`),
+      )
     }
 
     if (oldGithubAuth) {
       const newAuth = convertGithubAuth(oldGithubAuth)
       writeGithubAuthConfig(newAuth)
-      console.log(chalk.green(`  ✓ Migrated GitHub auth to ${GITHUB_AUTH_FILE}`))
+      console.log(
+        chalk.green(`  ✓ Migrated GitHub auth to ${GITHUB_AUTH_FILE}`),
+      )
     }
 
     console.log(chalk.green('\n✓ Migration complete!'))
