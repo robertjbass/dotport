@@ -316,13 +316,13 @@ export async function promptStep1SystemDetection(): Promise<Step1Result> {
         }
         return true
       },
-      filter: (input) => normalizeNickname(input),
+      filter: (input: string) => normalizeNickname(input),
     },
   ])
 
   return {
     systemInfo,
-    nickname: nickname,
+    nickname: nickname.trim(),
   }
 }
 
