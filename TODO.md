@@ -4,17 +4,10 @@
 
 ## 📋 High Priority Tasks
 
-- [x] During backup process, create all files in a temp directory first and then move it to the destination at the end
-- [ ] For people who have GitHub integrated, we are going to start by creating a backup by pulling the main branch of the existing repo, and then creating a downstream branch for the existing backup as if doing:
-
-```bash
-git pull
-CURRENT_BRANCH=$(git branch --show-current)
-git checkout -b backup-$(date +%Y%m%d-%H%M%S)
-git add .
-git push
-git checkout "$CURRENT_BRANCH"
-```
+- [ ] Add PGP key management for secure backups
+- [ ] Improve error handling and retry logic for git operations
+- [ ] Add comprehensive logging for debugging
+- [ ] Add unit tests for core functionality
 
 ## 🛠️ Future Enhancements
 
