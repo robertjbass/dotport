@@ -1,7 +1,5 @@
 /**
- * Runtime Version Detection Utility
- *
- * Detects installed runtime environments and version managers
+ * Runtime Detection - detects installed runtime environments and version managers
  */
 
 import fs from 'fs'
@@ -9,13 +7,10 @@ import os from 'os'
 import path from 'path'
 import { exec } from 'child_process'
 import { promisify } from 'util'
-import { RuntimeType, RuntimeVersion } from '../types/backup-config'
+import { RuntimeVersion } from '../types/backup-config'
 
 const execAsync = promisify(exec)
 
-/**
- * Check if a command exists
- */
 async function commandExists(command: string): Promise<boolean> {
   try {
     await execAsync(`command -v ${command}`)
@@ -25,10 +20,7 @@ async function commandExists(command: string): Promise<boolean> {
   }
 }
 
-/**
- * Detect Node.js manager from shell RC files
- * Checks .zshrc, .bashrc, .bash_profile, and .profile for initialization patterns
- */
+// Checks .zshrc, .bashrc, .bash_profile, and .profile for initialization patterns
 export async function detectNodeManagerFromShell(): Promise<string | null> {
   const homeDir = os.homedir()
   const rcFiles = ['.zshrc', '.bashrc', '.bash_profile', '.profile']
@@ -64,9 +56,6 @@ export async function detectNodeManagerFromShell(): Promise<string | null> {
   return null
 }
 
-/**
- * Detect all available Node.js version managers
- */
 export async function detectAvailableNodeManagers(): Promise<string[]> {
   const managers: string[] = []
 
@@ -78,9 +67,6 @@ export async function detectAvailableNodeManagers(): Promise<string[]> {
   return managers
 }
 
-/**
- * Detect Node.js versions for a specific manager
- */
 async function detectNodeWithManager(selectedManager: string): Promise<{
   versions: string[]
   defaultVersion?: string
@@ -163,10 +149,7 @@ async function detectNodeWithManager(selectedManager: string): Promise<{
   return { versions, defaultVersion, installCommand }
 }
 
-/**
- * Detect Node.js versions and version manager
- * If preferredManager is provided, use that. Otherwise, auto-detect in order: fnm, nvm, asdf, system
- */
+// If preferredManager is provided, use that. Otherwise, auto-detect in order: fnm, nvm, asdf, system
 export async function detectNodeVersions(
   preferredManager?: string,
 ): Promise<RuntimeVersion | null> {
@@ -210,9 +193,6 @@ export async function detectNodeVersions(
   return null
 }
 
-/**
- * Detect Python versions and version manager
- */
 export async function detectPythonVersions(): Promise<RuntimeVersion | null> {
   const versions: string[] = []
   let manager: string | undefined
@@ -290,9 +270,6 @@ export async function detectPythonVersions(): Promise<RuntimeVersion | null> {
   }
 }
 
-/**
- * Detect Ruby versions and version manager
- */
 export async function detectRubyVersions(): Promise<RuntimeVersion | null> {
   const versions: string[] = []
   let manager: string | undefined
@@ -391,9 +368,6 @@ export async function detectRubyVersions(): Promise<RuntimeVersion | null> {
   }
 }
 
-/**
- * Detect Go version
- */
 export async function detectGoVersion(): Promise<RuntimeVersion | null> {
   if (!(await commandExists('go'))) return null
 
@@ -416,9 +390,6 @@ export async function detectGoVersion(): Promise<RuntimeVersion | null> {
   return null
 }
 
-/**
- * Detect Rust version
- */
 export async function detectRustVersion(): Promise<RuntimeVersion | null> {
   if (!(await commandExists('rustc'))) return null
 
@@ -441,9 +412,6 @@ export async function detectRustVersion(): Promise<RuntimeVersion | null> {
   return null
 }
 
-/**
- * Detect Java version
- */
 export async function detectJavaVersion(): Promise<RuntimeVersion | null> {
   const versions: string[] = []
   let manager: string | undefined
@@ -524,9 +492,6 @@ export async function detectJavaVersion(): Promise<RuntimeVersion | null> {
   }
 }
 
-/**
- * Detect PHP version
- */
 export async function detectPhpVersion(): Promise<RuntimeVersion | null> {
   if (!(await commandExists('php'))) return null
 
@@ -549,9 +514,6 @@ export async function detectPhpVersion(): Promise<RuntimeVersion | null> {
   return null
 }
 
-/**
- * Detect Deno version
- */
 export async function detectDenoVersion(): Promise<RuntimeVersion | null> {
   if (!(await commandExists('deno'))) return null
 
@@ -574,9 +536,6 @@ export async function detectDenoVersion(): Promise<RuntimeVersion | null> {
   return null
 }
 
-/**
- * Detect all installed runtimes
- */
 export async function detectAllRuntimes(): Promise<RuntimeVersion[]> {
   const runtimes: RuntimeVersion[] = []
 

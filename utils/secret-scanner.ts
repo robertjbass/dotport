@@ -1,7 +1,5 @@
 /**
- * Secret Scanner Utility
- *
- * Scans files for potential secrets before backup to prevent accidental exposure
+ * Secret Scanner - scans files for potential secrets before backup
  */
 
 import fs from 'fs'
@@ -37,9 +35,6 @@ export type ScanResult = {
   scannedAt: string
 }
 
-/**
- * Load secret patterns from configuration
- */
 function loadSecretPatterns(): SecretPattern[] {
   try {
     const configPath = path.join(
@@ -56,9 +51,6 @@ function loadSecretPatterns(): SecretPattern[] {
   }
 }
 
-/**
- * Expand tilde in file path
- */
 function expandTilde(filePath: string): string {
   if (filePath.startsWith('~/')) {
     return path.join(os.homedir(), filePath.slice(2))
@@ -66,9 +58,6 @@ function expandTilde(filePath: string): string {
   return filePath
 }
 
-/**
- * Check if a file should be scanned (not binary)
- */
 function isTextFile(filePath: string): boolean {
   try {
     const buffer = fs.readFileSync(filePath)
@@ -87,9 +76,6 @@ function isTextFile(filePath: string): boolean {
   }
 }
 
-/**
- * Scan a single file for secrets
- */
 export function scanFile(
   filePath: string,
   patterns: SecretPattern[] = [],
@@ -167,9 +153,6 @@ export function scanFile(
   return result
 }
 
-/**
- * Get surrounding context for a match
- */
 function getContext(
   lines: string[],
   lineIndex: number,
@@ -189,9 +172,6 @@ function getContext(
   return context
 }
 
-/**
- * Scan multiple files for secrets
- */
 export function scanFiles(
   filePaths: string[],
   patterns?: SecretPattern[],
@@ -199,9 +179,6 @@ export function scanFiles(
   return filePaths.map((filePath) => scanFile(filePath, patterns))
 }
 
-/**
- * Generate a summary report of scan results
- */
 export function generateSummary(results: ScanResult[]): {
   totalFiles: number
   scannedFiles: number
@@ -236,9 +213,6 @@ export function generateSummary(results: ScanResult[]): {
   return summary
 }
 
-/**
- * Check if a file is a known secret file (should be excluded from backup)
- */
 export function isKnownSecretFile(filePath: string): boolean {
   const secretFileNames = [
     '.env',
@@ -270,9 +244,6 @@ export function isKnownSecretFile(filePath: string): boolean {
   )
 }
 
-/**
- * Get recommended action for a file with secrets
- */
 export function getRecommendedAction(scanResult: ScanResult): {
   action: 'exclude' | 'review' | 'safe'
   reason: string

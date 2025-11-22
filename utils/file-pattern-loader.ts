@@ -1,7 +1,5 @@
 /**
- * File Pattern Loader
- *
- * Loads file discovery patterns from JSON configuration
+ * File Pattern Loader - loads file discovery patterns from JSON configuration
  */
 
 import fs from 'fs'
@@ -24,26 +22,15 @@ type FilePattern = {
 type FilePatternConfig = {
   version: string
   description?: string
-  common: {
-    [category: string]: FilePattern[]
-  }
-  macos?: {
-    [category: string]: FilePattern[]
-  }
-  linux?: {
-    [category: string]: FilePattern[]
-  }
+  common: { [category: string]: FilePattern[] }
+  macos?: { [category: string]: FilePattern[] }
+  linux?: { [category: string]: FilePattern[] }
 }
 
 let cachedConfig: FilePatternConfig | null = null
 
-/**
- * Load file discovery patterns from configuration file
- */
 export function loadFilePatterns(): FilePatternConfig {
-  if (cachedConfig) {
-    return cachedConfig
-  }
+  if (cachedConfig) return cachedConfig
 
   try {
     const configPath = path.join(
@@ -56,28 +43,22 @@ export function loadFilePatterns(): FilePatternConfig {
     cachedConfig = JSON.parse(content)
     return cachedConfig!
   } catch (error: any) {
-    console.error('Failed to load file discovery patterns:', error.message)
     throw new Error(
       `Could not load file discovery configuration: ${error.message}`,
     )
   }
 }
 
-/**
- * Get all file patterns for a specific OS
- */
 export function getFilePatternsForOS(
   osType: OperatingSystem,
 ): Map<string, FilePattern[]> {
   const config = loadFilePatterns()
   const patterns = new Map<string, FilePattern[]>()
 
-  // Add common patterns
   Object.entries(config.common).forEach(([category, files]) => {
     patterns.set(category, files)
   })
 
-  // Add OS-specific patterns
   if (osType === 'macos' && config.macos) {
     Object.entries(config.macos).forEach(([category, files]) => {
       const existing = patterns.get(category) || []
@@ -93,9 +74,6 @@ export function getFilePatternsForOS(
   return patterns
 }
 
-/**
- * Get all file patterns flattened into a single array
- */
 export function getAllFilePatterns(osType: OperatingSystem): FilePattern[] {
   const patternsMap = getFilePatternsForOS(osType)
   const allPatterns: FilePattern[] = []
@@ -107,9 +85,6 @@ export function getAllFilePatterns(osType: OperatingSystem): FilePattern[] {
   return allPatterns
 }
 
-/**
- * Filter out auto-excluded files (secrets)
- */
 export function filterAutoExcluded(patterns: FilePattern[]): {
   safe: FilePattern[]
   excluded: FilePattern[]
@@ -128,78 +103,53 @@ export function filterAutoExcluded(patterns: FilePattern[]): {
   return { safe, excluded }
 }
 
-/**
- * Get patterns that should warn about secrets
- */
 export function getSecretWarningPatterns(
   patterns: FilePattern[],
 ): FilePattern[] {
   return patterns.filter((p) => p.warnSecrets)
 }
 
-/**
- * Validate file pattern configuration
- */
 export function validateConfig(config: FilePatternConfig): {
   valid: boolean
   errors: string[]
 } {
   const errors: string[] = []
 
-  // Check required fields
-  if (!config.version) {
-    errors.push('Missing version field')
-  }
+  if (!config.version) errors.push('Missing version field')
+  if (!config.common) errors.push('Missing common field')
 
-  if (!config.common) {
-    errors.push('Missing common field')
-  }
-
-  // Validate pattern structure
   const validatePatterns = (
     patterns: FilePattern[],
     category: string,
     os: string,
   ) => {
     patterns.forEach((pattern, index) => {
-      if (!pattern.path) {
-        errors.push(`${os}.${category}[${index}]: missing path`)
-      }
-      if (!pattern.name) {
-        errors.push(`${os}.${category}[${index}]: missing name`)
-      }
-      if (!pattern.description) {
+      if (!pattern.path) errors.push(`${os}.${category}[${index}]: missing path`)
+      if (!pattern.name) errors.push(`${os}.${category}[${index}]: missing name`)
+      if (!pattern.description)
         errors.push(`${os}.${category}[${index}]: missing description`)
-      }
-      if (pattern.path && !pattern.path.startsWith('~/')) {
+      if (pattern.path && !pattern.path.startsWith('~/'))
         errors.push(`${os}.${category}[${index}]: path must start with ~/`)
-      }
     })
   }
 
-  // Validate common patterns
   if (config.common) {
     Object.entries(config.common).forEach(([category, patterns]) => {
       validatePatterns(patterns, category, 'common')
     })
   }
 
-  // Validate macOS patterns
   if (config.macos) {
     Object.entries(config.macos).forEach(([category, patterns]) => {
       validatePatterns(patterns, category, 'macos')
     })
   }
 
-  // Validate Linux patterns
   if (config.linux) {
     Object.entries(config.linux).forEach(([category, patterns]) => {
       validatePatterns(patterns, category, 'linux')
     })
   }
 
-  return {
-    valid: errors.length === 0,
-    errors,
-  }
+  return { valid: errors.length === 0, errors }
 }

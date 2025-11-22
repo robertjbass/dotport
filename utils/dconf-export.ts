@@ -1,8 +1,5 @@
 /**
- * Dconf Export Utility
- *
- * Exports GNOME desktop settings (including keybindings) from dconf database
- * to portable configuration files that can be backed up and restored.
+ * Dconf Export - exports GNOME desktop settings for backup/restore
  */
 
 import { exec } from 'child_process'
@@ -19,9 +16,6 @@ export type DconfExportResult = {
   errors: Array<{ path: string; error: string }>
 }
 
-/**
- * Check if dconf is available on the system
- */
 export async function isDconfAvailable(): Promise<boolean> {
   try {
     await execAsync('which dconf')
@@ -31,55 +25,50 @@ export async function isDconfAvailable(): Promise<boolean> {
   }
 }
 
-/**
- * Export dconf settings for a specific path
- *
- * @param dconfPath - The dconf path to export (e.g., '/org/gnome/desktop/wm/keybindings/')
- * @param outputFile - Where to save the exported settings
- */
 async function exportDconfPath(
   dconfPath: string,
   outputFile: string,
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    // Ensure output directory exists
     const outputDir = path.dirname(outputFile)
     await fs.promises.mkdir(outputDir, { recursive: true })
 
-    // Export the dconf path
     const { stdout, stderr } = await execAsync(`dconf dump "${dconfPath}"`)
 
     if (stderr && !stderr.includes('warning')) {
-      return {
-        success: false,
-        error: stderr,
-      }
+      return { success: false, error: stderr }
     }
 
-    // Write to file
     await fs.promises.writeFile(outputFile, stdout, 'utf-8')
-
     return { success: true }
   } catch (error: any) {
-    return {
-      success: false,
-      error: error.message,
-    }
+    return { success: false, error: error.message }
   }
 }
 
-/**
- * Export all important GNOME settings to configuration files
- *
- * Exports:
- * - Custom keybindings (Alt+Space for ulauncher, etc.)
- * - Built-in GNOME keybindings
- * - Desktop interface settings
- * - Window manager settings
- *
- * @param outputDir - Directory to save exported dconf files
- * @param options - Export options
- */
+const DCONF_PATHS = [
+  {
+    path: '/org/gnome/settings-daemon/plugins/media-keys/',
+    file: 'gnome-keybindings.conf',
+    description: 'Custom keybindings (Alt+Space, etc.)',
+  },
+  {
+    path: '/org/gnome/desktop/wm/keybindings/',
+    file: 'gnome-wm-keybindings.conf',
+    description: 'Window manager keybindings',
+  },
+  {
+    path: '/org/gnome/shell/keybindings/',
+    file: 'gnome-shell-keybindings.conf',
+    description: 'GNOME Shell keybindings',
+  },
+  {
+    path: '/org/gnome/desktop/interface/',
+    file: 'gnome-interface.conf',
+    description: 'Desktop interface settings',
+  },
+]
+
 export async function exportGnomeSettings(
   outputDir: string,
   options: { verbose?: boolean } = {},
@@ -90,7 +79,6 @@ export async function exportGnomeSettings(
     console.log(chalk.cyan('\n⚙️  Exporting GNOME settings from dconf...\n'))
   }
 
-  // Check if dconf is available
   const hasDconf = await isDconfAvailable()
   if (!hasDconf) {
     if (verbose) {
@@ -98,42 +86,13 @@ export async function exportGnomeSettings(
         chalk.yellow('⚠️  dconf not found - skipping GNOME settings export'),
       )
     }
-    return {
-      success: true,
-      exportedPaths: [],
-      errors: [],
-    }
+    return { success: true, exportedPaths: [], errors: [] }
   }
 
   const exportedPaths: string[] = []
   const errors: Array<{ path: string; error: string }> = []
 
-  // Define important dconf paths to export
-  const dconfExports = [
-    {
-      path: '/org/gnome/settings-daemon/plugins/media-keys/',
-      file: 'gnome-keybindings.conf',
-      description: 'Custom keybindings (Alt+Space, etc.)',
-    },
-    {
-      path: '/org/gnome/desktop/wm/keybindings/',
-      file: 'gnome-wm-keybindings.conf',
-      description: 'Window manager keybindings',
-    },
-    {
-      path: '/org/gnome/shell/keybindings/',
-      file: 'gnome-shell-keybindings.conf',
-      description: 'GNOME Shell keybindings',
-    },
-    {
-      path: '/org/gnome/desktop/interface/',
-      file: 'gnome-interface.conf',
-      description: 'Desktop interface settings',
-    },
-  ]
-
-  // Export each dconf path
-  for (const { path: dconfPath, file, description } of dconfExports) {
+  for (const { path: dconfPath, file, description } of DCONF_PATHS) {
     const outputFile = path.join(outputDir, file)
 
     if (verbose) {
@@ -144,73 +103,43 @@ export async function exportGnomeSettings(
 
     if (result.success) {
       exportedPaths.push(outputFile)
-      if (verbose) {
-        console.log(chalk.green(`   ✓ ${file}`))
-      }
+      if (verbose) console.log(chalk.green(`   ✓ ${file}`))
     } else {
       errors.push({ path: dconfPath, error: result.error || 'Unknown error' })
-      if (verbose) {
-        console.log(chalk.yellow(`   ⚠ ${file}: ${result.error}`))
-      }
+      if (verbose) console.log(chalk.yellow(`   ⚠ ${file}: ${result.error}`))
     }
   }
 
   if (verbose) {
     console.log(
-      chalk.green(
-        `\n✅ Exported ${exportedPaths.length} GNOME settings files\n`,
-      ),
+      chalk.green(`\n✅ Exported ${exportedPaths.length} GNOME settings files\n`),
     )
   }
 
-  return {
-    success: errors.length === 0,
-    exportedPaths,
-    errors,
-  }
+  return { success: errors.length === 0, exportedPaths, errors }
 }
 
-/**
- * Import dconf settings from a file
- *
- * @param dconfPath - The dconf path to import to
- * @param inputFile - File containing exported dconf settings
- */
 export async function importDconfSettings(
   dconfPath: string,
   inputFile: string,
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    // Check if file exists
     await fs.promises.access(inputFile)
 
-    // Import the dconf settings
     const { stderr } = await execAsync(
       `dconf load "${dconfPath}" < "${inputFile}"`,
     )
 
     if (stderr && !stderr.includes('warning')) {
-      return {
-        success: false,
-        error: stderr,
-      }
+      return { success: false, error: stderr }
     }
 
     return { success: true }
   } catch (error: any) {
-    return {
-      success: false,
-      error: error.message,
-    }
+    return { success: false, error: error.message }
   }
 }
 
-/**
- * Import all GNOME settings from a directory
- *
- * @param inputDir - Directory containing exported dconf files
- * @param options - Import options
- */
 export async function importGnomeSettings(
   inputDir: string,
   options: { verbose?: boolean } = {},
@@ -221,7 +150,6 @@ export async function importGnomeSettings(
     console.log(chalk.cyan('\n⚙️  Importing GNOME settings to dconf...\n'))
   }
 
-  // Check if dconf is available
   const hasDconf = await isDconfAvailable()
   if (!hasDconf) {
     if (verbose) {
@@ -237,35 +165,9 @@ export async function importGnomeSettings(
   const exportedPaths: string[] = []
   const errors: Array<{ path: string; error: string }> = []
 
-  // Define dconf paths to import (matches export paths)
-  const dconfImports = [
-    {
-      path: '/org/gnome/settings-daemon/plugins/media-keys/',
-      file: 'gnome-keybindings.conf',
-      description: 'Custom keybindings',
-    },
-    {
-      path: '/org/gnome/desktop/wm/keybindings/',
-      file: 'gnome-wm-keybindings.conf',
-      description: 'Window manager keybindings',
-    },
-    {
-      path: '/org/gnome/shell/keybindings/',
-      file: 'gnome-shell-keybindings.conf',
-      description: 'GNOME Shell keybindings',
-    },
-    {
-      path: '/org/gnome/desktop/interface/',
-      file: 'gnome-interface.conf',
-      description: 'Desktop interface settings',
-    },
-  ]
-
-  // Import each dconf file
-  for (const { path: dconfPath, file, description } of dconfImports) {
+  for (const { path: dconfPath, file, description } of DCONF_PATHS) {
     const inputFile = path.join(inputDir, file)
 
-    // Check if file exists
     try {
       await fs.promises.access(inputFile)
     } catch {
@@ -283,14 +185,10 @@ export async function importGnomeSettings(
 
     if (result.success) {
       exportedPaths.push(inputFile)
-      if (verbose) {
-        console.log(chalk.green(`   ✓ ${file}`))
-      }
+      if (verbose) console.log(chalk.green(`   ✓ ${file}`))
     } else {
       errors.push({ path: dconfPath, error: result.error || 'Unknown error' })
-      if (verbose) {
-        console.log(chalk.yellow(`   ⚠ ${file}: ${result.error}`))
-      }
+      if (verbose) console.log(chalk.yellow(`   ⚠ ${file}: ${result.error}`))
     }
   }
 
@@ -300,9 +198,5 @@ export async function importGnomeSettings(
     )
   }
 
-  return {
-    success: errors.length === 0,
-    exportedPaths,
-    errors,
-  }
+  return { success: errors.length === 0, exportedPaths, errors }
 }

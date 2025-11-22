@@ -1,7 +1,5 @@
 /**
- * Editor/IDE Extension Detection Utility
- *
- * Detects installed editors/IDEs and their extensions, keybindings, and settings
+ * Editor Detection - detects installed editors/IDEs and their extensions
  */
 
 import fs from 'fs'
@@ -18,9 +16,6 @@ import { expandTilde } from './path-helpers'
 
 const execAsync = promisify(exec)
 
-/**
- * Editor configuration paths
- */
 type EditorPaths = {
   configPath?: string
   settingsPath?: string
@@ -30,9 +25,6 @@ type EditorPaths = {
   extensionsListCommand?: string
 }
 
-/**
- * Get configuration paths for each editor based on OS
- */
 export function getEditorPaths(
   editor: EditorType,
   os: OperatingSystem,
@@ -145,9 +137,6 @@ export function getEditorPaths(
   return paths[editor] || {}
 }
 
-/**
- * Check if an editor is installed
- */
 export async function isEditorInstalled(
   editor: EditorType,
   os: OperatingSystem,
@@ -157,21 +146,18 @@ export async function isEditorInstalled(
   if (paths.configPath) {
     const expandedPath = expandTilde(paths.configPath)
     try {
-      // For glob patterns (JetBrains), check if any matching directory exists
       if (expandedPath.includes('*')) {
         const { stdout } = await execAsync(
           `ls -d ${expandedPath} 2>/dev/null || true`,
         )
         return stdout.trim().length > 0
       }
-
       return fs.existsSync(expandedPath)
     } catch {
       return false
     }
   }
 
-  // Try to detect by command
   const commands: Record<string, string> = {
     vscode: 'code',
     'vscode-insiders': 'code-insiders',
@@ -197,164 +183,109 @@ export async function isEditorInstalled(
   return false
 }
 
-/**
- * Get extensions for VS Code-based editors (VS Code, Cursor, Windsurf)
- */
 async function getVSCodeExtensions(command: string): Promise<ExtensionInfo[]> {
   try {
     const { stdout } = await execAsync(command)
-    return stdout
-      .trim()
-      .split('\n')
-      .filter((line) => line.trim())
-      .map((line) => {
-        const match = line.match(/(.+)@(.+)/)
-        if (match) {
-          const id = match[1]
-          const version = match[2]
-          const parts = id.split('.')
-          return {
-            id,
-            version,
-            publisher: parts[0],
-            name: parts[1],
-            enabled: true,
-          }
-        }
-        return {
-          id: line.trim(),
-          enabled: true,
-        }
-      })
+    return parseExtensionsList(stdout)
   } catch (error: any) {
-    // If stdout exists despite the error (e.g., VS Code crash after outputting data),
-    // parse and return the extensions we got
-    if (error.stdout && typeof error.stdout === 'string') {
-      const stdout = error.stdout.trim()
-      if (stdout) {
-        return stdout
-          .split('\n')
-          .filter((line: string) => line.trim())
-          .map((line: string) => {
-            const match = line.match(/(.+)@(.+)/)
-            if (match) {
-              const id = match[1]
-              const version = match[2]
-              const parts = id.split('.')
-              return {
-                id,
-                version,
-                publisher: parts[0],
-                name: parts[1],
-                enabled: true,
-              }
-            }
-            return {
-              id: line.trim(),
-              enabled: true,
-            }
-          })
-      }
+    if (error.stdout && typeof error.stdout === 'string' && error.stdout.trim()) {
+      return parseExtensionsList(error.stdout)
     }
-
-    // Silently handle the error - command may have failed
     return []
   }
 }
 
-/**
- * Get Vim plugins from various plugin managers
- */
+function parseExtensionsList(stdout: string): ExtensionInfo[] {
+  return stdout
+    .trim()
+    .split('\n')
+    .filter((line) => line.trim())
+    .map((line) => {
+      const match = line.match(/(.+)@(.+)/)
+      if (match) {
+        const id = match[1]
+        const version = match[2]
+        const parts = id.split('.')
+        return {
+          id,
+          version,
+          publisher: parts[0],
+          name: parts[1],
+          enabled: true,
+        }
+      }
+      return { id: line.trim(), enabled: true }
+    })
+}
+
 async function getVimPlugins(): Promise<ExtensionInfo[]> {
   const plugins: ExtensionInfo[] = []
 
-  // Check for vim-plug
+  // vim-plug
   const vimPlugDir = expandTilde('~/.vim/plugged')
   if (fs.existsSync(vimPlugDir)) {
     try {
       const dirs = fs.readdirSync(vimPlugDir)
       dirs.forEach((dir) => {
-        plugins.push({
-          id: dir,
-          name: dir,
-          enabled: true,
-        })
+        plugins.push({ id: dir, name: dir, enabled: true })
       })
-    } catch (error) {
-      console.error('Error reading vim-plug directory:', error)
+    } catch {
+      // Directory not readable
     }
   }
 
-  // Check for Vundle
+  // Vundle
   const vundleDir = expandTilde('~/.vim/bundle')
   if (fs.existsSync(vundleDir)) {
     try {
       const dirs = fs.readdirSync(vundleDir)
       dirs.forEach((dir) => {
         if (!plugins.find((p) => p.id === dir)) {
-          plugins.push({
-            id: dir,
-            name: dir,
-            enabled: true,
-          })
+          plugins.push({ id: dir, name: dir, enabled: true })
         }
       })
-    } catch (error) {
-      console.error('Error reading Vundle directory:', error)
+    } catch {
+      // Directory not readable
     }
   }
 
   return plugins
 }
 
-/**
- * Get Neovim plugins
- */
 async function getNeovimPlugins(): Promise<ExtensionInfo[]> {
   const plugins: ExtensionInfo[] = []
 
-  // Check for packer
+  // packer
   const packerDir = expandTilde('~/.local/share/nvim/site/pack/packer/start')
   if (fs.existsSync(packerDir)) {
     try {
       const dirs = fs.readdirSync(packerDir)
       dirs.forEach((dir) => {
-        plugins.push({
-          id: dir,
-          name: dir,
-          enabled: true,
-        })
+        plugins.push({ id: dir, name: dir, enabled: true })
       })
-    } catch (error) {
-      console.error('Error reading packer directory:', error)
+    } catch {
+      // Directory not readable
     }
   }
 
-  // Check for lazy.nvim
+  // lazy.nvim
   const lazyDir = expandTilde('~/.local/share/nvim/lazy')
   if (fs.existsSync(lazyDir)) {
     try {
       const dirs = fs.readdirSync(lazyDir)
       dirs.forEach((dir) => {
         if (!plugins.find((p) => p.id === dir)) {
-          plugins.push({
-            id: dir,
-            name: dir,
-            enabled: true,
-          })
+          plugins.push({ id: dir, name: dir, enabled: true })
         }
       })
-    } catch (error) {
-      console.error('Error reading lazy.nvim directory:', error)
+    } catch {
+      // Directory not readable
     }
   }
 
   return plugins
 }
 
-/**
- * Get extensions for a specific editor
- */
 export async function getEditorExtensions(
   editor: EditorType,
 ): Promise<ExtensionInfo[]> {
@@ -363,28 +294,16 @@ export async function getEditorExtensions(
     process.platform === 'darwin' ? 'macos' : 'linux',
   )
 
-  // VS Code-based editors
   if (paths.extensionsListCommand) {
     return getVSCodeExtensions(paths.extensionsListCommand)
   }
 
-  // Vim
-  if (editor === 'vim') {
-    return getVimPlugins()
-  }
+  if (editor === 'vim') return getVimPlugins()
+  if (editor === 'neovim') return getNeovimPlugins()
 
-  // Neovim
-  if (editor === 'neovim') {
-    return getNeovimPlugins()
-  }
-
-  // For other editors, we don't have extension detection yet
   return []
 }
 
-/**
- * Check if a file exists and return the path in dotfiles repo
- */
 function checkAndGetRepoPath(
   filePath: string | undefined,
   osOrDistro: string,
@@ -400,9 +319,6 @@ function checkAndGetRepoPath(
   return undefined
 }
 
-/**
- * Detect installed editors
- */
 export async function detectInstalledEditors(
   os: OperatingSystem,
 ): Promise<EditorType[]> {
@@ -432,9 +348,6 @@ export async function detectInstalledEditors(
   return installed
 }
 
-/**
- * Create an EditorExtensions object for a specific editor
- */
 export async function createEditorExtensions(
   editor: EditorType,
   os: OperatingSystem,
@@ -468,9 +381,6 @@ export async function createEditorExtensions(
   }
 }
 
-/**
- * Export extensions list to a JSON file
- */
 export async function exportExtensionsToFile(
   editor: EditorExtensions,
   exportPath: string,

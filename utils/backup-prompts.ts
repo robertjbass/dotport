@@ -1,7 +1,5 @@
 /**
- * Backup Prompts for Simplified Flow
- *
- * Contains all prompt functions for the new 6-step backup process
+ * Backup Prompts - prompt functions for the backup process
  */
 
 import inquirer from 'inquirer'
@@ -9,11 +7,7 @@ import chalk from 'chalk'
 import fs from 'fs'
 import path from 'path'
 import os from 'os'
-import {
-  displayStepProgress,
-  displayDivider,
-  BACK_OPTION,
-} from './prompt-helpers'
+import { displayStepProgress, displayDivider } from './prompt-helpers'
 import type { DetectedSystemInfo } from './system-detection'
 import {
   detectAllSystemInfo,
@@ -23,7 +17,6 @@ import {
   getOSDisplayName,
   getDistroDisplayName,
 } from './system-detection'
-import { APP_NAME } from '../constants/app-config'
 import { readUserSystemConfig } from './user-system-config'
 import { expandTilde, isGitRepository } from './path-helpers'
 import {
@@ -33,13 +26,6 @@ import {
   pullFromRemote,
 } from './git-operations'
 
-// ============================================================================
-// Helper Functions
-// ============================================================================
-
-/**
- * Scan home directory for potential secret files
- */
 function findPotentialSecretFiles(): string[] {
   try {
     const homeDir = os.homedir()
@@ -740,11 +726,8 @@ async function promptFirstTimeSetup(useGitHub: boolean): Promise<Step3Result> {
   }
 }
 
-/**
- * Handle existing repository setup
- */
 async function promptExistingRepoSetup(
-  useGitHub: boolean,
+  _useGitHub: boolean,
 ): Promise<Step3Result> {
   const { repoLocation } = await inquirer.prompt<{ repoLocation: string }>([
     {

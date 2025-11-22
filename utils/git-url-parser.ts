@@ -1,7 +1,5 @@
 /**
- * Git URL Parser
- *
- * Parses various GitHub URL formats into a standardized format
+ * Git URL Parser - parses GitHub URLs into standardized format
  */
 
 export type ParsedGitUrl = {
@@ -13,60 +11,47 @@ export type ParsedGitUrl = {
 }
 
 /**
- * Parse various GitHub URL formats into a standardized object
- *
  * Supported formats:
- * - git@github.com:robertjbass/dotfiles.git
- * - https://github.com/robertjbass/dotfiles.git
- * - https://github.com/robertjbass/dotfiles
- * - github.com/robertjbass/dotfiles
- * - robertjbass/dotfiles
+ * - git@github.com:owner/repo.git
+ * - https://github.com/owner/repo.git
+ * - https://github.com/owner/repo
+ * - github.com/owner/repo
+ * - owner/repo
  */
 export function parseGitUrl(url: string): ParsedGitUrl | null {
   const trimmedUrl = url.trim()
 
-  // Pattern 1: SSH format (git@github.com:owner/repo.git)
+  // SSH format
   const sshPattern = /^git@github\.com:([^/]+)\/(.+?)(\.git)?$/
   const sshMatch = trimmedUrl.match(sshPattern)
   if (sshMatch) {
-    const owner = sshMatch[1]
-    const repo = sshMatch[2].replace(/\.git$/, '')
-    return formatParsedUrl(owner, repo)
+    return formatParsedUrl(sshMatch[1], sshMatch[2].replace(/\.git$/, ''))
   }
 
-  // Pattern 2: HTTPS format (https://github.com/owner/repo or https://github.com/owner/repo.git)
+  // HTTPS format
   const httpsPattern = /^https:\/\/github\.com\/([^/]+)\/(.+?)(\.git)?$/
   const httpsMatch = trimmedUrl.match(httpsPattern)
   if (httpsMatch) {
-    const owner = httpsMatch[1]
-    const repo = httpsMatch[2].replace(/\.git$/, '')
-    return formatParsedUrl(owner, repo)
+    return formatParsedUrl(httpsMatch[1], httpsMatch[2].replace(/\.git$/, ''))
   }
 
-  // Pattern 3: github.com/owner/repo
+  // github.com/owner/repo
   const domainPattern = /^github\.com\/([^/]+)\/(.+?)(\.git)?$/
   const domainMatch = trimmedUrl.match(domainPattern)
   if (domainMatch) {
-    const owner = domainMatch[1]
-    const repo = domainMatch[2].replace(/\.git$/, '')
-    return formatParsedUrl(owner, repo)
+    return formatParsedUrl(domainMatch[1], domainMatch[2].replace(/\.git$/, ''))
   }
 
-  // Pattern 4: owner/repo
+  // owner/repo
   const shortPattern = /^([^/]+)\/([^/]+?)(\.git)?$/
   const shortMatch = trimmedUrl.match(shortPattern)
   if (shortMatch) {
-    const owner = shortMatch[1]
-    const repo = shortMatch[2].replace(/\.git$/, '')
-    return formatParsedUrl(owner, repo)
+    return formatParsedUrl(shortMatch[1], shortMatch[2].replace(/\.git$/, ''))
   }
 
   return null
 }
 
-/**
- * Format the parsed components into a standardized object
- */
 function formatParsedUrl(owner: string, repo: string): ParsedGitUrl {
   return {
     owner,
@@ -77,9 +62,6 @@ function formatParsedUrl(owner: string, repo: string): ParsedGitUrl {
   }
 }
 
-/**
- * Validate a Git URL
- */
 export function isValidGitUrl(url: string): boolean {
   return parseGitUrl(url) !== null
 }

@@ -1,8 +1,5 @@
 /**
- * Git Operations Utility
- *
- * Provides reusable git operations with error handling and retry logic.
- * These functions ensure consistent git behavior across the application.
+ * Git Operations - reusable git operations with error handling and retry logic
  */
 
 import { exec } from 'child_process'
@@ -32,18 +29,6 @@ export type GitPushResult = {
   retries: number
 }
 
-/**
- * Get the status of a git repository
- *
- * @param repoPath - Path to git repository (can contain tilde)
- * @returns Status information
- *
- * @example
- * const status = await getGitStatus('~/dev/dotfiles')
- * if (status.hasChanges) {
- *   console.log('Repository has changes')
- * }
- */
 export async function getGitStatus(repoPath: string): Promise<GitStatusResult> {
   const absolutePath = expandTilde(repoPath)
 
@@ -84,11 +69,6 @@ export async function getGitStatus(repoPath: string): Promise<GitStatusResult> {
   }
 }
 
-/**
- * Stage all changes in a git repository
- *
- * @param repoPath - Path to git repository (can contain tilde)
- */
 export async function stageAllChanges(repoPath: string): Promise<void> {
   const absolutePath = expandTilde(repoPath)
 
@@ -99,18 +79,6 @@ export async function stageAllChanges(repoPath: string): Promise<void> {
   }
 }
 
-/**
- * Create a git commit with a message
- *
- * @param repoPath - Path to git repository (can contain tilde)
- * @param message - Commit message
- * @param options - Additional options
- * @returns Commit result
- *
- * @example
- * await createGitCommit('~/dev/dotfiles', 'Update dotfiles')
- * await createGitCommit('~/dev/dotfiles', 'Update dotfiles', { author: 'Bot <bot@example.com>' })
- */
 export async function createGitCommit(
   repoPath: string,
   message: string,
@@ -162,19 +130,6 @@ EOF
   }
 }
 
-/**
- * Push changes to remote with retry logic and exponential backoff
- *
- * @param repoPath - Path to git repository (can contain tilde)
- * @param options - Push options
- * @returns Push result with retry information
- *
- * @example
- * const result = await pushToRemote('~/dev/dotfiles')
- * if (!result.success) {
- *   console.error(`Push failed after ${result.retries} retries`)
- * }
- */
 export async function pushToRemote(
   repoPath: string,
   options: {
@@ -242,13 +197,6 @@ export async function pushToRemote(
   }
 }
 
-/**
- * Fetch from remote with retry logic
- *
- * @param repoPath - Path to git repository (can contain tilde)
- * @param options - Fetch options
- * @returns Success status
- */
 export async function fetchFromRemote(
   repoPath: string,
   options: {
@@ -293,13 +241,6 @@ export async function fetchFromRemote(
   }
 }
 
-/**
- * Pull from remote with retry logic
- *
- * @param repoPath - Path to git repository (can contain tilde)
- * @param options - Pull options
- * @returns Success status
- */
 export async function pullFromRemote(
   repoPath: string,
   options: {
@@ -342,12 +283,6 @@ export async function pullFromRemote(
   }
 }
 
-/**
- * Check if an error is a network error (should be retried)
- *
- * @param errorMessage - Error message from git command
- * @returns True if error appears to be network-related
- */
 function isNetworkError(errorMessage: string): boolean {
   const networkErrorPatterns = [
     'Could not resolve host',
@@ -364,21 +299,10 @@ function isNetworkError(errorMessage: string): boolean {
   )
 }
 
-/**
- * Sleep for a specified duration
- *
- * @param ms - Milliseconds to sleep
- */
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
-/**
- * Get the current branch name
- *
- * @param repoPath - Path to git repository (can contain tilde)
- * @returns Current branch name
- */
 export async function getCurrentBranch(repoPath: string): Promise<string> {
   const absolutePath = expandTilde(repoPath)
 
@@ -392,12 +316,6 @@ export async function getCurrentBranch(repoPath: string): Promise<string> {
   }
 }
 
-/**
- * Check if the current branch is ahead of remote
- *
- * @param repoPath - Path to git repository (can contain tilde)
- * @returns True if local branch is ahead of remote
- */
 export async function isAheadOfRemote(repoPath: string): Promise<boolean> {
   const absolutePath = expandTilde(repoPath)
 
@@ -411,12 +329,6 @@ export async function isAheadOfRemote(repoPath: string): Promise<boolean> {
   }
 }
 
-/**
- * Get the last commit author information
- *
- * @param repoPath - Path to git repository (can contain tilde)
- * @returns Object with author name and email
- */
 export async function getLastCommitAuthor(
   repoPath: string,
 ): Promise<{ name: string; email: string }> {
@@ -433,12 +345,6 @@ export async function getLastCommitAuthor(
   }
 }
 
-/**
- * Get all branches (local and remote) in a repository
- *
- * @param repoPath - Path to git repository (can contain tilde)
- * @returns Object with local and remote branches
- */
 export async function getAllBranches(repoPath: string): Promise<{
   local: string[]
   remote: string[]
@@ -472,14 +378,6 @@ export async function getAllBranches(repoPath: string): Promise<{
   }
 }
 
-/**
- * Checkout a branch in a repository
- *
- * @param repoPath - Path to git repository (can contain tilde)
- * @param branch - Branch name to checkout
- * @param options - Checkout options
- * @returns Success status
- */
 export async function checkoutBranch(
   repoPath: string,
   branch: string,

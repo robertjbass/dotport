@@ -20,12 +20,10 @@ try {
     join(process.cwd(), 'package.json'),
   ]
 
-  let found = false
   for (const packageJsonPath of possiblePaths) {
     try {
       const packageJson = JSON.parse(readFileSync(packageJsonPath, 'utf-8'))
       appVersion = packageJson.version
-      found = true
       break
     } catch {
       continue
@@ -51,11 +49,6 @@ export const TEMP_FOLDER = `${SYSTEM_ROOT_FOLDER}/temp`
 export const USER_SYSTEM_CONFIG_FILE = `${CONFIG_FOLDER}/user-system.json`
 export const GITHUB_AUTH_FILE = `${CONFIG_FOLDER}/github-auth.json`
 export const DESTRUCTED_FILES_LOG = `${DESTRUCTED_FILES_FOLDER}/log.json`
-
-// Legacy paths (for migration)
-export const LEGACY_ROOT_FOLDER = '.dev-machine-backup-restore'
-export const LEGACY_BACKUP_CONFIG_FILE = `${LEGACY_ROOT_FOLDER}/backup-config.json`
-export const LEGACY_GITHUB_AUTH_FILE = `${LEGACY_ROOT_FOLDER}/github-auth.json`
 
 // Default values
 export const DEFAULT_REPO_NAME = 'dotfiles'

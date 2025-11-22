@@ -176,13 +176,9 @@ dotfiles/
 └── <machine-id>/                         # Your backed up files
 ```
 
-## Documentation
+## Scripts
 
-For detailed setup instructions and advanced usage, see [SETUP.md](docs/SETUP.md).
-
-## Roadmap
-
-See [TODO.md](TODO.md) for planned features and improvements.
+You can create new scripts with `pnpm create-script <script-name>`
 
 ## Contributing
 
@@ -191,9 +187,3 @@ This project is under active development. Contributions are welcome!
 ## License
 
 MIT
-
----
-
-**Status:** Active Development
-
-**Last Updated:** 2025-01-20

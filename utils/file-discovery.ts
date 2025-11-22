@@ -1,7 +1,5 @@
 /**
- * File Discovery Utility
- *
- * Scans the user's home directory for common dotfiles and config files
+ * File Discovery - scans home directory for common dotfiles and config files
  */
 
 import fs from 'fs'
@@ -33,9 +31,6 @@ export type DiscoveredFile = {
   isDirectory: boolean // Whether it's a directory
 }
 
-/**
- * Check if a file or directory exists and get its details
- */
 function checkFileExists(filePath: string): {
   exists: boolean
   size?: number
@@ -58,9 +53,6 @@ function checkFileExists(filePath: string): {
   }
 }
 
-/**
- * Discover common dotfiles and config files
- */
 export function discoverConfigFiles(osType: OperatingSystem): DiscoveredFile[] {
   const discovered: DiscoveredFile[] = []
 

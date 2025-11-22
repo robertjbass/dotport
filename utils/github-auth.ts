@@ -1,7 +1,5 @@
 /**
- * GitHub Authentication using Octokit
- *
- * Provides OAuth device flow authentication for GitHub
+ * GitHub Auth - OAuth device flow authentication for GitHub
  */
 
 import { Octokit } from '@octokit/rest'
@@ -13,14 +11,6 @@ import { expandTilde } from './path-helpers'
 import { ensureDotPortDirectories } from './directory-manager'
 import type { GitHubAuthConfig } from '../types/user-system-config'
 
-// GitHub OAuth App credentials (you'll need to create a GitHub OAuth app)
-// For now, we'll use device flow which doesn't require a client secret
-const CLIENT_ID = 'YOUR_GITHUB_OAUTH_CLIENT_ID' // TODO: Replace with actual client ID
-
-/**
- * Authenticate with GitHub using device flow
- * This redirects the user to GitHub in their browser to approve the app
- */
 export async function authenticateWithGitHub(): Promise<Octokit> {
   // Check if we already have a valid token
   const existingAuth = loadAuthConfig()

@@ -1,8 +1,5 @@
 /**
- * File Backup Utility
- *
- * Handles copying dotfiles and config files to the dotfiles repository
- * while preserving original paths for symlinking later
+ * File Backup - copies dotfiles to the repository, preserving paths for symlinking
  */
 
 import fs from 'fs'
@@ -79,9 +76,6 @@ function shouldExcludeFile(filePath: string, fileName: string): boolean {
   return false
 }
 
-/**
- * Copy a single file or directory to the destination
- */
 async function copyFileOrDirectory(
   sourcePath: string,
   destPath: string,

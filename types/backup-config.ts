@@ -8,25 +8,11 @@ export type Shell = 'bash' | 'zsh' | 'fish' | 'other'
 export type RepoType = 'github' | 'gitlab' | 'bitbucket' | 'other-git' | 'none'
 export type RepoVisibility = 'public' | 'private'
 export type SecretFileFormat = 'shell-export' | 'dotenv' | 'json' | 'yaml'
-export type SecretStorageType =
-  | 'git-repo'
-  | 'cloud-service'
-  | 'local-only'
-  | 'password-manager'
-  | 'os-keychain'
-export type EncryptionType = 'none' | 'age' | 'pgp' | 'git-crypt' | 'sops'
-export type CloudProvider =
-  | 'aws-secrets-manager'
-  | 'gcp-secret-manager'
-  | 'azure-key-vault'
-  | 'hashicorp-vault'
-export type PasswordManager = '1password' | 'lastpass' | 'bitwarden' | 'pass'
+export type SecretStorageType = 'git-repo' | 'local-only'
+export type EncryptionType = 'none' | 'pgp'
 export type SymlinkStrategy = 'direct' | 'stow' | 'custom'
 export type ConflictResolution = 'backup' | 'overwrite' | 'skip' | 'ask'
 
-/**
- * Repository metadata (extracted from dotfiles config)
- */
 export type RepoMetadata = {
   repoType: RepoType
   repoName: string
@@ -36,10 +22,6 @@ export type RepoMetadata = {
   visibility: RepoVisibility
 }
 
-/**
- * System metadata for each machine
- * Replaces the old SystemConfig and MultiOSConfig
- */
 export type SystemMetadata = {
   os: OperatingSystem
   distro: string // e.g., 'darwin' for macOS, 'debian'/'ubuntu' for Linux
@@ -59,14 +41,10 @@ export type SystemMetadata = {
     }
   }
 
-  // Optional Linux-specific metadata
   displayServer?: 'x11' | 'wayland' | 'unknown'
   desktopEnvironment?: string // e.g., 'gnome', 'kde', 'i3', 'sway'
 }
 
-/**
- * Tracked file configuration
- */
 export type TrackedFile = {
   name: string // e.g., '.bashrc', '.zshrc'
   sourcePath: string // Home directory path: '~/.bashrc'
@@ -85,27 +63,18 @@ export type TrackedFile = {
   secretsScannedAt?: string // When file was last scanned for secrets
 }
 
-/**
- * Tracked files configuration for a machine
- */
 export type MachineTrackedFilesConfig = {
   cloneLocation: string // e.g., '/Users/bob/dev/dotfiles'
   files: TrackedFile[]
 }
 
-/**
- * Secret file configuration
- */
 export type SecretFile = {
   name: string // Default: '.env.sh'
   location: string // Default: '~'
   format: SecretFileFormat
 }
 
-/**
- * Git repository storage for secrets
- */
-export type GitRepoStorage = {
+export type GitRepoSecretStorage = {
   repoType: RepoType
   repoName: string
   repoUrl: string
@@ -116,37 +85,11 @@ export type GitRepoStorage = {
   encryptionKey?: string // Path to encryption key
 }
 
-/**
- * Cloud storage for secrets
- */
-export type CloudStorage = {
-  provider: CloudProvider
-  region?: string
-  vaultUrl?: string
-  configPath?: string
-}
-
-/**
- * Password manager storage for secrets
- */
-export type PasswordManagerStorage = {
-  type: PasswordManager
-  cliPath?: string
-}
-
-/**
- * Secret storage configuration
- */
 export type SecretStorage = {
   type: SecretStorageType
-  repo?: GitRepoStorage
-  cloud?: CloudStorage
-  passwordManager?: PasswordManagerStorage
+  repo?: GitRepoSecretStorage
 }
 
-/**
- * Tracked secret file
- */
 export type TrackedSecret = {
   name: string
   sourcePath: string
@@ -154,18 +97,12 @@ export type TrackedSecret = {
   encrypted: boolean
 }
 
-/**
- * Secret variable definition
- */
 export type SecretVariable = {
   name: string
   description?: string
   required: boolean
 }
 
-/**
- * Secrets configuration for a machine
- */
 export type MachineSecretsConfig = {
   enabled: boolean
   secretFile: SecretFile
@@ -176,9 +113,6 @@ export type MachineSecretsConfig = {
   }
 }
 
-/**
- * Symlinks configuration
- */
 export type SymlinksConfig = {
   enabled: boolean
   strategy: SymlinkStrategy
@@ -209,9 +143,6 @@ export type PackageManagerType =
   | 'gem' // Ruby packages
   | 'go' // Go packages
 
-/**
- * Package information
- */
 export type PackageInfo = {
   name: string
   version?: string
@@ -219,9 +150,6 @@ export type PackageInfo = {
   installedAt?: string
 }
 
-/**
- * Package manager configuration
- */
 export type PackageManager = {
   type: PackageManagerType
   enabled: boolean
@@ -231,17 +159,11 @@ export type PackageManager = {
   restoreCommand?: string
 }
 
-/**
- * Packages configuration for a machine
- */
 export type MachinePackagesConfig = {
   enabled: boolean
   packageManagers: PackageManager[]
 }
 
-/**
- * Application information
- */
 export type ApplicationInfo = {
   name: string
   version?: string
@@ -251,17 +173,11 @@ export type ApplicationInfo = {
   category?: string
 }
 
-/**
- * Applications configuration for a machine
- */
 export type MachineApplicationsConfig = {
   enabled: boolean
   applications: ApplicationInfo[]
 }
 
-/**
- * Editor/IDE types
- */
 export type EditorType =
   | 'vscode'
   | 'vscode-insiders'
@@ -277,9 +193,6 @@ export type EditorType =
   | 'emacs'
   | 'zed'
 
-/**
- * Extension information
- */
 export type ExtensionInfo = {
   id: string
   name?: string
@@ -288,9 +201,6 @@ export type ExtensionInfo = {
   enabled: boolean
 }
 
-/**
- * Editor extensions configuration
- */
 export type EditorExtensions = {
   editor: EditorType
   enabled: boolean
@@ -305,22 +215,12 @@ export type EditorExtensions = {
   snippetsBackedUp: boolean
 }
 
-/**
- * Extensions configuration for a machine
- */
 export type MachineExtensionsConfig = {
   enabled: boolean
   editors: EditorExtensions[]
 }
 
-/**
- * Service types
- */
 export type ServiceType = 'systemd' | 'launchd'
-
-/**
- * System service configuration
- */
 export type SystemService = {
   name: string
   type: ServiceType
@@ -331,17 +231,11 @@ export type SystemService = {
   backupPath?: string
 }
 
-/**
- * Services configuration for a machine
- */
 export type MachineServicesConfig = {
   enabled: boolean
   services: SystemService[]
 }
 
-/**
- * Settings types
- */
 export type SettingsType =
   | 'gnome-gsettings'
   | 'gnome-dconf'
@@ -351,9 +245,6 @@ export type SettingsType =
   | 'kde-plasma'
   | 'xfce'
 
-/**
- * System settings configuration
- */
 export type SystemSettings = {
   type: SettingsType
   enabled: boolean
@@ -363,17 +254,11 @@ export type SystemSettings = {
   restoreCommand?: string
 }
 
-/**
- * Settings configuration for a machine
- */
 export type MachineSettingsConfig = {
   enabled: boolean
   settings: SystemSettings[]
 }
 
-/**
- * Runtime types
- */
 export type RuntimeType =
   | 'node'
   | 'python'
@@ -384,9 +269,6 @@ export type RuntimeType =
   | 'php'
   | 'deno'
 
-/**
- * Runtime version configuration
- */
 export type RuntimeVersion = {
   type: RuntimeType
   manager?: string
@@ -395,22 +277,13 @@ export type RuntimeVersion = {
   installCommand?: string
 }
 
-/**
- * Runtimes configuration for a machine
- */
 export type MachineRuntimesConfig = {
   enabled: boolean
   runtimes: RuntimeVersion[]
 }
 
-/**
- * Font location types
- */
 export type FontLocationType = 'user' | 'system' | 'local'
 
-/**
- * Font file information
- */
 export type FontInfo = {
   name: string // Font file name (e.g., 'Roboto-Regular.ttf')
   family?: string // Font family name (e.g., 'Roboto')
@@ -421,9 +294,6 @@ export type FontInfo = {
   installedAt?: string // ISO 8601 timestamp
 }
 
-/**
- * Font configuration by location
- */
 export type FontLocation = {
   type: FontLocationType
   path: string // Directory path where fonts are stored
@@ -431,19 +301,12 @@ export type FontLocation = {
   fonts: FontInfo[]
 }
 
-/**
- * Fonts configuration for a machine
- */
 export type MachineFontsConfig = {
   enabled: boolean
   locations: FontLocation[]
   exportPath?: string // Path to exported font list (e.g., '.config/fonts.json')
 }
 
-/**
- * Complete configuration for a single machine
- * All machine-specific settings are grouped here
- */
 export type MachineConfig = {
   'tracked-files': MachineTrackedFilesConfig
   secrets: MachineSecretsConfig
@@ -457,9 +320,6 @@ export type MachineConfig = {
   fonts: MachineFontsConfig
 }
 
-/**
- * Metadata configuration
- */
 export type MetadataConfig = {
   createdAt: string // ISO 8601 timestamp
   updatedAt: string
@@ -467,10 +327,6 @@ export type MetadataConfig = {
   lastRestore?: string
 }
 
-/**
- * Complete backup configuration schema
- * New refactored structure with machine-specific organization
- */
 export type BackupConfig = {
   version: string
   metadata: MetadataConfig
@@ -481,9 +337,6 @@ export type BackupConfig = {
   }
 }
 
-/**
- * Default configuration values
- */
 export const DEFAULT_BACKUP_CONFIG: Partial<BackupConfig> = {
   version: '1.0.0',
   metadata: {
@@ -502,9 +355,6 @@ export const DEFAULT_BACKUP_CONFIG: Partial<BackupConfig> = {
   dotfiles: {},
 }
 
-/**
- * Helper function to create default machine config
- */
 export function createDefaultMachineConfig(): MachineConfig {
   return {
     'tracked-files': {
@@ -560,9 +410,6 @@ export function createDefaultMachineConfig(): MachineConfig {
   }
 }
 
-/**
- * Helper function to create a default tracked file
- */
 export function createTrackedFile(
   name: string,
   machineId: string,
@@ -578,9 +425,6 @@ export function createTrackedFile(
   }
 }
 
-/**
- * Helper function to create a default tracked secret
- */
 export function createTrackedSecret(
   name: string,
   options: Partial<TrackedSecret> = {},
@@ -593,10 +437,6 @@ export function createTrackedSecret(
   }
 }
 
-/**
- * Get the machine identifier for file organization
- * Uses naming convention: <os>-<distro>-<nickname>
- */
 export function getMachineId(
   os: OperatingSystem,
   distro: string,

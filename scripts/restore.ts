@@ -5,12 +5,12 @@ import chalk from 'chalk'
 import fs from 'fs'
 import path from 'path'
 import os from 'os'
+import { exec } from 'child_process'
 import ScriptSession from '../clients/script-session'
 import { detectPackageManager } from '../utils/detect-runtime'
 import { getPackagesForManager } from '../utils/package-detection'
 import { refreshFontCache } from '../utils/font-detection'
 
-// Type definitions
 import type {
   BackupConfig,
   TrackedFile,
@@ -19,7 +19,6 @@ import type {
   MachineFontsConfig,
 } from '../types/backup-config'
 
-// Utilities
 import {
   expandTilde,
   pathExists,
@@ -36,17 +35,17 @@ import {
   selectFromList,
   confirmAction,
   promptInput,
+  renderBox,
   BACK_OPTION,
+  type BoxRow,
 } from '../utils/prompt-helpers'
 import {
   backupFileBeforeOverwrite,
   getBackupSummary,
   listAllBackups,
   restoreBackupEntry,
-  findBackupEntriesForFile,
   getBackupDirectory,
   cleanupOldBackups,
-  type BackupEntry,
 } from '../utils/restore-backup'
 
 /**
@@ -82,16 +81,131 @@ type RestoreConfig = {
 }
 
 /**
- * Parse command line arguments to determine restore mode
+ * Tracks overall restore progress across all categories
  */
+type RestoreProgress = {
+  current: number
+  total: number
+}
+
+/**
+ * Creates a progress tracker and increments/displays progress
+ */
+function createProgressTracker(total: number): RestoreProgress {
+  return { current: 0, total }
+}
+
+/**
+ * Increments progress and displays the step
+ */
+function incrementProgress(progress: RestoreProgress, stepName: string): void {
+  progress.current++
+  displayStepProgress(progress.current, progress.total, stepName)
+}
+
+/**
+ * Calculates the total number of restore steps based on selection and available data
+ */
+function calculateTotalSteps(
+  selection: 'dotfiles' | 'packages' | 'runtimes' | 'fonts' | 'all',
+  machineConfig: BackupConfig['dotfiles'][string],
+): number {
+  let total = 0
+
+  const includeDotfiles = selection === 'dotfiles' || selection === 'all'
+  const includePackages = selection === 'packages' || selection === 'all'
+  const includeRuntimes = selection === 'runtimes' || selection === 'all'
+  const includeFonts = selection === 'fonts' || selection === 'all'
+
+  if (includeDotfiles) {
+    const files = machineConfig?.['tracked-files']?.files || []
+    total += files.filter((f) => f.tracked).length
+  }
+
+  if (includePackages) {
+    const managers = machineConfig?.packages?.packageManagers || []
+    total += managers.filter((m) => m.enabled && m.packages.length > 0).length
+  }
+
+  if (includeRuntimes) {
+    const runtimes = machineConfig?.runtimes?.runtimes || []
+    total += runtimes.filter((r) => r.versions.length > 0).length
+  }
+
+  if (includeFonts) {
+    const locations = machineConfig?.fonts?.locations || []
+    total += locations.filter((l) => l.enabled && l.fonts.length > 0).length
+  }
+
+  return total
+}
+
 function parseRestoreMode(): RestoreMode {
   const args = process.argv.slice(2)
   return args.includes('--test') ? 'test' : 'normal'
 }
 
 /**
- * Get the restore root directory based on mode
+ * Opens a folder in the system file manager
  */
+function openFolder(folderPath: string, platform: 'darwin' | 'linux'): void {
+  const command = platform === 'darwin' ? 'open' : 'xdg-open'
+  exec(`${command} "${folderPath}"`, (error) => {
+    if (error) {
+      displayError('Failed to open folder', error.message)
+    }
+  })
+}
+
+/**
+ * Prompts user to open folder or exit after test mode restore
+ */
+async function promptOpenFolder(
+  folderPath: string,
+  platform: 'darwin' | 'linux',
+): Promise<void> {
+  console.log(chalk.bold('\nTest files restored to:'))
+  console.log(chalk.cyan(folderPath))
+  console.log()
+  console.log(chalk.gray('Press:'))
+  if (platform === 'darwin') {
+    console.log(chalk.gray(`- ${chalk.white('[o]')} to open in Finder`))
+    console.log(
+      chalk.cyan(
+        `  ${chalk.bold('note:')} dotfiles are hidden - press ${chalk.white('Cmd+Shift+.')} to show them`,
+      ),
+    )
+  } else {
+    console.log(chalk.gray(`- ${chalk.white('[o]')} to open the folder`))
+  }
+  console.log(chalk.gray(`- ${chalk.white('[enter]')} to finish`))
+
+  // Use raw mode to capture single keypress
+  const stdin = process.stdin
+  stdin.setRawMode(true)
+  stdin.resume()
+  stdin.setEncoding('utf8')
+
+  return new Promise((resolve) => {
+    const onKeypress = (key: string) => {
+      // Restore terminal state
+      stdin.setRawMode(false)
+      stdin.pause()
+      stdin.removeListener('data', onKeypress)
+
+      if (key.toLowerCase() === 'o') {
+        openFolder(folderPath, platform)
+        console.log(chalk.green('\n✅ Opening folder...'))
+      }
+
+      console.log(chalk.gray('\nGoodbye!\n'))
+      resolve()
+    }
+
+    stdin.on('data', onKeypress)
+  })
+}
+
 function getRestoreRoot(mode: RestoreMode): string {
   if (mode === 'test') {
     return expandTilde('~/backup-test')
@@ -99,10 +213,6 @@ function getRestoreRoot(mode: RestoreMode): string {
   return os.homedir()
 }
 
-/**
- * Find the dotfiles repository location
- * Searches common locations where the dotfiles repo might be cloned
- */
 function findDotfilesRepo(): string | null {
   const homeDir = os.homedir()
   const commonLocations = [
@@ -123,9 +233,6 @@ function findDotfilesRepo(): string | null {
   return null
 }
 
-/**
- * Filter out already-installed packages and return summary statistics
- */
 async function filterInstalledPackages(manager: PackageManager): Promise<{
   packagesToInstall: typeof manager.packages
   totalBackedUp: number
@@ -134,11 +241,9 @@ async function filterInstalledPackages(manager: PackageManager): Promise<{
 }> {
   const totalBackedUp = manager.packages.length
 
-  // Get currently installed packages
   const installedPackages = await getPackagesForManager(manager.type)
   const installedPackageNames = new Set(installedPackages.map((p) => p.name))
 
-  // Filter out already-installed packages
   const packagesToInstall = manager.packages.filter(
     (pkg) => !installedPackageNames.has(pkg.name),
   )
@@ -151,9 +256,6 @@ async function filterInstalledPackages(manager: PackageManager): Promise<{
   }
 }
 
-/**
- * Load the backup configuration from the dotfiles repository
- */
 async function loadBackupData(): Promise<{
   config: BackupConfig
   repoPath: string
@@ -223,9 +325,6 @@ async function loadBackupData(): Promise<{
   }
 }
 
-/**
- * Display restore mode banner
- */
 function displayModeInfo(mode: RestoreMode, testRoot: string): void {
   if (mode === 'test') {
     displayWarning(
@@ -240,9 +339,6 @@ function displayModeInfo(mode: RestoreMode, testRoot: string): void {
   }
 }
 
-/**
- * Resolve the target path for a file based on mode
- */
 function resolveTargetPath(
   sourcePath: string,
   restoreRoot: string,
@@ -260,9 +356,6 @@ function resolveTargetPath(
   return expandTilde(sourcePath)
 }
 
-/**
- * Prompt user for restore action for a single file or directory
- */
 async function promptFileRestoreAction(
   filename: string,
   expectedPath: string,
@@ -280,47 +373,28 @@ async function promptFileRestoreAction(
     return { action: 'skip' }
   }
 
-  // Calculate dynamic box width based on content
-  const minBoxWidth = 35
-  const maxLineLength = Math.max(
-    filename.length,
-    11 + expectedPath.length, // "Expected: " + path
-    11 + backupPath.length, // "Backup:  " + path
-    mode === 'test' ? 10 + testRoot.length : 0, // "Actual: " + path
-  )
-  const boxWidth = Math.max(minBoxWidth, maxLineLength + 2) // +2 for padding
-
-  console.log(chalk.cyan(`\n┌${'─'.repeat(boxWidth)}┐`))
-  console.log(
-    chalk.cyan(
-      `│ ${chalk.bold(filename)}${' '.repeat(boxWidth - filename.length - 1)}│`,
-    ),
-  )
-  console.log(chalk.cyan(`├${'─'.repeat(boxWidth)}┤`))
-  console.log(
-    chalk.cyan(
-      `│ ${chalk.gray('Expected:')} ${expectedPath}${' '.repeat(boxWidth - 11 - expectedPath.length - 1)}│`,
-    ),
-  )
-  console.log(
-    chalk.cyan(
-      `│ ${chalk.gray('Backup:')}  ${backupPath}${' '.repeat(boxWidth - 11 - backupPath.length - 1)}│`,
-    ),
-  )
+  // Build box rows
+  const rows: BoxRow[] = [
+    { type: 'title', text: filename },
+    { type: 'divider' },
+    { type: 'labeled', label: 'Expected:', value: expectedPath },
+    { type: 'labeled', label: 'Backup:', value: backupPath },
+  ]
 
   if (mode === 'test') {
-    console.log(chalk.cyan(`├${'─'.repeat(boxWidth)}┤`))
-    console.log(
-      chalk.yellow(`│ ${chalk.bold('TEST MODE')}${' '.repeat(boxWidth - 11)}│`),
-    )
-    console.log(
-      chalk.yellow(
-        `│ Actual: ${testRoot}${' '.repeat(boxWidth - 10 - testRoot.length - 1)}│`,
-      ),
-    )
+    rows.push({ type: 'divider' })
+    rows.push({ type: 'text', text: 'TEST MODE', color: 'yellow' })
+    rows.push({
+      type: 'labeled',
+      label: 'Actual:',
+      value: testRoot,
+      color: 'yellow',
+    })
   }
 
-  console.log(chalk.cyan(`└${'─'.repeat(boxWidth)}┘\n`))
+  console.log() // Add newline before box
+  renderBox(rows)
+  console.log() // Add newline after box
 
   const itemType = isDirectory ? 'directory' : 'file'
   const action = await selectFromList<RestoreAction>(
@@ -377,9 +451,6 @@ async function promptFileRestoreAction(
   return { action }
 }
 
-/**
- * Recursively copy a directory
- */
 function copyDirectoryRecursive(sourcePath: string, targetPath: string): void {
   ensureDirectory(targetPath)
 
@@ -397,9 +468,7 @@ function copyDirectoryRecursive(sourcePath: string, targetPath: string): void {
   }
 }
 
-/**
- * Copy or symlink a file/directory to the target location
- */
+// Copy or symlink a file/directory to the target location
 function restoreFile(
   content: string,
   targetPath: string,
@@ -412,13 +481,10 @@ function restoreFile(
   try {
     const absoluteTarget = expandTilde(targetPath)
 
-    // Ensure parent directory exists
     const parentDir = path.dirname(absoluteTarget)
     ensureDirectory(parentDir)
 
-    // Check if target already exists and back it up
     if (pathExists(absoluteTarget)) {
-      // Use the comprehensive backup system
       const backupEntry = backupFileBeforeOverwrite(absoluteTarget)
       if (backupEntry) {
         displayInfo(
@@ -435,11 +501,9 @@ function restoreFile(
 
     if (action === 'copy-expected' || action === 'copy-custom') {
       if (isDir) {
-        // Copy the entire directory recursively
         copyDirectoryRecursive(backupPath, absoluteTarget)
         displaySuccess(`Copied directory to: ${targetPath}`)
       } else {
-        // Copy the file
         fs.writeFileSync(absoluteTarget, content, 'utf-8')
         displaySuccess(`Copied to: ${targetPath}`)
       }
@@ -498,12 +562,10 @@ function restoreFile(
   }
 }
 
-/**
- * Restore dotfiles from the backup
- */
-async function restoreDotfiles(
+async function restoreDotfilesFromBackup(
   trackedFiles: TrackedFile[],
   config: RestoreConfig,
+  progress: RestoreProgress,
 ): Promise<void> {
   if (trackedFiles.length === 0) {
     displayWarning('No dotfiles to restore', 'The backup contains no dotfiles.')
@@ -521,12 +583,11 @@ async function restoreDotfiles(
   for (let i = 0; i < trackedFiles.length; i++) {
     const file = trackedFiles[i]
 
-    // Skip files that are not tracked
     if (!file.tracked) {
       continue
     }
 
-    displayStepProgress(i + 1, trackedFiles.length, `Restoring ${file.name}`)
+    incrementProgress(progress, `Restoring ${file.name}`)
 
     const expectedPath = resolveTargetPath(
       file.sourcePath,
@@ -534,7 +595,6 @@ async function restoreDotfiles(
       config.mode,
     )
 
-    // Read file content from the dotfiles repository
     const repoFilePath = path.join(config.dotfilesRepoPath, file.repoPath)
     let fileContent = ''
     let hasContent = false
@@ -542,7 +602,6 @@ async function restoreDotfiles(
 
     if (pathExists(repoFilePath)) {
       try {
-        // Check if it's a directory
         if (isDirectory(repoFilePath)) {
           isDir = true
           hasContent = true
@@ -599,12 +658,10 @@ async function restoreDotfiles(
   )
 }
 
-/**
- * Restore packages (with test mode logging)
- */
 async function restorePackages(
   packageManagers: PackageManager[],
   config: RestoreConfig,
+  progress: RestoreProgress,
 ): Promise<void> {
   console.log(chalk.cyan.bold('\n📦 Package Restoration\n'))
 
@@ -799,6 +856,8 @@ async function restorePackages(
       continue
     }
 
+    incrementProgress(progress, `Restoring ${manager.type} packages`)
+
     // Filter out already-installed packages
     const { packagesToInstall, totalBackedUp, alreadyInstalled, newToInstall } =
       await filterInstalledPackages(manager)
@@ -906,12 +965,10 @@ async function restorePackages(
   }
 }
 
-/**
- * Restore runtimes (with test mode logging)
- */
 async function restoreRuntimes(
   runtimes: RuntimeVersion[],
   config: RestoreConfig,
+  progress: RestoreProgress,
 ): Promise<void> {
   console.log(chalk.cyan.bold('\n🔧 Runtime Restoration\n'))
 
@@ -923,6 +980,8 @@ async function restoreRuntimes(
     if (runtime.versions.length === 0) {
       continue
     }
+
+    incrementProgress(progress, `Restoring ${runtime.type}`)
 
     const versionList = runtime.versions.join(', ')
     const managerInfo = runtime.manager ? ` via ${runtime.manager}` : ''
@@ -967,13 +1026,11 @@ async function restoreRuntimes(
   }
 }
 
-/**
- * Restore fonts (with test mode logging)
- */
 async function restoreFonts(
   fontsConfig: MachineFontsConfig,
   config: RestoreConfig,
   machineId: string,
+  progress: RestoreProgress,
 ): Promise<void> {
   console.log(chalk.cyan.bold('\n🔤 Font Restoration\n'))
 
@@ -995,6 +1052,8 @@ async function restoreFonts(
     if (location.fonts.length === 0) {
       continue
     }
+
+    incrementProgress(progress, `Restoring ${location.type} fonts`)
 
     const fontList = location.fonts
       .slice(0, 5)
@@ -1107,9 +1166,7 @@ async function restoreFonts(
   }
 }
 
-/**
- * Manage backups menu - view, restore, and manage backed up files
- */
+// view, restore, and manage backed up files
 async function manageBackupsMenu(): Promise<void> {
   while (true) {
     console.log(chalk.cyan.bold('\n🗄️  Backup Management\n'))
@@ -1158,104 +1215,113 @@ async function manageBackupsMenu(): Promise<void> {
       { name: '← Back to main menu', value: 'back' },
     ])
 
-    if (action === BACK_OPTION || action === 'back') {
-      return
-    }
+    switch (action) {
+      case BACK_OPTION:
+      case 'back':
+        return
 
-    if (action === 'list') {
-      const backups = listAllBackups(true)
+      case 'list': {
+        const backups = listAllBackups(true)
 
-      console.log(chalk.cyan.bold(`\n📋 All Backups (${backups.length})\n`))
+        console.log(chalk.cyan.bold(`\n📋 All Backups (${backups.length})\n`))
 
-      backups.forEach((backup, index) => {
-        const date = new Date(backup.backedUpAt).toLocaleString()
-        const size = backup.originalSize
-          ? `${(backup.originalSize / 1024).toFixed(2)} KB`
-          : 'Unknown'
-        console.log(chalk.white(`${index + 1}. ${backup.filename}`))
-        console.log(chalk.gray(`   Location: ${backup.location}`))
-        console.log(chalk.gray(`   Backed up: ${date}`))
-        console.log(chalk.gray(`   Size: ${size}`))
-        console.log()
-      })
+        backups.forEach((backup, index) => {
+          const date = new Date(backup.backedUpAt).toLocaleString()
+          const size = backup.originalSize
+            ? `${(backup.originalSize / 1024).toFixed(2)} KB`
+            : 'Unknown'
+          console.log(chalk.white(`${index + 1}. ${backup.filename}`))
+          console.log(chalk.gray(`   Location: ${backup.location}`))
+          console.log(chalk.gray(`   Backed up: ${date}`))
+          console.log(chalk.gray(`   Size: ${size}`))
+          console.log()
+        })
 
-      await confirmAction('Press Enter to continue...', true)
-    } else if (action === 'restore') {
-      const backups = listAllBackups(true)
+        await confirmAction('Press Enter to continue...', true)
+        break
+      }
 
-      const choices = backups.map((backup, index) => ({
-        name: `${backup.filename} (${new Date(backup.backedUpAt).toLocaleString()})`,
-        value: index,
-      }))
+      case 'restore': {
+        const backups = listAllBackups(true)
 
-      const selectedIndex = await selectFromList<number>(
-        'Select a backup to restore:',
-        choices,
-      )
+        const choices = backups.map((backup, index) => ({
+          name: `${backup.filename} (${new Date(backup.backedUpAt).toLocaleString()})`,
+          value: index,
+        }))
 
-      if (selectedIndex !== BACK_OPTION) {
-        const backup = backups[selectedIndex]
-
-        displayWarning(
-          'Restore Backup',
-          `This will restore:\n  ${backup.location}\n  From: ${backup.backedUpAt}`,
+        const selectedIndex = await selectFromList<number>(
+          'Select a backup to restore:',
+          choices,
         )
 
-        const shouldRestore = await confirmAction(
-          'Are you sure you want to restore this backup?',
-          false,
-        )
+        if (selectedIndex !== BACK_OPTION) {
+          const backup = backups[selectedIndex]
 
-        if (shouldRestore && shouldRestore !== BACK_OPTION) {
-          const success = restoreBackupEntry(backup, false)
+          displayWarning(
+            'Restore Backup',
+            `This will restore:\n  ${backup.location}\n  From: ${backup.backedUpAt}`,
+          )
 
-          if (success) {
-            displaySuccess('Backup restored successfully', backup.location)
+          const shouldRestore = await confirmAction(
+            'Are you sure you want to restore this backup?',
+            false,
+          )
 
-            const shouldDelete = await confirmAction(
-              'Delete the backup file now that it has been restored?',
-              false,
-            )
+          if (shouldRestore && shouldRestore !== BACK_OPTION) {
+            const success = restoreBackupEntry(backup, false)
 
-            if (shouldDelete && shouldDelete !== BACK_OPTION) {
-              restoreBackupEntry(backup, true)
-              displaySuccess('Backup file deleted')
+            if (success) {
+              displaySuccess('Backup restored successfully', backup.location)
+
+              const shouldDelete = await confirmAction(
+                'Delete the backup file now that it has been restored?',
+                false,
+              )
+
+              if (shouldDelete && shouldDelete !== BACK_OPTION) {
+                restoreBackupEntry(backup, true)
+                displaySuccess('Backup file deleted')
+              }
+            } else {
+              displayError('Failed to restore backup')
             }
-          } else {
-            displayError('Failed to restore backup')
           }
         }
+        break
       }
-    } else if (action === 'cleanup') {
-      const daysInput = await promptInput(
-        'Delete backups older than how many days?',
-        {
-          defaultValue: '30',
-          validate: (input: string) => {
-            const num = parseInt(input, 10)
-            if (isNaN(num) || num < 1) {
-              return 'Please enter a valid number of days (minimum 1)'
-            }
-            return true
+
+      case 'cleanup': {
+        const daysInput = await promptInput(
+          'Delete backups older than how many days?',
+          {
+            defaultValue: '30',
+            validate: (input: string) => {
+              const num = parseInt(input, 10)
+              if (isNaN(num) || num < 1) {
+                return 'Please enter a valid number of days (minimum 1)'
+              }
+              return true
+            },
           },
-        },
-      )
+        )
 
-      if (daysInput) {
-        const days = parseInt(daysInput, 10)
-        const cleanedCount = cleanupOldBackups(days)
+        if (daysInput) {
+          const days = parseInt(daysInput, 10)
+          const cleanedCount = cleanupOldBackups(days)
 
-        if (cleanedCount > 0) {
-          displaySuccess(
-            `Cleaned up ${cleanedCount} old backup(s)`,
-            `Deleted backups older than ${days} days`,
-          )
-        } else {
-          displayInfo(
-            'No old backups to clean up',
-            `All backups are newer than ${days} days`,
-          )
+          if (cleanedCount > 0) {
+            displaySuccess(
+              `Cleaned up ${cleanedCount} old backup(s)`,
+              `Deleted backups older than ${days} days`,
+            )
+          } else {
+            displayInfo(
+              'No old backups to clean up',
+              `All backups are newer than ${days} days`,
+            )
+          }
         }
+        break
       }
     }
   }
@@ -1293,10 +1359,7 @@ function getMachineIdKey(
   return matchingKeys[0]
 }
 
-/**
- * Main restore menu
- */
-async function showRestoreMenu(
+async function showMainRestoreMenu(
   config: RestoreConfig,
 ): Promise<
   'dotfiles' | 'packages' | 'runtimes' | 'fonts' | 'all' | 'backups' | 'exit'
@@ -1319,26 +1382,21 @@ async function showRestoreMenu(
       | 'exit'
   }> = []
 
-  // Count available items
   const machineConfig = config.data.dotfiles[machineId]
   const dotfilesCount =
     machineConfig?.['tracked-files']?.files?.filter((f) => f.tracked).length ||
     0
 
-  // Count packages
   const packagesCount = machineConfig?.packages?.packageManagers?.length || 0
 
-  // Count runtimes
   const runtimesCount = machineConfig?.runtimes?.runtimes?.length || 0
 
-  // Count fonts
   const fontsCount =
     machineConfig?.fonts?.locations?.reduce(
       (total, loc) => total + (loc.enabled ? loc.fonts.length : 0),
       0,
     ) || 0
 
-  // Add "Restore Everything" first if there's anything to restore
   if (
     dotfilesCount > 0 ||
     packagesCount > 0 ||
@@ -1379,7 +1437,6 @@ async function showRestoreMenu(
     })
   }
 
-  // Get backup summary to show count
   const backupSummary = getBackupSummary()
   const backupLabel =
     backupSummary.totalBackups > 0
@@ -1407,15 +1464,11 @@ async function showRestoreMenu(
   return selection
 }
 
-/**
- * Main restore function
- */
 export default async function restore(): Promise<void> {
   const mode = parseRestoreMode()
   const testRoot = getRestoreRoot(mode)
   const platform = ScriptSession.operatingSystem as 'darwin' | 'linux'
 
-  // Display welcome banner
   displayWelcome(
     'Dev Machine Backup & Restore - Restore Wizard',
     'This wizard will help you restore your backed-up configuration.\nChoose what to restore and how to restore each item.',
@@ -1441,7 +1494,6 @@ export default async function restore(): Promise<void> {
     displaySuccess('Test directory created', testRoot)
   }
 
-  // Load backup data
   const result = await loadBackupData()
   if (!result) {
     process.exit(1)
@@ -1459,7 +1511,6 @@ export default async function restore(): Promise<void> {
 
   const machineId = getMachineIdKey(platform, backupConfig)
 
-  // Check if there's data for this machine
   const machineConfig = backupConfig.dotfiles[machineId]
   if (!machineConfig) {
     displayError(
@@ -1471,7 +1522,7 @@ export default async function restore(): Promise<void> {
 
   // Main restore loop
   while (true) {
-    const selection = await showRestoreMenu(config)
+    const selection = await showMainRestoreMenu(config)
 
     if (selection === 'exit') {
       displaySuccess('Restore process exited', 'Goodbye!')
@@ -1483,11 +1534,15 @@ export default async function restore(): Promise<void> {
       continue // Return to main menu after backup management
     }
 
+    // Calculate total steps and create progress tracker
+    const totalSteps = calculateTotalSteps(selection, machineConfig)
+    const progress = createProgressTracker(totalSteps)
+
     if (selection === 'dotfiles' || selection === 'all') {
       const trackedFiles =
         backupConfig.dotfiles[machineId]?.['tracked-files']?.files
       if (trackedFiles && trackedFiles.length > 0) {
-        await restoreDotfiles(trackedFiles, config)
+        await restoreDotfilesFromBackup(trackedFiles, config, progress)
       }
     }
 
@@ -1495,35 +1550,33 @@ export default async function restore(): Promise<void> {
       const packageManagers =
         backupConfig.dotfiles[machineId]?.packages?.packageManagers
       if (packageManagers && packageManagers.length > 0) {
-        await restorePackages(packageManagers, config)
+        await restorePackages(packageManagers, config, progress)
       }
     }
 
     if (selection === 'runtimes' || selection === 'all') {
       const runtimes = backupConfig.dotfiles[machineId]?.runtimes?.runtimes
       if (runtimes && runtimes.length > 0) {
-        await restoreRuntimes(runtimes, config)
+        await restoreRuntimes(runtimes, config, progress)
       }
     }
 
     if (selection === 'fonts' || selection === 'all') {
       const fontsConfig = backupConfig.dotfiles[machineId]?.fonts
       if (fontsConfig && fontsConfig.enabled) {
-        await restoreFonts(fontsConfig, config, machineId)
+        await restoreFonts(fontsConfig, config, machineId, progress)
       }
     }
 
     if (selection === 'all') {
+      displaySuccess(
+        'All items processed',
+        'Restoration complete! Review the output above for details.',
+      )
       if (config.mode === 'test') {
-        displaySuccess(
-          'All items processed',
-          `Restoration complete! Review the output above for details.\n\nTest files restored to: ${chalk.cyan(config.testRoot)}`,
-        )
+        await promptOpenFolder(config.testRoot, config.platform)
       } else {
-        displaySuccess(
-          'All items processed',
-          'Restoration complete! Review the output above for details.',
-        )
+        console.log(chalk.gray('\nGoodbye!\n'))
       }
       break
     }
@@ -1535,13 +1588,11 @@ export default async function restore(): Promise<void> {
     )
 
     if (!shouldContinue || shouldContinue === BACK_OPTION) {
+      displaySuccess('Restore process complete')
       if (config.mode === 'test') {
-        displaySuccess(
-          'Restore process complete',
-          `Test files restored to: ${chalk.cyan(config.testRoot)}\nGoodbye!`,
-        )
+        await promptOpenFolder(config.testRoot, config.platform)
       } else {
-        displaySuccess('Restore process complete', 'Goodbye!')
+        console.log(chalk.gray('\nGoodbye!\n'))
       }
       break
     }

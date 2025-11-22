@@ -1,24 +1,11 @@
 #!/usr/bin/env node
 
-/**
- * Simplified Backup Script (v2)
- *
- * New 6-step backup process:
- * 1. System Detection & Confirmation
- * 2. GitHub Authentication (Optional)
- * 3. Repository Setup
- * 4. Secret File Configuration
- * 5. File Selection & System Detection
- * 6. Backup Execution & Finalization
- */
-
 import inquirer from 'inquirer'
 import chalk from 'chalk'
 import fs from 'fs'
 import path from 'path'
 
 import { ensureDotPortDirectories } from '../utils/directory-manager'
-import { checkAndMigrateIfNeeded } from '../utils/config-migration'
 import {
   getOrCreateUserSystemConfig,
   writeUserSystemConfig,
@@ -83,44 +70,28 @@ import {
   stageAllChanges,
   createGitCommit,
   pushToRemote,
-  getCurrentBranch,
-  getAllBranches,
-  checkoutBranch,
-  pullFromRemote,
 } from '../utils/git-operations'
 import { buildBackupConfig } from '../utils/schema-builder'
 
-/**
- * Main backup function
- */
-export default async function backupV2() {
+export default async function backup() {
   try {
     console.clear()
     displayWelcome('Backup')
 
-    // Ensure directory structure and check for migration
     ensureDotPortDirectories()
-    await checkAndMigrateIfNeeded()
-
-    // Get or create user system config
     const userConfig = await getOrCreateUserSystemConfig()
 
-    // ========================================================================
-    // STEP 1: System Detection & Confirmation
-    // ========================================================================
     console.log(chalk.bold.cyan('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n'))
 
     const step1 = await promptStep1SystemDetection()
     const { systemInfo, nickname } = step1
 
-    // Generate machine ID
     const machineId = generateMachineId(
       systemInfo.os,
       systemInfo.distro,
       nickname,
     )
 
-    // Update user config with system info
     userConfig.system = {
       os: systemInfo.os,
       distro: systemInfo.distro,
@@ -135,9 +106,6 @@ export default async function backupV2() {
 
     console.log(chalk.green(`\n✅ System detected: ${machineId}\n`))
 
-    // ========================================================================
-    // STEP 2: GitHub Authentication (Optional)
-    // ========================================================================
     console.log(chalk.bold.cyan('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n'))
 
     const step2 = await promptStep2GitHubAuth()
@@ -160,27 +128,20 @@ export default async function backupV2() {
 
     const useGitHub = !!octokit
 
-    // ========================================================================
-    // STEP 3: Repository Setup
-    // ========================================================================
     console.log(chalk.bold.cyan('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n'))
 
     const step3 = await promptStep3RepoSetup(useGitHub)
     const repoPath = expandTilde(step3.repoPath)
 
-    // Determine repo URL based on scenario
     let repoUrl = ''
     if (step3.createGitHubRepo && octokit) {
-      // Creating new GitHub repo
       repoUrl = `https://github.com/${githubUsername}/${step3.repoName}.git`
     } else if (step3.scenario === 'existing-remote') {
-      // Existing GitHub repo
       repoUrl = `https://github.com/${githubUsername}/${step3.repoName}.git`
     } else if (
       step3.scenario === 'existing-local' &&
       isGitRepository(repoPath)
     ) {
-      // Try to detect remote URL from existing git repo
       try {
         const remoteUrl = require('child_process')
           .execSync('git config --get remote.origin.url', {
@@ -190,17 +151,14 @@ export default async function backupV2() {
           .trim()
         repoUrl = remoteUrl
       } catch {
-        // No remote configured
         repoUrl = ''
       }
     }
 
-    // Fallback: If we still don't have a URL but we have GitHub auth and repo info, construct it
     if (!repoUrl && useGitHub && githubUsername && step3.repoName) {
       repoUrl = `https://github.com/${githubUsername}/${step3.repoName}.git`
     }
 
-    // Update user config with repo info
     updateRepoInfo({
       repoType: useGitHub ? 'github' : 'none',
       repoName: step3.repoName,
@@ -212,9 +170,7 @@ export default async function backupV2() {
 
     userConfig.system.localRepoPath = step3.repoPath
 
-    // Handle repository creation/setup based on scenario
     if (step3.scenario === 'first-time') {
-      // Create directory if it doesn't exist
       if (!fs.existsSync(repoPath)) {
         fs.mkdirSync(repoPath, { recursive: true, mode: 0o755 })
         console.log(
@@ -222,13 +178,11 @@ export default async function backupV2() {
         )
       }
 
-      // Initialize as git repo
       if (step3.isGitRepo && !isGitRepository(repoPath)) {
         require('child_process').execSync('git init', { cwd: repoPath })
         console.log(chalk.green('✅ Initialized git repository\n'))
       }
 
-      // Create GitHub repo if requested
       if (step3.createGitHubRepo && octokit) {
         try {
           const result = await createRepository(octokit, {
@@ -242,7 +196,6 @@ export default async function backupV2() {
             console.log(
               chalk.green(`✅ Created GitHub repository: ${result.httpsUrl}\n`),
             )
-            // Set remote
             require('child_process').execSync(
               `git remote add origin ${result.httpsUrl}`,
               { cwd: repoPath },
@@ -258,14 +211,9 @@ export default async function backupV2() {
       }
     }
 
-    // ========================================================================
-    // STEP 4: Secret File Configuration
-    // ========================================================================
     console.log(chalk.bold.cyan('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n'))
 
     const step4 = await promptStep4SecretConfig()
-
-    // Track all secret files we need to add to .gitignore
     const secretFilesToIgnore: string[] = []
 
     if (step4.enabled && step4.secretFilePath) {
@@ -273,7 +221,6 @@ export default async function backupV2() {
       const targetEnvShPath = expandTilde('~/.env.sh')
 
       if (step4.createNew) {
-        // Create new secret file with default content
         const defaultContent = `# Secret environment variables
 # This file contains sensitive data and should NOT be committed to version control
 # Add your secrets here in the format: export MY_SECRET="value"
@@ -289,7 +236,6 @@ export EXAMPLE_SECRET="your-secret-here"
         step4.secretFileFormat &&
         step4.secretFileFormat !== 'shell-export'
       ) {
-        // Convert existing file to .env.sh format
         console.log(
           chalk.cyan(
             `\n🔄 Converting ${step4.secretFilePath} to ~/.env.sh format...\n`,
@@ -338,7 +284,6 @@ export EXAMPLE_SECRET="your-secret-here"
       addToGitignore(homeGitignorePath, secretFileName)
       console.log(chalk.green(`✅ Added ${secretFileName} to ~/.gitignore\n`))
 
-      // Check if secret file is sourced in shell RC file
       const rcFilePath = getRcFilePath(systemInfo.shell)
       const rcFileExpanded = expandTilde(rcFilePath)
 
@@ -367,7 +312,6 @@ export EXAMPLE_SECRET="your-secret-here"
         }
       }
 
-      // Update user config with secret info
       userConfig.secrets = {
         enabled: true,
         secretFile: {
@@ -381,23 +325,17 @@ export EXAMPLE_SECRET="your-secret-here"
       }
     }
 
-    // Save updated config
     writeUserSystemConfig(userConfig)
 
-    // ========================================================================
-    // STEP 5: File Selection & System Detection
-    // ========================================================================
     console.log(chalk.bold.cyan('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n'))
 
     displayStepProgress(5, 6, 'File & System Detection')
 
     console.log(chalk.gray('\n🔍 Scanning your system - please wait...\n'))
 
-    // Detect existing files
     const existingFiles = getExistingFiles(systemInfo.os)
     console.log(chalk.green(`✓ Detected ${existingFiles.length} config files`))
 
-    // Detect package managers
     const detectedPackageTypes = await detectPackageManagers(systemInfo.os)
     const detectedPackages: PackageManager[] = []
     for (const pmType of detectedPackageTypes) {
@@ -408,7 +346,6 @@ export EXAMPLE_SECRET="your-secret-here"
       chalk.green(`✓ Detected ${detectedPackages.length} package managers`),
     )
 
-    // Detect editors
     const detectedEditorTypes = await detectInstalledEditors(systemInfo.os)
     const detectedEditors: EditorExtensions[] = []
     for (const editorType of detectedEditorTypes) {
@@ -421,11 +358,9 @@ export EXAMPLE_SECRET="your-secret-here"
     }
     console.log(chalk.green(`✓ Detected ${detectedEditors.length} editors`))
 
-    // Detect runtimes
     const detectedRuntimes = await detectAllRuntimes()
     console.log(chalk.green(`✓ Detected ${detectedRuntimes.length} runtimes`))
 
-    // Detect fonts
     const detectedFontsConfig = await createFontsConfig(
       systemInfo.os,
       machineId,
@@ -433,13 +368,11 @@ export EXAMPLE_SECRET="your-secret-here"
     const totalFonts = getTotalFontCount(detectedFontsConfig)
     console.log(chalk.green(`✓ Detected ${totalFonts} fonts\n`))
 
-    // File selection and confirmation loop
     let trackedFiles: TrackedFile[] = []
     let filesWithSecrets: string[] = []
     let proceed = 'no'
 
     while (proceed === 'no') {
-      // Group files by category for display
       const grouped = groupFilesByCategory(existingFiles)
       const choices: any[] = []
 
@@ -490,15 +423,12 @@ export EXAMPLE_SECRET="your-secret-here"
       ])
 
       console.log(chalk.cyan(`\n📋 Selected: ${selectedFiles.length} files\n`))
-
-      // Scan files for secrets
       console.log(chalk.cyan('🔐 Scanning files for secrets...\n'))
       filesWithSecrets = []
 
       for (const file of selectedFiles) {
         const absolutePath = expandTilde(file.relativePath)
 
-        // Check if it's a known secret file
         if (isKnownSecretFile(file.relativePath)) {
           filesWithSecrets.push(file.relativePath)
           console.log(
@@ -509,7 +439,6 @@ export EXAMPLE_SECRET="your-secret-here"
           continue
         }
 
-        // Scan file content for secrets
         if (!file.isDirectory) {
           const scanResult = scanFile(absolutePath)
           if (scanResult.containsSecrets) {
@@ -533,7 +462,6 @@ export EXAMPLE_SECRET="your-secret-here"
         console.log(chalk.green('✓ No secret files detected\n'))
       }
 
-      // Convert to TrackedFile format, excluding files with secrets
       trackedFiles = selectedFiles
         .filter((file) => !filesWithSecrets.includes(file.relativePath))
         .map((file) => {
@@ -550,14 +478,10 @@ export EXAMPLE_SECRET="your-secret-here"
           }
         })
 
-      // ========================================================================
-      // STEP 6: Backup Execution & Finalization
-      // ========================================================================
       console.log(chalk.bold.cyan('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n'))
 
       displayStepProgress(6, 6, 'Backup & Finalize')
 
-      // Show preview
       console.log(chalk.cyan('\n📋 Backup Preview\n'))
       console.log(chalk.white('Repository:       ') + chalk.cyan(repoPath))
       console.log(
@@ -575,7 +499,6 @@ export EXAMPLE_SECRET="your-secret-here"
       }
       console.log()
 
-      // Show package managers
       if (detectedPackages.length > 0) {
         console.log(chalk.white('Package managers:'))
         detectedPackages.forEach((pm) => {
@@ -585,7 +508,6 @@ export EXAMPLE_SECRET="your-secret-here"
         console.log()
       }
 
-      // Show editors
       if (detectedEditors.length > 0) {
         console.log(chalk.white('Editor extensions:'))
         detectedEditors.forEach((editor) => {
@@ -597,7 +519,6 @@ export EXAMPLE_SECRET="your-secret-here"
         console.log()
       }
 
-      // Show runtimes
       if (detectedRuntimes.length > 0) {
         console.log(chalk.white('Runtime versions:'))
         detectedRuntimes.forEach((runtime) => {
@@ -630,7 +551,6 @@ export EXAMPLE_SECRET="your-secret-here"
       }
     }
 
-    // Execute backup
     console.log(chalk.cyan('\n🔄 Backing up files...\n'))
 
     try {
@@ -642,7 +562,6 @@ export EXAMPLE_SECRET="your-secret-here"
       process.exit(1)
     }
 
-    // Export package manager data
     if (detectedPackages && detectedPackages.length > 0) {
       console.log(chalk.cyan('\n📦 Exporting package lists...\n'))
       const baseDir = path.join(repoPath, machineId)
@@ -652,12 +571,10 @@ export EXAMPLE_SECRET="your-secret-here"
           const exportFilePath = path.join(baseDir, pm.exportPath)
           const exportDir = path.dirname(exportFilePath)
 
-          // Ensure directory exists
           if (!fs.existsSync(exportDir)) {
             fs.mkdirSync(exportDir, { recursive: true, mode: 0o755 })
           }
 
-          // Export package list
           try {
             const packageData = {
               type: pm.type,
@@ -683,7 +600,6 @@ export EXAMPLE_SECRET="your-secret-here"
       }
     }
 
-    // Export editor extensions
     if (detectedEditors && detectedEditors.length > 0) {
       console.log(chalk.cyan('\n🔌 Exporting editor extensions...\n'))
       const baseDir = path.join(repoPath, machineId)
@@ -710,14 +626,12 @@ export EXAMPLE_SECRET="your-secret-here"
       }
     }
 
-    // Export runtime versions
     if (detectedRuntimes && detectedRuntimes.length > 0) {
       console.log(chalk.cyan('\n⚙️  Exporting runtime versions...\n'))
       const baseDir = path.join(repoPath, machineId)
       const runtimesFilePath = path.join(baseDir, '.config/runtimes.json')
       const runtimesDir = path.dirname(runtimesFilePath)
 
-      // Ensure directory exists
       if (!fs.existsSync(runtimesDir)) {
         fs.mkdirSync(runtimesDir, { recursive: true, mode: 0o755 })
       }
@@ -746,7 +660,6 @@ export EXAMPLE_SECRET="your-secret-here"
       }
     }
 
-    // Export font configuration
     if (detectedFontsConfig && detectedFontsConfig.enabled) {
       console.log(chalk.cyan('\n🔤 Exporting font configuration...\n'))
       const baseDir = path.join(repoPath, machineId)
@@ -795,7 +708,6 @@ export EXAMPLE_SECRET="your-secret-here"
       }
     }
 
-    // Export GNOME settings (Linux only)
     if (
       systemInfo.os === 'linux' &&
       systemInfo.desktopEnvironment === 'gnome'
@@ -834,9 +746,7 @@ export EXAMPLE_SECRET="your-secret-here"
       }
     }
 
-    // Export schema
     try {
-      // Convert OS type for schema builder (macOS instead of macos)
       const setupOS =
         systemInfo.os === 'macos'
           ? 'macOS'
@@ -844,7 +754,6 @@ export EXAMPLE_SECRET="your-secret-here"
             ? 'linux'
             : 'windows'
 
-      // Build backup config using schema builder
       const backupConfig = buildBackupConfig({
         os: setupOS as any,
         distro: systemInfo.distro,
@@ -853,18 +762,16 @@ export EXAMPLE_SECRET="your-secret-here"
         cloneLocation: step3.repoPath,
         repoType: useGitHub ? 'github' : 'none',
         repoName: step3.repoName,
-        repoUrl, // Use the detected repoUrl from earlier
+        repoUrl,
         repoOwner: githubUsername,
         branch: step3.branch,
         repoVisibility: 'private',
         trackedFiles,
-        // Add system paths and runtime info from user config
         homeDirectory: systemInfo.homeDirectory,
         localRepoPath: step3.repoPath,
         runtimeData: systemInfo.runtimeData,
       })
 
-      // Add package managers, editors, and runtimes to the backup config
       if (backupConfig.dotfiles[machineId]) {
         backupConfig.dotfiles[machineId].packages = {
           enabled: detectedPackages.length > 0,
@@ -883,7 +790,6 @@ export EXAMPLE_SECRET="your-secret-here"
 
         backupConfig.dotfiles[machineId].fonts = detectedFontsConfig
 
-        // Add Linux-specific metadata if on Linux
         if (systemInfo.os === 'linux') {
           const systemMeta = backupConfig.systems.find(
             (s) => s.repoPath === machineId,
@@ -906,7 +812,6 @@ export EXAMPLE_SECRET="your-secret-here"
       )
     }
 
-    // Add secret files to repo .gitignore
     if (filesWithSecrets.length > 0 || secretFilesToIgnore.length > 0) {
       console.log(
         chalk.cyan('📝 Updating repository .gitignore with secret files...\n'),
@@ -928,7 +833,6 @@ export EXAMPLE_SECRET="your-secret-here"
       )
     }
 
-    // Git operations (if applicable)
     let didCommit = false
     if (step3.isGitRepo && isGitRepository(repoPath)) {
       console.log(
@@ -978,7 +882,6 @@ export EXAMPLE_SECRET="your-secret-here"
       }
     }
 
-    // Final summary
     console.log(
       chalk.bold.green('\n┌──────────────────────────────────────────┐'),
     )

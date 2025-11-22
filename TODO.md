@@ -2,69 +2,6 @@
 
 This document tracks completed features and planned improvements for Dotport.
 
-## ✅ Completed Features
-
-### Core Functionality
-
-- [x] Interactive backup wizard with step-by-step prompts
-- [x] Interactive restore wizard with test mode
-- [x] Multi-OS support (macOS and Linux)
-- [x] Multi-machine backup support with unique machine IDs
-- [x] OS and distribution detection (macOS, Debian, Ubuntu, Arch, Fedora, etc.)
-- [x] Shell detection and configuration (.zshrc, .bashrc, .fish)
-
-### File Management
-
-- [x] Automatic file discovery (40+ common config locations)
-- [x] Smart file selection with checkbox interface
-- [x] Manual file addition support
-- [x] Directory structure preservation for nested configs
-- [x] File size display in selection interface
-- [x] SSH key protection (automatic exclusion of private keys)
-- [x] Multi-OS directory organization (macos/, debian/, ubuntu/, etc.)
-
-### GitHub Integration
-
-- [x] GitHub authentication with Personal Access Tokens
-- [x] Token validation and permission checking
-- [x] Repository creation (public/private)
-- [x] Repository existence checking
-- [x] Automatic .gitignore file generation
-- [x] Git commit and push workflow
-- [x] Clear GitHub token permission instructions in interactive prompt
-
-### Secret Management
-
-- [x] Secret file detection and handling
-- [x] Local secret file storage (not committed to git)
-- [x] Automatic .gitignore configuration for secrets
-- [x] Support for .env, .env.sh, and shell export formats
-
-### System Detection
-
-- [x] Package manager detection and export (Homebrew, apt, cargo, gem, go, npm, pnpm, pip)
-- [x] Runtime version tracking (Node.js, Python, Ruby, Go)
-- [x] Editor extension detection (VS Code, Cursor, Windsurf)
-- [x] Linux display server detection (X11 vs Wayland)
-- [x] Linux desktop environment detection (GNOME, KDE, i3, Sway)
-- [x] GNOME dconf export (keybindings and settings)
-
-### Data & Schema
-
-- [x] TypeScript schema for backup configuration
-- [x] Schema export to dotfiles repository
-- [x] Schema merging for multi-machine support
-- [x] Backup metadata tracking (created, updated timestamps)
-- [x] Schema documentation generation
-
-### Restore Features
-
-- [x] Dotfile restoration with file selection
-- [x] Symlink creation with backup of existing files
-- [x] Per-file restore actions (link, copy, replace, skip)
-- [x] Backup management (view, restore, cleanup)
-- [x] Test mode for safe restoration testing
-
 ---
 
 ## 📋 High Priority Tasks
@@ -144,10 +81,6 @@ This document tracks completed features and planned improvements for Dotport.
 
 ### Advanced Features
 
-- [ ] **Multiple profile support** - Work/personal/experimental configs
-- [ ] **Machine-specific configs** - Conditionally apply configs per machine
-- [ ] **Config templating** - Dynamic configs with variables (username, hostname, etc.)
-- [ ] **Pre/post install hooks** - Custom scripts during backup/restore
 - [ ] **Selective sync** - Choose which files to pull from repo
 - [ ] **Scheduled backups** - Automatic periodic backups via cron/launchd
 
@@ -160,10 +93,7 @@ This document tracks completed features and planned improvements for Dotport.
 
 ### Integration
 
-- [ ] **GitLab support** - Alternative to GitHub
-- [ ] **Self-hosted git** - Support for custom git servers
-- [ ] **Cloud storage** - Backup to Dropbox, Google Drive, etc.
-- [ ] **Encryption** - Encrypt sensitive files with age/gpg
+- [ ] **PGP secret storage** - Store encrypted secrets (PGP-encrypted files in private GitHub repo)
 
 ### Quality of Life
 
@@ -174,38 +104,72 @@ This document tracks completed features and planned improvements for Dotport.
 
 ---
 
-## 🐛 Known Issues
+## ✅ Completed Features
 
-- [ ] Fix "Step 10 of 9" progress display bug (symlinks should be part of step 9)
-- [ ] Improve error messages when GitHub token is invalid/expired
-- [ ] Handle network interruptions during git operations
-- [ ] Better validation for invalid file paths during manual addition
+### Core Functionality
+
+- [x] Interactive backup wizard with step-by-step prompts
+- [x] Interactive restore wizard with test mode
+- [x] Multi-OS support (macOS and Linux)
+- [x] Multi-machine backup support with unique machine IDs
+- [x] OS and distribution detection (macOS, Debian, Ubuntu, Arch, Fedora, etc.)
+- [x] Shell detection and configuration (.zshrc, .bashrc, .fish)
+
+### File Management
+
+- [x] Automatic file discovery (40+ common config locations)
+- [x] Smart file selection with checkbox interface
+- [x] Manual file addition support
+- [x] Directory structure preservation for nested configs
+- [x] File size display in selection interface
+- [x] SSH key protection (automatic exclusion of private keys)
+- [x] Multi-OS directory organization (macos/, debian/, ubuntu/, etc.)
+
+### GitHub Integration
+
+- [x] GitHub authentication with Personal Access Tokens
+- [x] Token validation and permission checking
+- [x] Repository creation (public/private)
+- [x] Repository existence checking
+- [x] Automatic .gitignore file generation
+- [x] Git commit and push workflow
+- [x] Clear GitHub token permission instructions in interactive prompt
+
+### Secret Management
+
+- [x] Secret file detection and handling
+- [x] Local secret file storage (not committed to git)
+- [x] Automatic .gitignore configuration for secrets
+- [x] Support for .env, .env.sh, and shell export formats
+
+### System Detection
+
+- [x] Package manager detection and export (Homebrew, apt, cargo, gem, go, npm, pnpm, pip)
+- [x] Runtime version tracking (Node.js, Python, Ruby, Go)
+- [x] Editor extension detection (VS Code, Cursor, Windsurf)
+- [x] Linux display server detection (X11 vs Wayland)
+- [x] Linux desktop environment detection (GNOME, KDE, i3, Sway)
+- [x] GNOME dconf export (keybindings and settings)
+
+### Data & Schema
+
+- [x] TypeScript schema for backup configuration
+- [x] Schema export to dotfiles repository
+- [x] Schema merging for multi-machine support
+- [x] Backup metadata tracking (created, updated timestamps)
+- [x] Schema documentation generation
+
+### Restore Features
+
+- [x] Dotfile restoration with file selection
+- [x] Symlink creation with backup of existing files
+- [x] Per-file restore actions (link, copy, replace, skip)
+- [x] Backup management (view, restore, cleanup)
+- [x] Test mode for safe restoration testing
 
 ---
 
 ## 📝 Notes
-
-### Package Name Decision
-
-Current working name: **dotport**
-
-**Status:** Confirmed available on npm
-
-**Alternative names considered:**
-
-- dotporter, dotshift, dotpack, envclone, setupkit, dotmover
-
-### Version History
-
-- **v0.x** - Initial development and prototyping
-- **v1.0** - First stable release (target)
-- **v2.0** - Simplified backup flow (in progress)
-
-### Breaking Changes for v2.0
-
-- Configuration location changed from `~/.dev-machine-backup-restore/` to `~/.dotport/`
-- Schema structure updated for better multi-machine support
-- Automatic migration on first run
 
 ---
 

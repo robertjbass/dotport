@@ -11,7 +11,9 @@
     "strict": true,
     "skipLibCheck": true,
     "noEmit": true,
-    "forceConsistentCasingInFileNames": true
+    "forceConsistentCasingInFileNames": true,
+    // TODO: Remove this when we have proper tests
+    "noUnusedLocals": true
   },
   "include": [
     "scripts/**/*",

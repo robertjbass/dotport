@@ -1,17 +1,10 @@
 /**
- * Secret File Helpers
- *
- * Utilities for managing secret files including format conversion,
- * .gitignore management, and shell RC file integration
+ * Secret File Helpers - format conversion, .gitignore, and shell RC integration
  */
 
 import fs from 'fs'
-import path from 'path'
 import { expandTilde } from './path-helpers'
 
-/**
- * Parse .env format (KEY=value) and convert to shell exports
- */
 export function parseEnvToShellExports(envContent: string): string[] {
   const lines = envContent.split('\n')
   const exports: string[] = []
@@ -45,10 +38,7 @@ export function parseEnvToShellExports(envContent: string): string[] {
   return exports
 }
 
-/**
- * Recursively flatten JSON object and convert to shell exports
- * Only processes string values, skips nested objects/arrays
- */
+// Only processes string values, skips nested objects/arrays
 export function parseJsonToShellExports(jsonContent: string): string[] {
   const exports: string[] = []
 
@@ -87,9 +77,6 @@ export function parseJsonToShellExports(jsonContent: string): string[] {
   return exports
 }
 
-/**
- * Create or update a .env.sh file with the given export statements
- */
 export function createOrUpdateEnvShFile(
   filePath: string,
   exports: string[],
@@ -114,9 +101,6 @@ export function createOrUpdateEnvShFile(
   }
 }
 
-/**
- * Check if a file path is already in .gitignore
- */
 export function isInGitignore(
   gitignorePath: string,
   filePattern: string,
@@ -141,9 +125,6 @@ export function isInGitignore(
   }
 }
 
-/**
- * Add file patterns to .gitignore (creates file if it doesn't exist)
- */
 export function addToGitignore(
   gitignorePath: string,
   patterns: string | string[],
@@ -180,9 +161,6 @@ export function addToGitignore(
   }
 }
 
-/**
- * Check if a shell RC file sources a secret file
- */
 export function isSourcedInRcFile(
   rcFilePath: string,
   secretFilePath: string,
@@ -216,9 +194,6 @@ export function isSourcedInRcFile(
   }
 }
 
-/**
- * Add source statement to shell RC file
- */
 export function addSourceToRcFile(
   rcFilePath: string,
   secretFilePath: string,
@@ -237,9 +212,6 @@ export function addSourceToRcFile(
   fs.appendFileSync(expandedRcPath, sourceStatement, 'utf-8')
 }
 
-/**
- * Get the appropriate RC file path based on shell type
- */
 export function getRcFilePath(
   shell: 'bash' | 'zsh' | 'fish' | 'other',
 ): string {

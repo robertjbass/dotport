@@ -1,8 +1,5 @@
 /**
- * System Detection Utility
- *
- * Consolidates all system detection logic including OS, distro, shell,
- * runtime, package manager, and version manager detection.
+ * System Detection - OS, distro, shell, and runtime detection
  */
 
 import fs from 'fs'
@@ -14,6 +11,7 @@ import {
   detectDisplayServer,
   detectDesktopEnvironment,
 } from './linux-detection'
+import { DISTRO_DISPLAY_NAMES } from '../constants/operating-systems'
 
 export type DetectedSystemInfo = {
   os: OperatingSystem
@@ -27,36 +25,27 @@ export type DetectedSystemInfo = {
   desktopEnvironment?: string
 }
 
-/**
- * Detect operating system
- */
 export function detectOS(): OperatingSystem {
-  const platform = ScriptSession.operatingSystem
-
-  if (platform === 'darwin') return 'macos'
-  if (platform === 'linux') return 'linux'
-  if (platform === 'win32') return 'windows'
-
-  return 'linux' // fallback
+  switch (ScriptSession.operatingSystem) {
+    case 'darwin':
+      return 'macos'
+    case 'linux':
+      return 'linux'
+    case 'win32':
+      return 'windows'
+    default:
+      return 'linux'
+  }
 }
 
-/**
- * Detect Linux distribution
- * Returns the distribution name (ubuntu, arch, debian, etc.)
- */
 export function detectLinuxDistro(): string {
-  const os = detectOS()
-
-  if (os !== 'linux') {
-    return 'unknown'
-  }
+  if (detectOS() !== 'linux') return 'unknown'
 
   try {
     // Try /etc/os-release first (most modern distros)
     if (fs.existsSync('/etc/os-release')) {
       const content = fs.readFileSync('/etc/os-release', 'utf-8')
       const idMatch = content.match(/^ID=(.+)$/m)
-
       if (idMatch) {
         return idMatch[1].replace(/"/g, '').toLowerCase()
       }
@@ -66,61 +55,39 @@ export function detectLinuxDistro(): string {
     const lsbRelease = execSync('lsb_release -is 2>/dev/null || echo unknown', {
       encoding: 'utf-8',
     }).trim()
-
     if (lsbRelease && lsbRelease !== 'unknown') {
       return lsbRelease.toLowerCase()
     }
 
-    // Check specific files
+    // Check distro-specific files
     if (fs.existsSync('/etc/arch-release')) return 'arch'
     if (fs.existsSync('/etc/debian_version')) return 'debian'
     if (fs.existsSync('/etc/fedora-release')) return 'fedora'
     if (fs.existsSync('/etc/redhat-release')) return 'rhel'
 
     return 'unknown'
-  } catch (error) {
+  } catch {
     return 'unknown'
   }
 }
 
-/**
- * Detect distribution
- * Returns 'darwin' for macOS, or the actual distro name for Linux
- */
 export function detectDistro(): string {
   const os = detectOS()
-
-  if (os === 'macos') {
-    return 'darwin'
-  }
-
-  if (os === 'linux') {
-    return detectLinuxDistro()
-  }
-
+  if (os === 'macos') return 'darwin'
+  if (os === 'linux') return detectLinuxDistro()
   return 'unknown'
 }
 
-/**
- * Detect default shell
- */
 export function detectShell(): Shell {
   const shellPath = ScriptSession.shell || process.env.SHELL || '/bin/bash'
-
-  // Extract shell name from path
   const shellName = shellPath.split('/').pop() || 'bash'
 
-  // Map to Shell type
   if (shellName.includes('zsh')) return 'zsh'
   if (shellName.includes('bash')) return 'bash'
   if (shellName.includes('fish')) return 'fish'
-
   return 'other'
 }
 
-/**
- * Get shell config file based on detected shell
- */
 export function getShellConfigFile(shell: Shell): string {
   switch (shell) {
     case 'zsh':
@@ -134,9 +101,6 @@ export function getShellConfigFile(shell: Shell): string {
   }
 }
 
-/**
- * Detect runtime data (Node.js info)
- */
 export function detectRuntimeData(): RuntimeData {
   return {
     node: {
@@ -147,10 +111,6 @@ export function detectRuntimeData(): RuntimeData {
   }
 }
 
-/**
- * Detect all system information
- * This is the main function that consolidates all detection
- */
 export function detectAllSystemInfo(): DetectedSystemInfo {
   const os = detectOS()
   const distro = detectDistro()
@@ -160,7 +120,6 @@ export function detectAllSystemInfo(): DetectedSystemInfo {
   const username = ScriptSession.username || process.env.USER || 'user'
   const runtimeData = detectRuntimeData()
 
-  // Detect Linux-specific metadata
   let displayServer: 'x11' | 'wayland' | 'unknown' | undefined
   let desktopEnvironment: string | undefined
 
@@ -182,10 +141,7 @@ export function detectAllSystemInfo(): DetectedSystemInfo {
   }
 }
 
-/**
- * Generate machine ID from system info
- * Format: <os>-<distro>-<nickname>
- */
+// Machine ID format: <os>-<distro>-<nickname>
 export function generateMachineId(
   os: OperatingSystem,
   distro: string,
@@ -194,42 +150,24 @@ export function generateMachineId(
   return `${os}-${distro}-${nickname}`
 }
 
-/**
- * Generate a default machine nickname
- * Format: my-<os>-environment
- */
 export function generateDefaultNickname(os: OperatingSystem): string {
   return `my-${os}-environment`
 }
 
-/**
- * Normalize machine nickname
- * Converts to lowercase, replaces spaces with dashes, removes invalid characters
- */
+// Converts to lowercase, replaces spaces with dashes, removes invalid characters
 export function normalizeNickname(nickname: string): string {
   return nickname
     .toLowerCase()
     .trim()
-    .replace(/\s+/g, '-') // Replace spaces with dashes
-    .replace(/[^a-z0-9.-]/g, '') // Remove invalid characters (only allow lowercase alphanumeric, dots, dashes)
+    .replace(/\s+/g, '-')
+    .replace(/[^a-z0-9.-]/g, '')
 }
 
-/**
- * Validate machine nickname
- * Nicknames can only contain lowercase letters, numbers, dots, and hyphens
- */
 export function validateNickname(nickname: string): boolean {
-  if (!nickname || nickname.trim().length === 0) {
-    return false
-  }
-
-  // Check for valid characters only (lowercase alphanumeric, dots, hyphens)
+  if (!nickname || nickname.trim().length === 0) return false
   return /^[a-z0-9.-]+$/.test(nickname)
 }
 
-/**
- * Get a friendly display name for the OS
- */
 export function getOSDisplayName(os: OperatingSystem): string {
   switch (os) {
     case 'macos':
@@ -243,22 +181,6 @@ export function getOSDisplayName(os: OperatingSystem): string {
   }
 }
 
-/**
- * Get a friendly display name for the distro
- */
 export function getDistroDisplayName(distro: string): string {
-  const distroMap: Record<string, string> = {
-    darwin: 'Darwin',
-    ubuntu: 'Ubuntu',
-    debian: 'Debian',
-    arch: 'Arch Linux',
-    manjaro: 'Manjaro',
-    fedora: 'Fedora',
-    rhel: 'Red Hat Enterprise Linux',
-    centos: 'CentOS',
-    opensuse: 'openSUSE',
-    unknown: 'Unknown',
-  }
-
-  return distroMap[distro.toLowerCase()] || distro
+  return DISTRO_DISPLAY_NAMES[distro.toLowerCase()] || distro
 }
