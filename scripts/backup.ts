@@ -974,6 +974,8 @@ export EXAMPLE_SECRET="your-secret-here"
       chalk.cyan('~/.dotport/config/user-system.json'),
     )
     console.log()
+    console.log(chalk.green.bold('✅ SUCCESS!'))
+    console.log()
     console.log(chalk.white('Next steps:'))
     console.log(chalk.magenta('  BETA - not yet available'))
     console.log(
