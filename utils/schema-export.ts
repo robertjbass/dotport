@@ -1,19 +1,17 @@
 /**
- * Schema Export Utility
- *
- * Exports the backup configuration schema to the dotfiles repository
- * (excluding sensitive information like tokens)
+ * Schema Export - exports backup configuration to the dotfiles repository
  */
 
 import fs from 'fs'
 import path from 'path'
+import { fileURLToPath } from 'url'
 import chalk from 'chalk'
 import { BackupConfig } from '../types/backup-config'
 import { mergeBackupConfig } from './schema-builder'
 
-/**
- * Sanitize config by removing sensitive information
- */
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = path.dirname(__filename)
+
 export function sanitizeConfig(config: BackupConfig): BackupConfig {
   // Create a deep copy
   const sanitized = JSON.parse(JSON.stringify(config)) as BackupConfig
@@ -25,35 +23,33 @@ export function sanitizeConfig(config: BackupConfig): BackupConfig {
   return sanitized
 }
 
-/**
- * Export schema to dotfiles repository
- *
- * If a schema already exists in the repo (e.g., from another machine), this will
- * merge the new config with the existing one to preserve multi-machine support.
- *
- * Schema is now exported to: schema.json (in repo root)
- * This is a change from the old location: schema/backup-config.json
- */
+// If a schema already exists (from another machine), merges with it
 export async function exportSchemaToRepo(
   config: BackupConfig,
-  repoPath: string,
-  options: { verbose?: boolean } = {},
+  destPath: string,
+  options: { verbose?: boolean; existingRepoPath?: string } = {},
 ): Promise<{ success: boolean; error?: string }> {
-  const { verbose = true } = options
+  const { verbose = true, existingRepoPath } = options
 
   try {
     if (verbose) {
       console.log(chalk.cyan('\n📝 Exporting backup schema to repository...\n'))
     }
 
-    // New schema location: schema.json in repo root
-    const schemaPath = path.join(repoPath, 'schema.json')
+    // Schema location in destination (temp or final repo)
+    const schemaPath = path.join(destPath, 'schema.json')
+
+    // If existingRepoPath is provided, check there for existing schema (for temp dir flow)
+    // Otherwise fall back to destPath (original behavior)
+    const existingSchemaPath = existingRepoPath
+      ? path.join(existingRepoPath, 'schema.json')
+      : schemaPath
 
     // Check if schema already exists (multi-machine support)
     let finalConfig = config
     try {
       const existingSchemaContent = await fs.promises.readFile(
-        schemaPath,
+        existingSchemaPath,
         'utf-8',
       )
       const existingConfig = JSON.parse(existingSchemaContent) as BackupConfig
@@ -91,7 +87,7 @@ export async function exportSchemaToRepo(
     // Sanitize the config (remove sensitive info)
     const sanitizedConfig = sanitizeConfig(finalConfig)
 
-    // Write schema file
+    // Write schema file to destination
     await fs.promises.writeFile(
       schemaPath,
       JSON.stringify(sanitizedConfig, null, 2),
@@ -121,107 +117,15 @@ export async function exportSchemaToRepo(
  * Create a README.md in the repo root explaining the schema
  */
 export async function createSchemaReadme(
-  repoPath: string,
+  destPath: string,
   options: { verbose?: boolean } = {},
 ): Promise<{ success: boolean; error?: string }> {
   const { verbose = true } = options
 
   try {
-    const readmePath = path.join(repoPath, 'SCHEMA.md')
-
-    const readmeContent = `# Backup Configuration Schema
-
-This repository contains a backup configuration schema in \`schema.json\`.
-
-## About This Schema
-
-This schema tracks:
-- Repository metadata (repo URL, branch, visibility)
-- System information for each machine (OS, distro, nickname, shell)
-- Files being backed up and their original locations
-- Symlink configuration
-- Secret management settings
-- Package managers and installed packages
-- Editor extensions and settings
-- System services, settings, and runtimes
-
-## Schema Structure
-
-\`\`\`json
-{
-  "version": "1.0.0",
-  "metadata": {
-    "createdAt": "ISO 8601 timestamp",
-    "updatedAt": "ISO 8601 timestamp"
-  },
-  "repo": {
-    "repoType": "github",
-    "repoName": "dotfiles",
-    "repoUrl": "https://github.com/username/dotfiles",
-    "repoOwner": "username",
-    "branch": "main",
-    "visibility": "private"
-  },
-  "systems": [
-    {
-      "os": "macos",
-      "distro": "darwin",
-      "nickname": "macbook-air-m2",
-      "repoPath": "macos-darwin-macbook-air-m2",
-      "shell": "zsh",
-      "shellConfigFile": ".zshrc"
-    }
-  ],
-  "dotfiles": {
-    "macos-darwin-macbook-air-m2": {
-      "tracked-files": { ... },
-      "secrets": { ... },
-      "symlinks": { ... },
-      "packages": { ... },
-      "applications": { ... },
-      "extensions": { ... },
-      "services": { ... },
-      "settings": { ... },
-      "runtimes": { ... }
-    }
-  }
-}
-\`\`\`
-
-## Multi-Machine Support
-
-The schema supports multiple machines. Each machine has:
-- An entry in the \`systems\` array
-- A corresponding directory in the repo (named by \`repoPath\`)
-- Complete configuration under \`dotfiles[repoPath]\`
-
-## Important Security Note
-
-⚠️ **This schema does NOT contain sensitive information like:**
-- GitHub personal access tokens
-- API keys
-- Passwords
-- Encryption keys
-
-Those are stored separately in your local configuration directory:
-- macOS: \`~/.dev-machine-backup-restore/\`
-- Linux: \`~/.config/dev-machine-backup-restore/\`
-- Windows: \`%APPDATA%\\dev-machine-backup-restore\\\`
-
-## Using This Schema
-
-This schema can be used to:
-1. Understand which files are being backed up
-2. Restore your dotfiles on a new machine
-3. Recreate symlinks to the correct locations
-4. Track which files are secrets (not committed to git)
-5. Install packages and extensions
-
-## Modifying The Schema
-
-You can manually edit \`schema.json\` to add or remove files from your backup.
-After editing, run the backup tool to sync the changes.
-`
+    const readmePath = path.join(destPath, 'SCHEMA.md')
+    const templatePath = path.join(__dirname, '..', 'templates', 'SCHEMA.md')
+    const readmeContent = await fs.promises.readFile(templatePath, 'utf-8')
 
     await fs.promises.writeFile(readmePath, readmeContent, 'utf-8')
 

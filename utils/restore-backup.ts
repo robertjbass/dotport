@@ -1,8 +1,5 @@
 /**
- * Restore Backup Manager
- *
- * Manages backups of files that are about to be overwritten during restoration.
- * Creates a structured backup directory with a mapping file to track original locations.
+ * Restore Backup - backups files before overwriting during restoration
  */
 
 import fs from 'fs'
@@ -30,24 +27,14 @@ const BACKUP_ROOT = '~/dotfiles-backups'
 const MAP_FILENAME = 'fileLocationMap.json'
 const MAP_VERSION = '1.0.0'
 
-/**
- * Get the absolute path to the backup directory
- */
 export function getBackupDirectory(): string {
   return expandTilde(BACKUP_ROOT)
 }
 
-/**
- * Get the absolute path to the file location map
- */
 export function getMapFilePath(): string {
   return path.join(getBackupDirectory(), MAP_FILENAME)
 }
 
-/**
- * Load the file location map from disk
- * Returns null if the map doesn't exist yet
- */
 export function loadFileLocationMap(): FileLocationMap | null {
   const mapPath = getMapFilePath()
 
@@ -64,9 +51,6 @@ export function loadFileLocationMap(): FileLocationMap | null {
   }
 }
 
-/**
- * Save the file location map to disk
- */
 export function saveFileLocationMap(map: FileLocationMap): void {
   const mapPath = getMapFilePath()
   map.lastUpdatedAt = new Date().toISOString()
@@ -79,9 +63,6 @@ export function saveFileLocationMap(map: FileLocationMap): void {
   }
 }
 
-/**
- * Initialize a new file location map
- */
 export function initializeFileLocationMap(): FileLocationMap {
   const backupDir = getBackupDirectory()
   ensureDirectory(backupDir)
@@ -98,9 +79,6 @@ export function initializeFileLocationMap(): FileLocationMap {
   return map
 }
 
-/**
- * Get or create the file location map
- */
 export function getOrCreateFileLocationMap(): FileLocationMap {
   let map = loadFileLocationMap()
 
@@ -111,9 +89,6 @@ export function getOrCreateFileLocationMap(): FileLocationMap {
   return map
 }
 
-/**
- * Generate a unique backup filename to avoid collisions
- */
 export function generateBackupFilename(
   originalPath: string,
   timestamp: Date = new Date(),
@@ -123,9 +98,6 @@ export function generateBackupFilename(
   return `${basename}.${timestampStr}.backup`
 }
 
-/**
- * Get file size in bytes
- */
 function getFileSize(filePath: string): number | undefined {
   try {
     const stats = fs.statSync(filePath)
@@ -135,12 +107,6 @@ function getFileSize(filePath: string): number | undefined {
   }
 }
 
-/**
- * Backup a file before it gets overwritten
- *
- * @param filePath - Absolute path to the file to backup
- * @returns The backup entry that was created, or null if backup failed
- */
 export function backupFileBeforeOverwrite(
   filePath: string,
 ): BackupEntry | null {
@@ -186,13 +152,6 @@ export function backupFileBeforeOverwrite(
   }
 }
 
-/**
- * Restore a backed up file to its original location
- *
- * @param entry - The backup entry to restore
- * @param removeAfterRestore - Whether to remove the backup file after restoring (default: false)
- * @returns True if restore was successful
- */
 export function restoreBackupEntry(
   entry: BackupEntry,
   removeAfterRestore = false,
@@ -230,9 +189,6 @@ export function restoreBackupEntry(
   }
 }
 
-/**
- * Find backup entries for a specific file location
- */
 export function findBackupEntriesForFile(filePath: string): BackupEntry[] {
   const map = loadFileLocationMap()
   if (!map) {
@@ -243,9 +199,6 @@ export function findBackupEntriesForFile(filePath: string): BackupEntry[] {
   return map.entries.filter((entry) => entry.location === absolutePath)
 }
 
-/**
- * List all backup entries, optionally sorted by timestamp
- */
 export function listAllBackups(sortByDate = true): BackupEntry[] {
   const map = loadFileLocationMap()
   if (!map) {
@@ -264,9 +217,6 @@ export function listAllBackups(sortByDate = true): BackupEntry[] {
   return entries
 }
 
-/**
- * Get summary statistics about the backup directory
- */
 export function getBackupSummary(): {
   totalBackups: number
   totalSize: number
@@ -304,9 +254,6 @@ export function getBackupSummary(): {
   }
 }
 
-/**
- * Clean up old backups (older than specified days)
- */
 export function cleanupOldBackups(daysToKeep = 30): number {
   const map = loadFileLocationMap()
   if (!map) {
@@ -348,9 +295,6 @@ export function cleanupOldBackups(daysToKeep = 30): number {
   return cleanedCount
 }
 
-/**
- * Delete all backups (use with caution!)
- */
 export function deleteAllBackups(): boolean {
   const backupDir = getBackupDirectory()
 

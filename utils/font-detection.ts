@@ -1,7 +1,5 @@
 /**
- * Font Detection Utility
- *
- * Detects installed fonts on macOS and Linux systems
+ * Font Detection - detects installed fonts on macOS and Linux
  */
 
 import { exec } from 'child_process'
@@ -19,9 +17,6 @@ import { expandTilde } from './path-helpers'
 
 const execAsync = promisify(exec)
 
-/**
- * Get font directory paths based on OS
- */
 function getFontDirectories(os: OperatingSystem): {
   user: string
   system?: string
@@ -44,9 +39,6 @@ function getFontDirectories(os: OperatingSystem): {
   return { user: '' }
 }
 
-/**
- * Check if a directory exists
- */
 async function directoryExists(dirPath: string): Promise<boolean> {
   try {
     const stats = await fs.stat(dirPath)
@@ -56,9 +48,6 @@ async function directoryExists(dirPath: string): Promise<boolean> {
   }
 }
 
-/**
- * Get font format from file extension
- */
 function getFontFormat(filename: string): string {
   const ext = path.extname(filename).toLowerCase().slice(1)
   const formatMap: Record<string, string> = {
@@ -73,13 +62,7 @@ function getFontFormat(filename: string): string {
   return formatMap[ext] || ext.toUpperCase()
 }
 
-/**
- * Parse font family and style from filename
- * Examples:
- *   Roboto-Regular.ttf -> { family: 'Roboto', style: 'Regular' }
- *   FiraCode-Bold.otf -> { family: 'FiraCode', style: 'Bold' }
- *   SourceCodePro-SemiboldIt.ttf -> { family: 'SourceCodePro', style: 'SemiboldIt' }
- */
+// Parses "Roboto-Regular.ttf" -> { family: 'Roboto', style: 'Regular' }
 function parseFontName(filename: string): { family: string; style: string } {
   const nameWithoutExt = path.basename(filename, path.extname(filename))
 
@@ -98,9 +81,6 @@ function parseFontName(filename: string): { family: string; style: string } {
   return { family: nameWithoutExt, style: 'Regular' }
 }
 
-/**
- * Recursively scan a directory for font files
- */
 async function scanFontDirectory(dirPath: string): Promise<FontInfo[]> {
   const fonts: FontInfo[] = []
   const fontExtensions = [
@@ -154,9 +134,6 @@ async function scanFontDirectory(dirPath: string): Promise<FontInfo[]> {
   return fonts
 }
 
-/**
- * Detect font locations and their installed fonts
- */
 export async function detectFontLocations(
   os: OperatingSystem,
 ): Promise<FontLocation[]> {
@@ -199,9 +176,6 @@ export async function detectFontLocations(
   return locations
 }
 
-/**
- * Create fonts configuration for a machine
- */
 export async function createFontsConfig(
   os: OperatingSystem,
   machineId: string,
@@ -216,16 +190,10 @@ export async function createFontsConfig(
   }
 }
 
-/**
- * Get total font count across all locations
- */
 export function getTotalFontCount(config: MachineFontsConfig): number {
   return config.locations.reduce((total, loc) => total + loc.fonts.length, 0)
 }
 
-/**
- * Get font count by location type
- */
 export function getFontCountByLocation(
   config: MachineFontsConfig,
   locationType: FontLocationType,
@@ -234,18 +202,12 @@ export function getFontCountByLocation(
   return location ? location.fonts.length : 0
 }
 
-/**
- * Filter enabled font locations
- */
 export function getEnabledFontLocations(
   config: MachineFontsConfig,
 ): FontLocation[] {
   return config.locations.filter((loc) => loc.enabled)
 }
 
-/**
- * Export font configuration to JSON file
- */
 export async function exportFontsToFile(
   config: MachineFontsConfig,
   repoPath: string,
@@ -278,9 +240,6 @@ export async function exportFontsToFile(
   await fs.writeFile(exportPath, JSON.stringify(exportData, null, 2), 'utf-8')
 }
 
-/**
- * Refresh font cache (Linux only)
- */
 export async function refreshFontCache(): Promise<void> {
   try {
     // fc-cache is the standard tool on Linux to refresh font cache
@@ -290,9 +249,6 @@ export async function refreshFontCache(): Promise<void> {
   }
 }
 
-/**
- * Backup font files to repository
- */
 export async function backupFontsToRepo(
   config: MachineFontsConfig,
   repoPath: string,

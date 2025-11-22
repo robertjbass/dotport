@@ -1,25 +1,12 @@
 /**
- * Prompt & UI Utilities
- *
- * Reusable UI components and prompt helpers for interactive CLI workflows.
- * Provides consistent styling and navigation patterns across all prompts.
+ * Prompt Helpers - UI components and prompt helpers for interactive CLI
  */
 
 import chalk from 'chalk'
 import inquirer from 'inquirer'
 
-/**
- * Special symbol to indicate user wants to go back
- */
 export const BACK_OPTION = Symbol('back')
 
-/**
- * Display a welcome banner for the CLI
- *
- * @param title - Main title text
- * @param subtitle - Subtitle text (optional)
- * @param clearScreen - Whether to clear the screen first (default: true)
- */
 export function displayWelcome(
   title: string,
   subtitle?: string,
@@ -39,13 +26,6 @@ export function displayWelcome(
   }
 }
 
-/**
- * Display step progress indicator
- *
- * @param currentStep - Current step number (1-indexed)
- * @param totalSteps - Total number of steps
- * @param stepName - Name of current step
- */
 export function displayStepProgress(
   currentStep: number,
   totalSteps: number,
@@ -90,22 +70,10 @@ export function displayStepProgress(
   console.log(chalk.cyan(`└${'─'.repeat(boxWidth)}┘`))
 }
 
-/**
- * Display a section divider
- *
- * @param length - Length of divider (default: 50)
- * @param char - Character to use for divider (default: '─')
- */
 export function displayDivider(length = 50, char = '─'): void {
   console.log(chalk.cyan(char.repeat(length)))
 }
 
-/**
- * Display a summary section
- *
- * @param title - Section title
- * @param items - Key-value pairs to display
- */
 export function displaySummarySection(
   title: string,
   items: Record<string, string | boolean | undefined>,
@@ -123,14 +91,6 @@ export function displaySummarySection(
   console.log()
 }
 
-/**
- * Create a confirmation prompt with optional back navigation
- *
- * @param message - Question to ask user
- * @param defaultValue - Default answer (default: true)
- * @param showBack - Whether to show back option (default: false)
- * @returns User's response or BACK_OPTION symbol
- */
 export async function confirmAction(
   message: string,
   defaultValue = true,
@@ -160,14 +120,6 @@ export async function confirmAction(
   return answer === 'yes'
 }
 
-/**
- * Create a list selection prompt with optional back navigation
- *
- * @param message - Question to ask user
- * @param choices - Array of choices (can be strings or {name, value} objects)
- * @param showBack - Whether to show back option (default: false)
- * @returns Selected value or BACK_OPTION symbol
- */
 export async function selectFromList<T = string>(
   message: string,
   choices: Array<string | { name: string; value: T }>,
@@ -193,14 +145,6 @@ export async function selectFromList<T = string>(
   return answer as T
 }
 
-/**
- * Create a multi-select checkbox prompt
- *
- * @param message - Question to ask user
- * @param choices - Array of choices with optional checked state
- * @param options - Additional options
- * @returns Array of selected values
- */
 export async function selectMultiple<T = string>(
   message: string,
   choices: Array<{
@@ -229,13 +173,6 @@ export async function selectMultiple<T = string>(
   return answer
 }
 
-/**
- * Prompt for text input with validation and optional back navigation
- *
- * @param message - Question to ask user
- * @param options - Input options
- * @returns User input or undefined if back selected
- */
 export async function promptInput(
   message: string,
   options: {
@@ -245,7 +182,7 @@ export async function promptInput(
     showBack?: boolean
   } = {},
 ): Promise<string | undefined> {
-  const { defaultValue, validate, transformer, showBack = false } = options
+  const { defaultValue, validate, transformer } = options
 
   // If showBack is true, we need to add a separate "back" prompt choice
   // However, input prompts don't support back navigation natively
@@ -264,12 +201,6 @@ export async function promptInput(
   return answer
 }
 
-/**
- * Display an error message
- *
- * @param message - Error message
- * @param details - Optional error details
- */
 export function displayError(message: string, details?: string): void {
   console.log(chalk.red(`\n❌ ${message}`))
   if (details) {
@@ -278,12 +209,6 @@ export function displayError(message: string, details?: string): void {
   console.log()
 }
 
-/**
- * Display a success message
- *
- * @param message - Success message
- * @param details - Optional additional details
- */
 export function displaySuccess(message: string, details?: string): void {
   console.log(chalk.green(`\n✅ ${message}`))
   if (details) {
@@ -292,12 +217,6 @@ export function displaySuccess(message: string, details?: string): void {
   console.log()
 }
 
-/**
- * Display a warning message
- *
- * @param message - Warning message
- * @param details - Optional additional details
- */
 export function displayWarning(message: string, details?: string): void {
   console.log(chalk.yellow(`\n⚠️  ${message}`))
   if (details) {
@@ -306,12 +225,6 @@ export function displayWarning(message: string, details?: string): void {
   console.log()
 }
 
-/**
- * Display an info message
- *
- * @param message - Info message
- * @param details - Optional additional details
- */
 export function displayInfo(message: string, details?: string): void {
   console.log(chalk.cyan(`\nℹ️  ${message}`))
   if (details) {
@@ -320,12 +233,6 @@ export function displayInfo(message: string, details?: string): void {
   console.log()
 }
 
-/**
- * Create a grouped choice list with separators
- *
- * @param groups - Array of groups, each with a label and choices
- * @returns Flat array of choices with separators
- */
 export function createGroupedChoices<T>(
   groups: Array<{
     label: string
@@ -343,4 +250,166 @@ export function createGroupedChoices<T>(
   })
 
   return result
+}
+
+/**
+ * Box row types for renderBox
+ */
+export type BoxRow =
+  | { type: 'title'; text: string }
+  | { type: 'divider' }
+  | { type: 'text'; text: string; color?: 'cyan' | 'yellow' | 'gray' | 'white' }
+  | {
+      type: 'labeled'
+      label: string
+      value: string
+      color?: 'cyan' | 'yellow' | 'gray' | 'white'
+    }
+
+/**
+ * Renders a properly aligned box with dynamic width based on content.
+ *
+ * @param rows - Array of row definitions
+ * @param options - Optional configuration
+ * @returns void (prints to console)
+ *
+ * @example
+ * renderBox([
+ *   { type: 'title', text: '.bashrc' },
+ *   { type: 'divider' },
+ *   { type: 'labeled', label: 'Expected:', value: '/Users/bob/.bashrc' },
+ *   { type: 'labeled', label: 'Backup:', value: '/path/to/backup/.bashrc' },
+ *   { type: 'divider' },
+ *   { type: 'text', text: 'TEST MODE', color: 'yellow' },
+ *   { type: 'labeled', label: 'Actual:', value: '/Users/bob/backup-test', color: 'yellow' },
+ * ])
+ */
+export function renderBox(
+  rows: BoxRow[],
+  options: {
+    minWidth?: number
+    borderColor?: 'cyan' | 'yellow' | 'gray' | 'white'
+    padding?: number
+  } = {},
+): void {
+  const { minWidth = 35, borderColor = 'cyan', padding = 1 } = options
+
+  // Calculate the maximum content width
+  let maxContentWidth = 0
+
+  for (const row of rows) {
+    let rowWidth = 0
+    switch (row.type) {
+      case 'title':
+        rowWidth = row.text.length
+        break
+      case 'text':
+        rowWidth = row.text.length
+        break
+      case 'labeled':
+        // label + space + value
+        rowWidth = row.label.length + 1 + row.value.length
+        break
+      case 'divider':
+        // Dividers don't contribute to width calculation
+        break
+    }
+    maxContentWidth = Math.max(maxContentWidth, rowWidth)
+  }
+
+  // Box width = content + left padding + right padding + 2 for borders
+  const boxWidth = Math.max(minWidth, maxContentWidth + padding * 2)
+  const totalWidth = boxWidth + 2 // +2 for left and right border characters
+
+  // Get terminal width (default to 80 if not available)
+  const terminalWidth = process.stdout.columns || 80
+
+  // If box would be too wide, use borderless format
+  if (totalWidth > terminalWidth) {
+    renderBorderless(rows)
+    return
+  }
+
+  const colorFn = chalk[borderColor]
+
+  // Helper to pad a string to fill the box
+  const padRight = (str: string, totalLen: number): string => {
+    const spaces = Math.max(0, totalLen - str.length)
+    return str + ' '.repeat(spaces)
+  }
+
+  // Print top border
+  console.log(colorFn(`┌${'─'.repeat(boxWidth)}┐`))
+
+  for (const row of rows) {
+    switch (row.type) {
+      case 'title': {
+        const content = padRight(row.text, boxWidth - padding * 2)
+        console.log(
+          colorFn(`│${' '.repeat(padding)}`) +
+            chalk.bold(content) +
+            colorFn(`${' '.repeat(padding)}│`),
+        )
+        break
+      }
+      case 'divider': {
+        console.log(colorFn(`├${'─'.repeat(boxWidth)}┤`))
+        break
+      }
+      case 'text': {
+        const content = padRight(row.text, boxWidth - padding * 2)
+        const textColorFn = row.color ? chalk[row.color] : colorFn
+        console.log(
+          textColorFn(`│${' '.repeat(padding)}`) +
+            chalk.bold(content) +
+            textColorFn(`${' '.repeat(padding)}│`),
+        )
+        break
+      }
+      case 'labeled': {
+        const labeledContent = `${chalk.gray(row.label)} ${row.value}`
+        // For padding calculation, use raw text length (without ANSI codes)
+        const rawLength = row.label.length + 1 + row.value.length
+        const spaces = Math.max(0, boxWidth - padding * 2 - rawLength)
+        const rowColorFn = row.color ? chalk[row.color] : colorFn
+        console.log(
+          rowColorFn(`│${' '.repeat(padding)}`) +
+            labeledContent +
+            ' '.repeat(spaces) +
+            rowColorFn(`${' '.repeat(padding)}│`),
+        )
+        break
+      }
+    }
+  }
+
+  // Print bottom border
+  console.log(colorFn(`└${'─'.repeat(boxWidth)}┘`))
+}
+
+/**
+ * Renders content in a simple borderless format when terminal is too narrow.
+ * Used as fallback by renderBox.
+ */
+function renderBorderless(rows: BoxRow[]): void {
+  for (const row of rows) {
+    switch (row.type) {
+      case 'title':
+        console.log(chalk.bold.cyan(row.text))
+        break
+      case 'divider':
+        // Skip dividers in borderless mode
+        break
+      case 'text': {
+        const textColorFn = row.color ? chalk[row.color] : chalk.cyan
+        console.log(textColorFn.bold(row.text))
+        break
+      }
+      case 'labeled': {
+        const rowColorFn = row.color ? chalk[row.color] : chalk.white
+        console.log(`${chalk.gray(row.label)} ${rowColorFn(row.value)}`)
+        break
+      }
+    }
+  }
 }

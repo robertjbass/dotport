@@ -54,6 +54,9 @@ pnpm restore
 - **GNOME Settings Export** - Keybindings and settings on Linux
 - **Display Server Detection** - Detects Wayland/X11 on Linux
 - **Complete Restore Wizard** - Restore files, packages, and settings
+- **Atomic Backups** - Files staged to temp directory before copying to repository
+- **Backup Branches** - Timestamped git branches for each backup (recovery points)
+- **Smart Branch Selection** - Filters out backup branches, prunes stale remote refs
 
 ## System Requirements
 
@@ -92,6 +95,8 @@ Follow the interactive prompts to:
 4. Configure secret management
 5. Select files to back up
 6. Execute backup and optionally commit/push to GitHub
+
+When pushing to GitHub, Dotport creates a timestamped backup branch (e.g., `backup-2025-01-15T10-30-45`) before pushing to your main branch, giving you a recovery point for each backup.
 
 ### Restore on a New Machine
 
@@ -176,13 +181,9 @@ dotfiles/
 └── <machine-id>/                         # Your backed up files
 ```
 
-## Documentation
+## Scripts
 
-For detailed setup instructions and advanced usage, see [SETUP.md](docs/SETUP.md).
-
-## Roadmap
-
-See [TODO.md](TODO.md) for planned features and improvements.
+You can create new scripts with `pnpm create-script <script-name>`
 
 ## Contributing
 
@@ -191,9 +192,3 @@ This project is under active development. Contributions are welcome!
 ## License
 
 MIT
-
----
-
-**Status:** Active Development
-
-**Last Updated:** 2025-01-20

@@ -161,11 +161,7 @@ Automatically excluded: `.env`, `.env.local`, `.npmrc`, AWS credentials, SSH key
 
 ### TODO Tracking
 
-Monitor these files for planned features and tasks:
-
-- `README.md` - General todos at bottom
-- `TODO.LINUX.md` - Linux-specific features
-- `TODO.MACOS.md` - macOS-specific features
+Monitor `TODO.md` for planned features and tasks.
 
 ## Development Workflow
 

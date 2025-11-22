@@ -1,13 +1,9 @@
 /**
- * Schema Builder Utility
- *
- * Constructs BackupConfig objects from setup wizard choices.
- * Provides a clean separation between interactive UI and data structure creation.
+ * Schema Builder - constructs BackupConfig from setup wizard choices
  */
 
 import {
   BackupConfig,
-  DEFAULT_BACKUP_CONFIG,
   TrackedFile,
   OperatingSystem as BackupOS,
   SystemMetadata,
@@ -17,14 +13,8 @@ import {
 } from '../types/backup-config'
 import { getLinuxSystemMetadata } from './linux-detection'
 
-/**
- * Operating system type from setup (matches setup.ts)
- */
 export type SetupOperatingSystem = 'macOS' | 'linux' | 'windows' | 'other'
 
-/**
- * Convert setup OS type to backup config OS type
- */
 export function convertOSType(setupOS: SetupOperatingSystem): BackupOS {
   if (setupOS === 'macOS') return 'macos'
   if (setupOS === 'linux') return 'linux'
@@ -32,9 +22,6 @@ export function convertOSType(setupOS: SetupOperatingSystem): BackupOS {
   return 'linux' // Default fallback
 }
 
-/**
- * Detect shell from environment or common patterns
- */
 export function detectShell(): 'bash' | 'zsh' | 'fish' | 'other' {
   const shell = process.env.SHELL || ''
 
@@ -45,9 +32,6 @@ export function detectShell(): 'bash' | 'zsh' | 'fish' | 'other' {
   return 'other'
 }
 
-/**
- * Get shell config file based on detected shell
- */
 export function getShellConfigFile(
   shell: 'bash' | 'zsh' | 'fish' | 'other',
 ): string {
@@ -61,13 +45,6 @@ export function getShellConfigFile(
   return configMap[shell]
 }
 
-/**
- * Build a complete BackupConfig from setup wizard data
- *
- * @param options - Configuration options from setup wizard
- * @param existingConfig - Optional existing config to merge with (for multi-machine support)
- * @returns Complete BackupConfig object
- */
 export function buildBackupConfig(
   options: {
     // Operating system

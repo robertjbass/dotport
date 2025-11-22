@@ -1,7 +1,5 @@
 /**
- * Package Manager Detection Utility
- *
- * Detects installed package managers and retrieves package lists
+ * Package Detection - detects installed package managers and retrieves package lists
  */
 
 import { exec } from 'child_process'
@@ -15,9 +13,6 @@ import {
 
 const execAsync = promisify(exec)
 
-/**
- * Check if a command exists in PATH
- */
 async function commandExists(command: string): Promise<boolean> {
   try {
     await execAsync(`command -v ${command}`)
@@ -27,9 +22,6 @@ async function commandExists(command: string): Promise<boolean> {
   }
 }
 
-/**
- * Detect available package managers based on OS
- */
 export async function detectPackageManagers(
   os: OperatingSystem,
 ): Promise<PackageManagerType[]> {

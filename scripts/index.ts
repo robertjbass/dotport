@@ -12,7 +12,6 @@ type ScriptInfo = {
   emoji: string
 }
 
-// Script metadata
 const SCRIPT_METADATA: Record<string, ScriptInfo> = {
   backup: {
     name: 'Backup',
@@ -42,16 +41,20 @@ const SCRIPT_METADATA: Record<string, ScriptInfo> = {
     description: 'Example script template for creating new scripts',
     emoji: '📝',
   },
+  'create-script': {
+    name: 'Create Script',
+    description:
+      'Interactive tool to generate new script files with proper structure',
+    emoji: '✨',
+  },
 }
 
-// Intelligent emoji assignment based on script name
 function getEmojiForScript(scriptName: string): string {
   // Check for exact matches first
   if (SCRIPT_METADATA[scriptName]?.emoji) {
     return SCRIPT_METADATA[scriptName].emoji
   }
 
-  // Substring matching for common patterns
   const name = scriptName.toLowerCase()
 
   if (name.includes('setup') || name.includes('init')) return '⚙️'
@@ -75,11 +78,9 @@ function getEmojiForScript(scriptName: string): string {
   if (name.includes('check')) return '✅'
   if (name.includes('validate')) return '✔️'
 
-  // Default
   return '📄'
 }
 
-// Get scripts from package.json
 function getPackageJsonScripts(): string[] {
   try {
     const packageJsonPath = path.join(process.cwd(), 'package.json')
@@ -174,20 +175,12 @@ async function main() {
       process.exit(1)
   }
 
-  // Get available scripts from files
-  const scriptFiles = fs
-    .readdirSync(path.join(process.cwd(), 'scripts'))
-    .filter((file) => file.endsWith('.ts'))
-    .map((file) => file.replace('.ts', ''))
-    .filter((file) => file !== 'index')
-
-  // Get scripts from package.json
+  // Get scripts from package.json that start with "script:"
   const packageScripts = getPackageJsonScripts()
 
-  // Merge and deduplicate (file-based scripts take precedence)
   // Filter out internal/development scripts
-  const excludedScripts = ['placeholder', 'backup-legacy']
-  const allScripts = Array.from(new Set([...scriptFiles, ...packageScripts]))
+  const excludedScripts = ['placeholder']
+  const allScripts = packageScripts
     .filter((script) => !excludedScripts.includes(script))
     .sort()
 
@@ -213,19 +206,10 @@ async function main() {
       process.exit(1)
     }
 
-    // Check if this is a file-based script or package.json script
-    if (scriptFiles.includes(ScriptSession.script)) {
-      const scriptFunction = (await import(`./${ScriptSession.script}.ts`))
-        .default
-      await scriptFunction()
-    } else {
-      // This is a package.json-only script, run it via pnpm
-      console.log(
-        chalk.cyan(`\n▶️  Running script:${ScriptSession.script}...\n`),
-      )
-      const { execSync } = await import('child_process')
-      execSync(`pnpm script:${ScriptSession.script}`, { stdio: 'inherit' })
-    }
+    // Run the script via pnpm
+    console.log(chalk.cyan(`\n▶️  Running script:${ScriptSession.script}...\n`))
+    const { execSync } = await import('child_process')
+    execSync(`pnpm script:${ScriptSession.script}`, { stdio: 'inherit' })
     return
   }
 
@@ -240,16 +224,10 @@ async function main() {
 
     console.clear()
 
-    // Check if this is a file-based script or package.json script
-    if (scriptFiles.includes(selectedScript)) {
-      const scriptFunction = (await import(`./${selectedScript}.ts`)).default
-      await scriptFunction()
-    } else {
-      // This is a package.json-only script, run it via pnpm
-      console.log(chalk.cyan(`\n▶️  Running script:${selectedScript}...\n`))
-      const { execSync } = await import('child_process')
-      execSync(`pnpm script:${selectedScript}`, { stdio: 'inherit' })
-    }
+    // Run the selected script via pnpm
+    console.log(chalk.cyan(`\n▶️  Running script:${selectedScript}...\n`))
+    const { execSync } = await import('child_process')
+    execSync(`pnpm script:${selectedScript}`, { stdio: 'inherit' })
   } catch (error: any) {
     if (
       error?.name === 'ExitPromptError' ||

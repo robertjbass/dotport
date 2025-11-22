@@ -1,7 +1,5 @@
 /**
- * GitHub Repository Operations
- *
- * Utilities for checking, creating, and managing GitHub repositories
+ * GitHub Repo - checking, creating, and managing GitHub repositories
  */
 
 import { Octokit } from '@octokit/rest'
@@ -28,9 +26,6 @@ export type CreateRepoOptions = {
   autoInit?: boolean
 }
 
-/**
- * Check if a repository exists for the authenticated user
- */
 export async function checkRepositoryExists(
   octokit: Octokit,
   repoName: string,
@@ -65,9 +60,6 @@ export async function checkRepositoryExists(
   }
 }
 
-/**
- * Create a new GitHub repository
- */
 export async function createRepository(
   octokit: Octokit,
   options: CreateRepoOptions,

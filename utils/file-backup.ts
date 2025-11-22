@@ -1,8 +1,5 @@
 /**
- * File Backup Utility
- *
- * Handles copying dotfiles and config files to the dotfiles repository
- * while preserving original paths for symlinking later
+ * File Backup - copies dotfiles to the repository, preserving paths for symlinking
  */
 
 import fs from 'fs'
@@ -79,9 +76,6 @@ function shouldExcludeFile(filePath: string, fileName: string): boolean {
   return false
 }
 
-/**
- * Copy a single file or directory to the destination
- */
 async function copyFileOrDirectory(
   sourcePath: string,
   destPath: string,
@@ -121,15 +115,15 @@ async function copyFileOrDirectory(
 }
 
 /**
- * Backup files to the dotfiles repository
+ * Backup files to a destination directory
  * @param files - Files to backup
- * @param repoPath - Path to dotfiles repository
+ * @param destPath - Destination path (can be temp directory or final repo path)
  * @param machineId - Machine identifier (e.g., 'macos-darwin-macbook-air')
  * @param options - Backup options
  */
 export async function backupFilesToRepo(
   files: TrackedFile[],
-  repoPath: string,
+  destPath: string,
   machineId: string,
   options: BackupOptions = {},
 ): Promise<BackupResult> {
@@ -187,7 +181,7 @@ export async function backupFilesToRepo(
       const isDirectory = stats.isDirectory()
 
       // Build destination path in repo
-      const destPath = path.join(repoPath, file.repoPath)
+      const fileDest = path.join(destPath, file.repoPath)
 
       if (verbose) {
         console.log(chalk.gray(`  ${file.name}`))
@@ -197,7 +191,7 @@ export async function backupFilesToRepo(
 
       if (!dryRun) {
         // Copy the file or directory
-        await copyFileOrDirectory(sourcePath, destPath, isDirectory)
+        await copyFileOrDirectory(sourcePath, fileDest, isDirectory)
       }
 
       result.copiedFiles.push(file.sourcePath)
@@ -251,9 +245,9 @@ export function generateRepoPath(fileName: string, machineId: string): string {
 /**
  * Preview backup operation - show what will be copied
  */
-export function previewBackup(files: TrackedFile[], repoPath: string): void {
+export function previewBackup(files: TrackedFile[], destPath: string): void {
   console.log(chalk.cyan('\n📋 BACKUP PREVIEW\n'))
-  console.log(chalk.gray(`Repository: ${repoPath}\n`))
+  console.log(chalk.gray(`Destination: ${destPath}\n`))
 
   console.log(chalk.yellow('Files to be backed up:\n'))
 

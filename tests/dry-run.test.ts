@@ -249,7 +249,7 @@ describe('Dry Run - Full Backup Flow', () => {
       },
     ]
 
-    const result = await backupFilesToRepo(trackedFiles, repoDir, 'macos', {
+    await backupFilesToRepo(trackedFiles, repoDir, 'macos', {
       verbose: false,
     })
 

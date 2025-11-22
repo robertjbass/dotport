@@ -8,7 +8,6 @@
  */
 
 import type {
-  OperatingSystem,
   RepoType,
   RepoVisibility,
   SystemMetadata,
@@ -16,10 +15,6 @@ import type {
   SecretStorage,
 } from './backup-config'
 
-/**
- * Runtime data for the system
- * Captures information about package managers, version managers, and runtime versions
- */
 export type RuntimeData = {
   node: {
     packageManager: string // "npm" | "pnpm" | "yarn" | "bun"
@@ -65,10 +60,7 @@ export type UserSystemConfig = {
   }
 }
 
-/**
- * GitHub authentication config
- * Stored at: ~/.dotport/config/github-auth.json
- */
+// Stored at: ~/.dotport/config/github-auth.json
 export type GitHubAuthConfig = {
   token: string
   username: string
@@ -77,10 +69,7 @@ export type GitHubAuthConfig = {
   createdAt: string // When token was added
 }
 
-/**
- * Destructed file log entry
- * Tracks files that were backed up before being overwritten or symlinked
- */
+// Tracks files that were backed up before being overwritten or symlinked
 export type DestructedFileEntry = {
   originalPath: string // "~/.zshrc"
   backupPath: string // "~/.dotport/backups/destructed-files/2025-01-15T10-30-45/.zshrc"
@@ -90,17 +79,11 @@ export type DestructedFileEntry = {
   restoreable: boolean // Can this be restored?
 }
 
-/**
- * Destructed files log
- * Stored in: ~/.dotport/backups/destructed-files/log.json
- */
+// Stored in: ~/.dotport/backups/destructed-files/log.json
 export type DestructedFilesLog = {
   entries: DestructedFileEntry[]
 }
 
-/**
- * Helper function to create default user system config
- */
 export function createDefaultUserSystemConfig(): UserSystemConfig {
   return {
     version: '1.0.0',
