@@ -26,24 +26,30 @@ export function sanitizeConfig(config: BackupConfig): BackupConfig {
 // If a schema already exists (from another machine), merges with it
 export async function exportSchemaToRepo(
   config: BackupConfig,
-  repoPath: string,
-  options: { verbose?: boolean } = {},
+  destPath: string,
+  options: { verbose?: boolean; existingRepoPath?: string } = {},
 ): Promise<{ success: boolean; error?: string }> {
-  const { verbose = true } = options
+  const { verbose = true, existingRepoPath } = options
 
   try {
     if (verbose) {
       console.log(chalk.cyan('\n📝 Exporting backup schema to repository...\n'))
     }
 
-    // New schema location: schema.json in repo root
-    const schemaPath = path.join(repoPath, 'schema.json')
+    // Schema location in destination (temp or final repo)
+    const schemaPath = path.join(destPath, 'schema.json')
+
+    // If existingRepoPath is provided, check there for existing schema (for temp dir flow)
+    // Otherwise fall back to destPath (original behavior)
+    const existingSchemaPath = existingRepoPath
+      ? path.join(existingRepoPath, 'schema.json')
+      : schemaPath
 
     // Check if schema already exists (multi-machine support)
     let finalConfig = config
     try {
       const existingSchemaContent = await fs.promises.readFile(
-        schemaPath,
+        existingSchemaPath,
         'utf-8',
       )
       const existingConfig = JSON.parse(existingSchemaContent) as BackupConfig
@@ -81,7 +87,7 @@ export async function exportSchemaToRepo(
     // Sanitize the config (remove sensitive info)
     const sanitizedConfig = sanitizeConfig(finalConfig)
 
-    // Write schema file
+    // Write schema file to destination
     await fs.promises.writeFile(
       schemaPath,
       JSON.stringify(sanitizedConfig, null, 2),
@@ -111,13 +117,13 @@ export async function exportSchemaToRepo(
  * Create a README.md in the repo root explaining the schema
  */
 export async function createSchemaReadme(
-  repoPath: string,
+  destPath: string,
   options: { verbose?: boolean } = {},
 ): Promise<{ success: boolean; error?: string }> {
   const { verbose = true } = options
 
   try {
-    const readmePath = path.join(repoPath, 'SCHEMA.md')
+    const readmePath = path.join(destPath, 'SCHEMA.md')
     const templatePath = path.join(__dirname, '..', 'templates', 'SCHEMA.md')
     const readmeContent = await fs.promises.readFile(templatePath, 'utf-8')
 

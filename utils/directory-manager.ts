@@ -137,3 +137,41 @@ export function formatBytes(bytes: number): string {
 
   return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i]
 }
+
+/**
+ * Creates a temporary backup directory for staging files before copying to final destination.
+ * Returns the path to the temp directory.
+ */
+export function createBackupTempDir(): string {
+  const timestamp = Date.now()
+  const tempBackupDir = expandTilde(`~/${TEMP_FOLDER}/backup-${timestamp}`)
+
+  if (!fs.existsSync(tempBackupDir)) {
+    fs.mkdirSync(tempBackupDir, { recursive: true, mode: 0o755 })
+  }
+
+  return tempBackupDir
+}
+
+/**
+ * Copies all files from temp directory to the final destination.
+ * Merges with existing files (overwrites conflicting files).
+ */
+export async function copyTempToDestination(
+  tempDir: string,
+  destDir: string,
+): Promise<void> {
+  await fs.promises.cp(tempDir, destDir, {
+    recursive: true,
+    force: true, // Overwrite existing files
+  })
+}
+
+/**
+ * Removes a temporary backup directory after successful copy.
+ */
+export function removeTempDir(tempDir: string): void {
+  if (fs.existsSync(tempDir)) {
+    fs.rmSync(tempDir, { recursive: true, force: true })
+  }
+}

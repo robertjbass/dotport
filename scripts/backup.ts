@@ -5,7 +5,12 @@ import chalk from 'chalk'
 import fs from 'fs'
 import path from 'path'
 
-import { ensureDotPortDirectories } from '../utils/directory-manager'
+import {
+  ensureDotPortDirectories,
+  createBackupTempDir,
+  copyTempToDestination,
+  removeTempDir,
+} from '../utils/directory-manager'
 import {
   getOrCreateUserSystemConfig,
   writeUserSystemConfig,
@@ -551,20 +556,26 @@ export EXAMPLE_SECRET="your-secret-here"
       }
     }
 
+    // Create temp directory for staging all backup files
+    const tempDir = createBackupTempDir()
+    console.log(chalk.gray(`  Using temp directory: ${tempDir}\n`))
+
     console.log(chalk.cyan('\n🔄 Backing up files...\n'))
 
     try {
-      await backupFilesToRepo(trackedFiles, repoPath, machineId)
-      console.log(chalk.green('\n✓ Backup complete!\n'))
+      // All writes go to temp directory first
+      await backupFilesToRepo(trackedFiles, tempDir, machineId)
+      console.log(chalk.green('\n✓ Files staged!\n'))
       console.log(chalk.white(`  • ${trackedFiles.length} files backed up`))
     } catch (error: any) {
+      removeTempDir(tempDir)
       console.error(chalk.red(`\n❌ Backup failed: ${error.message}\n`))
       process.exit(1)
     }
 
     if (detectedPackages && detectedPackages.length > 0) {
       console.log(chalk.cyan('\n📦 Exporting package lists...\n'))
-      const baseDir = path.join(repoPath, machineId)
+      const baseDir = path.join(tempDir, machineId)
 
       for (const pm of detectedPackages) {
         if (pm.exportPath) {
@@ -602,7 +613,7 @@ export EXAMPLE_SECRET="your-secret-here"
 
     if (detectedEditors && detectedEditors.length > 0) {
       console.log(chalk.cyan('\n🔌 Exporting editor extensions...\n'))
-      const baseDir = path.join(repoPath, machineId)
+      const baseDir = path.join(tempDir, machineId)
 
       for (const editorExt of detectedEditors) {
         if (editorExt.exportPath) {
@@ -628,7 +639,7 @@ export EXAMPLE_SECRET="your-secret-here"
 
     if (detectedRuntimes && detectedRuntimes.length > 0) {
       console.log(chalk.cyan('\n⚙️  Exporting runtime versions...\n'))
-      const baseDir = path.join(repoPath, machineId)
+      const baseDir = path.join(tempDir, machineId)
       const runtimesFilePath = path.join(baseDir, '.config/runtimes.json')
       const runtimesDir = path.dirname(runtimesFilePath)
 
@@ -662,7 +673,7 @@ export EXAMPLE_SECRET="your-secret-here"
 
     if (detectedFontsConfig && detectedFontsConfig.enabled) {
       console.log(chalk.cyan('\n🔤 Exporting font configuration...\n'))
-      const baseDir = path.join(repoPath, machineId)
+      const baseDir = path.join(tempDir, machineId)
 
       try {
         await exportFontsToFile(detectedFontsConfig, baseDir)
@@ -681,7 +692,7 @@ export EXAMPLE_SECRET="your-secret-here"
         if (enabledLocations.length > 0) {
           const fontBackupResult = await backupFontsToRepo(
             detectedFontsConfig,
-            repoPath,
+            tempDir,
             machineId,
           )
 
@@ -713,7 +724,7 @@ export EXAMPLE_SECRET="your-secret-here"
       systemInfo.desktopEnvironment === 'gnome'
     ) {
       const gnomeSettingsDir = path.join(
-        repoPath,
+        tempDir,
         machineId,
         '.config',
         'dconf',
@@ -803,13 +814,30 @@ export EXAMPLE_SECRET="your-secret-here"
         }
       }
 
-      await exportSchemaToRepo(backupConfig, repoPath)
-      await createSchemaReadme(repoPath)
+      // Write schema to temp, but read existing from final repo for merging
+      await exportSchemaToRepo(backupConfig, tempDir, {
+        existingRepoPath: repoPath,
+      })
+      await createSchemaReadme(tempDir)
       console.log(chalk.green('  • Schema updated\n'))
     } catch (error: any) {
       console.error(
         chalk.yellow(`⚠️  Schema export failed: ${error.message}\n`),
       )
+    }
+
+    // Copy all files from temp to final destination
+    console.log(chalk.cyan('\n📋 Finalizing backup...\n'))
+    try {
+      await copyTempToDestination(tempDir, repoPath)
+      removeTempDir(tempDir)
+      console.log(chalk.green('  ✓ All files copied to repository\n'))
+    } catch (error: any) {
+      console.error(
+        chalk.red(`\n❌ Failed to copy files to repository: ${error.message}\n`),
+      )
+      removeTempDir(tempDir)
+      process.exit(1)
     }
 
     if (filesWithSecrets.length > 0 || secretFilesToIgnore.length > 0) {
@@ -946,4 +974,9 @@ export EXAMPLE_SECRET="your-secret-here"
     console.error(error.stack)
     process.exit(1)
   }
+}
+
+// Execute the backup function when run directly
+if (import.meta.url === `file://${process.argv[1]}`) {
+  backup()
 }
