@@ -203,12 +203,16 @@ export async function fetchFromRemote(
     branch?: string
     remote?: string
     maxRetries?: number
+    prune?: boolean
   } = {},
 ): Promise<{ success: boolean; error?: string }> {
   const absolutePath = expandTilde(repoPath)
-  const { branch, remote = 'origin', maxRetries = 4 } = options
+  const { branch, remote = 'origin', maxRetries = 4, prune = false } = options
 
   let fetchCommand = 'git fetch'
+  if (prune) {
+    fetchCommand += ' --prune'
+  }
   if (remote && branch) {
     fetchCommand += ` ${remote} ${branch}`
   } else if (remote) {

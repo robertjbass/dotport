@@ -24,6 +24,7 @@ import {
   getAllBranches,
   checkoutBranch,
   pullFromRemote,
+  fetchFromRemote,
 } from './git-operations'
 
 function findPotentialSecretFiles(): string[] {
@@ -465,8 +466,11 @@ async function promptBranchSelection(repoPath: string): Promise<string> {
     const currentBranch = await getCurrentBranch(repoPath)
     console.log(chalk.gray(`\n  Current branch: ${currentBranch}\n`))
 
-    // Try to pull latest changes first
-    console.log(chalk.cyan('🔄 Pulling latest changes...\n'))
+    // Fetch with prune to remove stale remote-tracking branches
+    console.log(chalk.cyan('🔄 Syncing with remote...\n'))
+    await fetchFromRemote(repoPath, { prune: true })
+
+    // Try to pull latest changes
     const pullResult = await pullFromRemote(repoPath, { branch: currentBranch })
 
     if (!pullResult.success) {
@@ -480,11 +484,11 @@ async function promptBranchSelection(repoPath: string): Promise<string> {
       console.log(chalk.green('✓ Repository is up to date\n'))
     }
 
-    // Get all branches
+    // Get all branches (now reflects pruned remote branches)
     const branches = await getAllBranches(repoPath)
     const allBranches = Array.from(
       new Set([...branches.local, ...branches.remote]),
-    )
+    ).filter((branch) => !branch.startsWith('backup-'))
 
     // Add option to create new branch
     const branchChoices = [

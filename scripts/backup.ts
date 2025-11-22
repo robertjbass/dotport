@@ -75,6 +75,9 @@ import {
   stageAllChanges,
   createGitCommit,
   pushToRemote,
+  pullFromRemote,
+  getCurrentBranch,
+  checkoutBranch,
 } from '../utils/git-operations'
 import { buildBackupConfig } from '../utils/schema-builder'
 
@@ -874,16 +877,16 @@ export EXAMPLE_SECRET="your-secret-here"
           type: 'list',
           name: 'commitNow',
           message: useGitHub
-            ? 'Commit and push changes to GitHub?'
+            ? 'Create git backup branch and push dotfile repo changes to main branch?'
             : 'Stage changes for commit?',
           choices: useGitHub
             ? [
+                { name: 'Yes, create backup branch and push changes', value: 'yes' },
                 { name: "No, I'll commit manually later", value: 'no' },
-                { name: 'Yes, commit and push now', value: 'yes' },
               ]
             : [
-                { name: "No, I'll handle git manually", value: 'no' },
                 { name: 'Yes, stage changes now', value: 'yes' },
+                { name: "No, I'll handle git manually", value: 'no' },
               ],
         },
       ])
@@ -891,14 +894,41 @@ export EXAMPLE_SECRET="your-secret-here"
       if (commitNow === 'yes') {
         didCommit = true
         try {
-          await stageAllChanges(repoPath)
-          await createGitCommit(repoPath, `Backup from ${machineId}`)
-          console.log(chalk.green('\n  ✓ Changes staged and committed'))
-
           if (useGitHub) {
-            await pushToRemote(repoPath, { branch: step3.branch })
-            console.log(chalk.green(`  ✓ Pushed to origin/${step3.branch}\n`))
+            // Pull latest changes from remote
+            console.log(chalk.cyan('\n🔄 Syncing with remote...\n'))
+            const pullResult = await pullFromRemote(repoPath, { branch: step3.branch })
+            if (!pullResult.success) {
+              console.log(chalk.yellow(`  ⚠️  Could not pull latest changes: ${pullResult.error}`))
+              console.log(chalk.gray('  Continuing with local changes...\n'))
+            } else {
+              console.log(chalk.green('  ✓ Pulled latest changes'))
+            }
+
+            // Get current branch and create backup branch
+            const currentBranch = await getCurrentBranch(repoPath)
+            const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)
+            const backupBranchName = `backup-${timestamp}`
+
+            // Create and push backup branch with current state
+            console.log(chalk.cyan(`\n📦 Creating backup branch: ${backupBranchName}\n`))
+            await checkoutBranch(repoPath, backupBranchName, { createIfMissing: true })
+            await stageAllChanges(repoPath)
+            await createGitCommit(repoPath, `Backup from ${machineId}`)
+            await pushToRemote(repoPath, { branch: backupBranchName, setUpstream: true })
+            console.log(chalk.green(`  ✓ Backup branch created and pushed`))
+
+            // Switch back to main branch and push there too
+            console.log(chalk.cyan(`\n🚀 Pushing to ${currentBranch}...\n`))
+            await checkoutBranch(repoPath, currentBranch)
+            await stageAllChanges(repoPath)
+            await createGitCommit(repoPath, `Backup from ${machineId}`)
+            await pushToRemote(repoPath, { branch: currentBranch })
+            console.log(chalk.green(`  ✓ Pushed to origin/${currentBranch}\n`))
           } else {
+            await stageAllChanges(repoPath)
+            await createGitCommit(repoPath, `Backup from ${machineId}`)
+            console.log(chalk.green('\n  ✓ Changes staged and committed'))
             console.log(chalk.gray('\n  Changes are committed but not pushed.'))
             console.log(chalk.gray(`  Run: cd ${repoPath} && git push\n`))
           }
@@ -945,7 +975,7 @@ export EXAMPLE_SECRET="your-secret-here"
     )
     console.log()
     console.log(chalk.white('Next steps:'))
-    console.log(chalk.hex('#FFA500')('  BETA - not yet available'))
+    console.log(chalk.magenta('  BETA - not yet available'))
     console.log(
       chalk.gray(
         "  • To restore on another machine: Run 'npx dotport restore'",
