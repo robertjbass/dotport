@@ -407,3 +407,33 @@ export async function checkoutBranch(
     }
   }
 }
+
+export async function mergeBranch(
+  repoPath: string,
+  sourceBranch: string,
+  options: {
+    noFastForward?: boolean
+    message?: string
+  } = {},
+): Promise<{ success: boolean; error?: string }> {
+  const absolutePath = expandTilde(repoPath)
+  const { noFastForward = false, message } = options
+
+  try {
+    let mergeCommand = `git merge ${sourceBranch}`
+    if (noFastForward) {
+      mergeCommand += ' --no-ff'
+    }
+    if (message) {
+      mergeCommand += ` -m "${message}"`
+    }
+
+    await execPromise(mergeCommand, { cwd: absolutePath })
+    return { success: true }
+  } catch (error: any) {
+    return {
+      success: false,
+      error: error.message,
+    }
+  }
+}
