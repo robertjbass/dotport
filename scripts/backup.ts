@@ -726,12 +726,7 @@ export EXAMPLE_SECRET="your-secret-here"
       systemInfo.os === 'linux' &&
       systemInfo.desktopEnvironment === 'gnome'
     ) {
-      const gnomeSettingsDir = path.join(
-        tempDir,
-        machineId,
-        '.config',
-        'dconf',
-      )
+      const gnomeSettingsDir = path.join(tempDir, machineId, '.config', 'dconf')
 
       try {
         const dconfResult = await exportGnomeSettings(gnomeSettingsDir, {
@@ -837,7 +832,9 @@ export EXAMPLE_SECRET="your-secret-here"
       console.log(chalk.green('  ✓ All files copied to repository\n'))
     } catch (error: any) {
       console.error(
-        chalk.red(`\n❌ Failed to copy files to repository: ${error.message}\n`),
+        chalk.red(
+          `\n❌ Failed to copy files to repository: ${error.message}\n`,
+        ),
       )
       removeTempDir(tempDir)
       process.exit(1)
@@ -881,7 +878,10 @@ export EXAMPLE_SECRET="your-secret-here"
             : 'Stage changes for commit?',
           choices: useGitHub
             ? [
-                { name: 'Yes, create backup branch and push changes', value: 'yes' },
+                {
+                  name: 'Yes, create backup branch and push changes',
+                  value: 'yes',
+                },
                 { name: "No, I'll commit manually later", value: 'no' },
               ]
             : [
@@ -897,32 +897,59 @@ export EXAMPLE_SECRET="your-secret-here"
           if (useGitHub) {
             // Pull latest changes from remote
             console.log(chalk.cyan('\n🔄 Syncing with remote...\n'))
-            const pullResult = await pullFromRemote(repoPath, { branch: step3.branch })
+            const pullResult = await pullFromRemote(repoPath, {
+              branch: step3.branch,
+            })
             if (!pullResult.success) {
-              console.log(chalk.yellow(`  ⚠️  Could not pull latest changes: ${pullResult.error}`))
+              console.log(
+                chalk.yellow(
+                  `  ⚠️  Could not pull latest changes: ${pullResult.error}`,
+                ),
+              )
               console.log(chalk.gray('  Continuing with local changes...\n'))
             } else {
               console.log(chalk.green('  ✓ Pulled latest changes'))
             }
 
-            // Get current branch and create backup branch
+            // Get current branch and create backup branch from current state (before new changes)
             const currentBranch = await getCurrentBranch(repoPath)
-            const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)
+            const timestamp = new Date()
+              .toISOString()
+              .replace(/[:.]/g, '-')
+              .slice(0, 19)
             const backupBranchName = `backup-${timestamp}`
 
-            // Create and push backup branch with current state
-            console.log(chalk.cyan(`\n📦 Creating backup branch: ${backupBranchName}\n`))
-            await checkoutBranch(repoPath, backupBranchName, { createIfMissing: true })
-            await stageAllChanges(repoPath)
-            await createGitCommit(repoPath, `Backup from ${machineId}`)
-            await pushToRemote(repoPath, { branch: backupBranchName, setUpstream: true })
-            console.log(chalk.green(`  ✓ Backup branch created and pushed`))
+            // Create backup branch from current main state (preserves old files as snapshot)
+            console.log(
+              chalk.cyan(`\n📦 Creating backup branch: ${backupBranchName}\n`),
+            )
+            await checkoutBranch(repoPath, backupBranchName, {
+              createIfMissing: true,
+            })
+            // Push backup branch immediately (this is the "before" snapshot)
+            await pushToRemote(repoPath, {
+              branch: backupBranchName,
+              setUpstream: true,
+            })
+            console.log(
+              chalk.green(
+                `  ✓ Backup branch created and pushed (previous state preserved)`,
+              ),
+            )
 
-            // Switch back to main branch and push there too
-            console.log(chalk.cyan(`\n🚀 Pushing to ${currentBranch}...\n`))
+            // Switch back to main and apply the new changes there
+            console.log(
+              chalk.cyan(`\n🚀 Applying changes to ${currentBranch}...\n`),
+            )
             await checkoutBranch(repoPath, currentBranch)
             await stageAllChanges(repoPath)
             await createGitCommit(repoPath, `Backup from ${machineId}`)
+            console.log(
+              chalk.green(`  ✓ Changes committed to ${currentBranch}`),
+            )
+
+            // Push the new changes to main
+            console.log(chalk.cyan(`\n🚀 Pushing to ${currentBranch}...\n`))
             await pushToRemote(repoPath, { branch: currentBranch })
             console.log(chalk.green(`  ✓ Pushed to origin/${currentBranch}\n`))
           } else {
