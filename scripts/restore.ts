@@ -1332,10 +1332,10 @@ async function manageBackupsMenu(): Promise<void> {
  * With the new flat structure, machine IDs follow the pattern: <os>-<distro>-<nickname>
  * This function will prompt the user to select which machine configuration to restore from
  */
-function getMachineIdKey(
+async function getMachineIdKey(
   platform: 'darwin' | 'linux',
   config: BackupConfig,
-): string {
+): Promise<string> {
   const machineIds = Object.keys(config.dotfiles)
 
   // Filter keys that match the current platform
@@ -1354,21 +1354,49 @@ function getMachineIdKey(
     return matchingKeys[0]
   }
 
-  // Multiple matches - for now return the first one
-  // TODO: Prompt user to select which machine configuration to restore
-  return matchingKeys[0]
+  // Multiple matches - prompt user to select which machine configuration to restore
+  displayInfo(
+    'Multiple machine configurations found',
+    `Found ${matchingKeys.length} configurations for ${platform}`,
+  )
+
+  const choices = matchingKeys.map((key) => {
+    const machineConfig = config.dotfiles[key]
+    const fileCount =
+      machineConfig?.['tracked-files']?.files?.filter((f) => f.tracked)
+        .length || 0
+    const packageCount =
+      machineConfig?.packages?.packageManagers?.filter(
+        (m) => m.enabled && m.packages.length > 0,
+      ).length || 0
+
+    return {
+      name: `${key} (${fileCount} files, ${packageCount} package managers)`,
+      value: key,
+    }
+  })
+
+  const selectedMachine = await selectFromList<string>(
+    'Which machine configuration would you like to restore from?',
+    choices,
+  )
+
+  if (selectedMachine === BACK_OPTION) {
+    return matchingKeys[0] // Fall back to first if user backs out
+  }
+
+  return selectedMachine
 }
 
 async function showMainRestoreMenu(
   config: RestoreConfig,
+  machineId: string,
 ): Promise<
   'dotfiles' | 'packages' | 'runtimes' | 'fonts' | 'all' | 'backups' | 'exit'
 > {
   if (!config.data) {
     return 'exit'
   }
-
-  const machineId = getMachineIdKey(config.platform, config.data)
 
   const choices: Array<{
     name: string
@@ -1509,7 +1537,7 @@ export default async function restore(): Promise<void> {
     dotfilesRepoPath: repoPath,
   }
 
-  const machineId = getMachineIdKey(platform, backupConfig)
+  const machineId = await getMachineIdKey(platform, backupConfig)
 
   const machineConfig = backupConfig.dotfiles[machineId]
   if (!machineConfig) {
@@ -1522,7 +1550,7 @@ export default async function restore(): Promise<void> {
 
   // Main restore loop
   while (true) {
-    const selection = await showMainRestoreMenu(config)
+    const selection = await showMainRestoreMenu(config, machineId)
 
     if (selection === 'exit') {
       displaySuccess('Restore process exited', 'Goodbye!')

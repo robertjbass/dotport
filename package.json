@@ -32,7 +32,7 @@
     "script": "tsx scripts/index.ts",
     "script:placeholder": "pnpm script placeholder",
     "script:backup": "tsx scripts/backup.ts",
-    "script:restore": "pnpm script restore",
+    "script:restore": "tsx scripts/restore.ts",
     "script:restore:test": "tsx scripts/restore.ts --test"
   },
   "keywords": [
